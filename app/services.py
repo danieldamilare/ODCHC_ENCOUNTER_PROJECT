@@ -1,10 +1,11 @@
 from werkzeug.security import generate_password_hash, check_password_hash
-from typing import Optional, Type, TypeVar, Any
+from typing import Optional, Type, TypeVar, Any, Iterator, List, Tuple
 from app.db import get_db, close_db
 from app.models import User, Facility, Disease, Encounter, DiseaseCategory
-from app.exceptions import ServiceError, MissingError, InvalidReferenceError, DuplicateError
+from app.exceptions import MissingError, InvalidReferenceError, DuplicateError
 from app.exceptions import ValidationError, AuthenticationError
 from datetime import datetime, date
+from flask_wtf import FlaskForm
 from app import app
 from app.config import LOCAL_GOVERNMENT
 import sqlite3
@@ -12,6 +13,8 @@ import sqlite3
 
 T = TypeVar('T')
 class BaseServices:
+    model: Type[T] = None
+    table_name = ''
     @staticmethod
     def _row_to_model(row, model_cls: Type[T]) -> T:
         if row is None:
@@ -19,40 +22,96 @@ class BaseServices:
         return model_cls(**row)
     
     @staticmethod
-    def _get_by_id(table: str, model, id: int):
+    def _get_by_id(table: str, model: Type[T], id: int) -> T:
         db = get_db()
         row = db.execute(f'SELECT * FROM {table} WHERE id = ?', (id,)).fetchone()
         if row is None:
             raise MissingError(f"{table.capitalize()} with id {id} not found")
         return model(**row)
 
-    @staticmethod
-    def list_row_by_page(table: str,
-                         offset: Any,
-                           page: int = app.config['ADMIN_PAGE_PAGINATION'],
-                           column: Optional[str] = None,
-                           like: Optional[str] = None):
-        db = get_db()
-        allowed_tables = {'users', 'facility', 'diseases', 'diseases_category', 'encounters'}
-        if table not in allowed_tables:
-            raise ValidationError("Invalid table name")
+    @classmethod
+    def list_row_by_page(cls,
+                         page: int,
+                         page_size = app.config['ADMIN_PAGE_PAGINATION'],
+                         and_filter: Optional[List[Tuple[str, Any, str]]] = None,
+                         or_filter: Optional[List[Tuple[str, Any, str]]] = None) -> Iterator:
+
         try:
-            offset = (int(offset) - 1) * page
+            offset = (int(page) - 1) * page_size
+            if offset < 0: raise ValueError
         except:
             raise ValidationError("Invalid listing page")
-        query = f"SELECT * FROM {table}"
-        args = []
-        if column and like:
-            # Whitelist columns per table if needed
-            query += f" WHERE {column} = ?"
-            args.append(like)
-        query += " LIMIT ? OFFSET ?"
-        args.extend([page, offset])
-        rows = db.execute(query, args).fetchall()
-        return rows
+
+        return cls.get_all(limit=page_size, offset = offset, and_filter =and_filter,
+                           or_filter = or_filter)
+
+    @classmethod
+    def get_total(cls)-> int:
+        query = f'SELECT COUNT(*) from {cls.table_name}'
+        db = get_db()
+        return int(db.execute(query).fetchone()[0])
+
+    @classmethod
+    @classmethod
+    def get_all(cls, 
+            limit: int = 0,
+            offset: int = 0, 
+            and_filter: Optional[List[Tuple]] = None,
+            or_filter: Optional[List[Tuple]] = None) -> Iterator:
     
+        ALLOWED_OPERATORS = {'=', '>', '<', '>=', '<=', '!=', 'LIKE'}
+        query = f'SELECT * FROM {cls.table_name}'
+        args = []
+        conditions = []
+        
+        if and_filter:
+            for column_name, value, opt in and_filter:
+                if opt not in ALLOWED_OPERATORS:
+                    raise ValidationError(f"Invalid operator: {opt}")
+                conditions.append(f"{column_name} {opt} ?")
+                args.append(value)
+        
+        if or_filter:
+            or_conditions = []
+            for column_name, value, opt in or_filter:
+                if opt not in ALLOWED_OPERATORS:
+                    raise ValidationError(f"Invalid operator: {opt}")
+                or_conditions.append(f"{column_name} {opt} ?")
+                args.append(value)
+            if or_conditions:
+                conditions.append("(" + " OR ".join(or_conditions) + ")")
+        
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        
+        if limit > 0:
+            query += ' LIMIT ?'
+            args.append(limit)
+        
+        if offset > 0:
+            query += ' OFFSET ?'
+            args.append(offset)
+        
+        db = get_db()
+        try:
+            rows = db.execute(query, args)
+            for row in rows:
+                yield BaseServices._row_to_model(row, cls.model)
+        except sqlite3.IntegrityError:
+            raise ValidationError('Invalid limit selection')
+
+
+    @classmethod
+    def has_next_page(cls, page: int) -> bool:
+        total = cls.get_total()
+        current = page * app.config['ADMIN_PAGE_PAGINATION']
+        if (current < total): return True
+        return False
+
 
 class UserServices(BaseServices):
+    model = User
+    table_name = 'users';
     @staticmethod
     def create_user(username: str, facility_id: int, password: str) -> User:
         password_hash = generate_password_hash(password)
@@ -131,6 +190,8 @@ class UserServices(BaseServices):
 
 
 class FacilityServices(BaseServices):
+    table_name = 'facility'
+    model = Facility
     LOCAL_GOVERNMENT = LOCAL_GOVERNMENT
     @staticmethod
     def create_facility(name: str, local_government: str, facility_type: str) -> Facility:
@@ -183,6 +244,8 @@ class FacilityServices(BaseServices):
     
 
 class DiseaseServices(BaseServices):
+    table_name = 'diseases'
+    model = Disease
     @staticmethod
     def create_disease(disease_name: str, category_id: int):
         db = get_db()
@@ -232,6 +295,8 @@ class DiseaseServices(BaseServices):
     
 
 class DiseaseCategoryServices(BaseServices):
+    model = DiseaseCategory
+    table_name = 'diseases_category'
     @staticmethod
     def create_category(category_name):
         db = get_db()
@@ -257,6 +322,8 @@ class DiseaseCategoryServices(BaseServices):
         return DiseaseCategoryServices._row_to_model(row, DiseaseCategory)
 
 class EncounterServices(BaseServices):
+    table_name = 'encounters'
+    model = Encounter
     @staticmethod
     def create_encounter(facility_id: int,
                          disease_id: int,
@@ -305,17 +372,6 @@ class EncounterServices(BaseServices):
         row = db.execute('SELECT * from encounters WHERE id = ?', (rowid,)).fetchone()
         return EncounterServices._row_to_model(row, Encounter)
     
-    @staticmethod
-    def get_encounter_by_facility(facility_name: str, offset: Any):
-        db = get_db()
-        facility = db.execute('SELECT * FROM facility WHERE name = ?', (facility_name,)).fetchone()
-        if facility is None:
-            raise InvalidReferenceError("Facility does not exist in the database")
-        facility_id = facility['id']
-        rows = EncounterServices.list_row_by_page('encounters', offset, column='facility_id', like=str(facility_id))
-        for row in rows:
-            yield EncounterServices._row_to_model(row, Encounter)
-
     @staticmethod
     def get_encounter_by_id(id: int) -> Encounter:
         return EncounterServices._get_by_id('encounters', Encounter, id)
