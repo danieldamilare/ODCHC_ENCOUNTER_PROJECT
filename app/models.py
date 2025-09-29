@@ -2,13 +2,21 @@ from dataclasses import dataclass
 from datetime import datetime, date, time
 from app.services import User, UserServices
 from flask_login import UserMixin, current_user
+from enum import Enum, auto
+from app.exceptions import MissingError
+from app import login
 from typing import Optional
+
+class Role(Enum):
+    admin = auto()
+    user = auto()
 
 @dataclass
 class User:
     id: int
     username: str
     facility_id: int
+    role: Role
     password_hash: str
 
 
@@ -54,9 +62,12 @@ class AuthUser(UserMixin):
     def __init__(self, user: User):
         self.user = user
 
-@login.load_user
-def load_user(id) -> AuthUser:
-    user:User = UserServices.get_user_by_id(id)
+@login.user_loader
+def load_user(id:str) -> Optional[AuthUser]:
+    try:
+        user:User = UserServices.get_user_by_id(int(id))
+    except MissingError:
+        return None
     return AuthUser(user)
 
 def is_logged_in() -> bool:
