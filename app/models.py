@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from datetime import datetime, date, time
-from app.services import User, UserServices
 from flask_login import UserMixin, current_user
 from enum import Enum, auto
 from app.exceptions import MissingError
@@ -19,14 +18,12 @@ class User:
     role: Role
     password_hash: str
 
-
 @dataclass
 class Facility:
     id: int
     name: str
     local_government: str
     facility_type: str #(health center -> primary, hospital -> second, specialist hospital -> tertiary)
-
 
 @dataclass
 class Disease:
@@ -58,14 +55,35 @@ class Encounter:
     created_by: int
     created_at: datetime
 
+
+@dataclass
+class UserView:
+    id: int
+    username: str
+    facility: Facility
+    role: Role
+    password_hash: str
+
+
+@dataclass
+class DiseaseView:
+    id: int
+    name: str
+    category: DiseaseCategory
+
+
 class AuthUser(UserMixin):
     def __init__(self, user: User):
         self.user = user
+    def  get_id(self) -> str:
+        return str(self.user.id)
 
 @login.user_loader
 def load_user(id:str) -> Optional[AuthUser]:
+
+    from app.services import User, UserServices
     try:
-        user:User = UserServices.get_user_by_id(int(id))
+        user:User = UserServices.get_by_id(int(id))
     except MissingError:
         return None
     return AuthUser(user)
