@@ -1,7 +1,7 @@
 from werkzeug.security import generate_password_hash, check_password_hash
 from typing import Optional, Type, TypeVar, Any, Iterator, List, Tuple
 from app.db import get_db, close_db
-from app.models import User, Facility, Disease, Encounter, DiseaseCategory
+from app.models import User, Facility, Disease, Encounter, DiseaseCategory, Role
 from app.exceptions import MissingError, InvalidReferenceError, DuplicateError
 from app.exceptions import ValidationError, AuthenticationError
 from datetime import datetime, date
@@ -15,26 +15,31 @@ T = TypeVar('T')
 class BaseServices:
     model: Type[T] = None
     table_name = ''
+    columns: set = set()
+    columns_to_update: set = set()
     @staticmethod
     def _row_to_model(row, model_cls: Type[T]) -> T:
         if row is None:
             raise MissingError("Invalid Row Data")
         return model_cls(**row)
     
-    @staticmethod
-    def _get_by_id(table: str, model: Type[T], id: int) -> T:
+    @classmethod
+    def get_by_id(cls, id: int) -> object:
         db = get_db()
-        row = db.execute(f'SELECT * FROM {table} WHERE id = ?', (id,)).fetchone()
+        row = db.execute(f'SELECT * FROM {cls.table_name} WHERE id = ?', (id,)).fetchone()
         if row is None:
-            raise MissingError(f"{table.capitalize()} with id {id} not found")
-        return model(**row)
+            raise MissingError(f"Object not found in the database")
+        return cls._row_to_model(row, cls.model)
 
     @classmethod
     def list_row_by_page(cls,
                          page: int,
                          page_size = app.config['ADMIN_PAGE_PAGINATION'],
-                         and_filter: Optional[List[Tuple[str, Any, str]]] = None,
-                         or_filter: Optional[List[Tuple[str, Any, str]]] = None) -> Iterator:
+                         and_filter: Optional[List[Tuple]] = None,
+                         or_filter: Optional[List[Tuple]] = None,
+                         order_by: Optional[List[Tuple[str, str]]] = None,
+                         group_by: Optional[List[str]] = None
+                         ) -> Iterator:
 
         try:
             offset = (int(page) - 1) * page_size
@@ -43,7 +48,21 @@ class BaseServices:
             raise ValidationError("Invalid listing page")
 
         return cls.get_all(limit=page_size, offset = offset, and_filter =and_filter,
-                           or_filter = or_filter)
+                           or_filter = or_filter, group_by = group_by,
+                           order_by = order_by)
+
+    @classmethod
+    def update_data(cls, model: Type[T]) -> T:
+        db = get_db()
+        field = [f"{key}=?" for key in vars(model).keys() if key in cls.columns_to_update]
+        values = [v for k, v in vars(model).items() if k in cls.columns_to_update]
+
+        try:
+            db.execute(f'UPDATE {cls.table_name} SET {",".join(field)} WHERE id = ?', values + [model.id])
+            db.commit()
+        except sqlite3.IntegrityError:
+            raise DuplicateError
+        return model
 
     @classmethod
     def get_total(cls)-> int:
@@ -52,20 +71,26 @@ class BaseServices:
         return int(db.execute(query).fetchone()[0])
 
     @classmethod
-    @classmethod
     def get_all(cls, 
             limit: int = 0,
             offset: int = 0, 
             and_filter: Optional[List[Tuple]] = None,
-            or_filter: Optional[List[Tuple]] = None) -> Iterator:
+            or_filter: Optional[List[Tuple]] = None,
+            order_by: Optional[List[Tuple[str, str]]] = None,
+            group_by: Optional[List[str]] = None
+            ) -> Iterator:
     
         ALLOWED_OPERATORS = {'=', '>', '<', '>=', '<=', '!=', 'LIKE'}
-        query = f'SELECT * FROM {cls.table_name}'
+        query = ''
         args = []
         conditions = []
+
+        query = f"SELECT * FROM {cls.table_name}"
         
         if and_filter:
             for column_name, value, opt in and_filter:
+                if column_name not in cls.columns:
+                    raise ValidationError("Invalid Column access")
                 if opt not in ALLOWED_OPERATORS:
                     raise ValidationError(f"Invalid operator: {opt}")
                 conditions.append(f"{column_name} {opt} ?")
@@ -74,6 +99,8 @@ class BaseServices:
         if or_filter:
             or_conditions = []
             for column_name, value, opt in or_filter:
+                if column_name not in cls.columns:
+                    raise ValidationError("Invalid Column access")
                 if opt not in ALLOWED_OPERATORS:
                     raise ValidationError(f"Invalid operator: {opt}")
                 or_conditions.append(f"{column_name} {opt} ?")
@@ -83,6 +110,23 @@ class BaseServices:
         
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
+
+        # --- GROUP BY Clause ---
+        if group_by:
+            for col in group_by:
+                if col not in cls.columns:
+                    raise ValidationError(f"Invalid column for group_by: {col}")
+            query += f" GROUP BY {', '.join(group_by)}"
+
+        # --- ORDER BY Clause ---
+        if order_by:
+            col, direction = order_by
+            if col not in cls.columns:
+                raise ValidationError(f"Invalid column for order_by: {col}")
+            if direction.upper() not in ['ASC', 'DESC']:
+                raise ValidationError(f"Invalid sort direction: {direction}")
+            query += f" ORDER BY {col} {direction.upper()}"
+
         
         if limit > 0:
             query += ' LIMIT ?'
@@ -91,13 +135,13 @@ class BaseServices:
         if offset > 0:
             query += ' OFFSET ?'
             args.append(offset)
-        
+        print(query)
         db = get_db()
         try:
             rows = db.execute(query, args)
             for row in rows:
-                yield BaseServices._row_to_model(row, cls.model)
-        except sqlite3.IntegrityError:
+                    yield cls._row_to_model(row, cls.model)
+        except :
             raise ValidationError('Invalid limit selection')
 
 
@@ -112,39 +156,62 @@ class BaseServices:
 class UserServices(BaseServices):
     model = User
     table_name = 'users';
-    @staticmethod
-    def create_user(username: str, facility_id: int, password: str) -> User:
+    columns_to_update = {'username', 'facility_id', 'role'}
+    columns = {'id', 'username', 'facility_id', 'role', 'password_hash'}
+
+    @classmethod
+    def create_user(cls, username: str, facility_id: int, password: str, role=None) -> User:
         password_hash = generate_password_hash(password)
+        role = ('admin' if role == Role.admin else 'user')
+        try:
+            FacilityServices.get_by_id(facility_id)
+        except MissingError:
+            raise InvalidReferenceError("You can't attach user to a facility that does not exists")
+
         db = get_db()
         try:
-            user = UserServices.get_user_by_username(username)
+            cursor = db.execute(f'INSERT INTO {cls.table_name}(username, password_hash, facility_id, role)'
+                   ' VALUES (?, ?, ?, ?)', (username, password_hash,
+                   facility_id, role))
+            db.commit()
+            new_id: int = cursor.lastrowid
+            return cls.get_by_id(new_id)
+        except sqlite3.IntegrityError:
             raise DuplicateError('Username exists! Please use another username')
-        except MissingError:
-            pass
 
-        try:
-            facility = FacilityServices.get_facility_by_id(facility_id)
-        except MissingError:
-            raise InvalidReferenceError('Facility Does not exists! You can\'t attach it to User')
-
-        db.execute('INSERT INTO users(username, password_hash, facility_id)'
-                   ' VALUES (?, ?, ?)', (username, password_hash,
-                   facility_id))
-        db.commit()
-        return  UserServices.get_user_by_username(username)
-
-    @staticmethod
-    def get_user_by_username(username: str) -> User:
+    @classmethod
+    def get_user_by_username(cls, username: str) -> User:
         db = get_db()
-        row = db.execute('SELECT * FROM users where username = ?', [username]).fetchone()
+        try:
+            row = db.execute(f'SELECT * FROM {cls.table_name} where username = ?', [username]).fetchone()
+        except sqlite3.IntegrityError:
+            raise MissingError(f"User with {username} cannot be found")
+
         if row is None:
             raise MissingError("Username does not exist")
+        row = dict(row)
+        try:
+            row['role'] = Role[row['role']]
+        except KeyError:
+            row['role'] = Role.user
         return UserServices._row_to_model(row, User)
 
-    @staticmethod
-    def get_user_by_id(id: int) -> User:
-        # will probably be used by flask login
-        return UserServices._get_by_id("users", User, id)
+    @classmethod
+    def get_by_id(cls, id: int) -> User:
+        db = get_db()
+        try:
+            row = db.execute(f'SELECT * FROM {cls.table_name} where id = ?', (id,)).fetchone()
+        except sqlite3.IntegrityError:
+            raise MissingError("User is not in the database")
+        if row is None:
+            raise MissingError("Username does not exist")
+        row = dict(row)
+        try:
+            row['role'] = Role[row['role']]
+        except KeyError:
+            row['role'] = Role.user
+        return UserServices._row_to_model(row, User)
+
 
     @staticmethod
     def get_verified_user(username: str, password: str):
@@ -158,34 +225,42 @@ class UserServices(BaseServices):
             raise AuthenticationError("Invalid Username or Password")
         return user
 
-    @staticmethod
-    def update_user_details(user: User)->User:
+    @classmethod
+    def update_data(cls, model: User)->User:
         db = get_db()
-        field = [f"{key}=?" for key in vars(user).keys() if key != 'id']
-        values = [v for k, v in vars(user).items() if k != 'id']
+        field = []
+        values = []
+        for key, value in vars(model).items():
+            if key in cls.columns_to_update:
+                field.append(f'{key}=?')
+                if key == 'role':
+                    values.append('admin' if value == Role.admin else 'user')
+                else:
+                    values.append(value)
         try:
-            facility = FacilityServices.get_facility_by_id(user.facility_id)
-        except MissingError:
-            raise InvalidReferenceError('Facility Does not exists! You can\'t attach it to User')
-
-        try:
-            db.execute(f'UPDATE users SET {",".join(field)} WHERE id = ?', values + [user.id])
+            db.execute(f'UPDATE {cls.table_name} SET {",".join(field)} WHERE id = ?', values + [model.id])
             db.commit()
         except sqlite3.IntegrityError:
-            raise DuplicateError(f"You can't change username to {user.username}")
-        return user
+            raise DuplicateError("You cannot a new user with the same username as another user")
+        return model
 
-    @staticmethod
-    def update_user_password(user: User, password: str) ->User:
+    @classmethod
+    def update_user(cls, user: User) -> User:
+        return cls.update_data(user)
+
+    @classmethod
+    def update_user_password(cls, user: User, password: str) ->User:
         db = get_db()
         password_hash = generate_password_hash(password)
         user.password_hash = password_hash
-        return UserServices.update_user_details(user)
+        db.execute(f'UPDATE {cls.table_name} SET password_hash = ? WHERE id = ?', (password_hash, user.id))
+        db.commit()
+        return user
 
-    @staticmethod
-    def delete_user(user: User):
+    @classmethod
+    def delete_user(cls, user: User):
         db = get_db()
-        db.execute("DELETE FROM users where id = ?", [user.id])
+        db.execute(f"DELETE FROM {cls.table_name} where id = ?", [user.id])
         db.commit()
 
 
@@ -193,139 +268,126 @@ class FacilityServices(BaseServices):
     table_name = 'facility'
     model = Facility
     LOCAL_GOVERNMENT = LOCAL_GOVERNMENT
-    @staticmethod
-    def create_facility(name: str, local_government: str, facility_type: str) -> Facility:
+    columns = {'id', 'name', 'local_government', 'facility_type'}
+    columns_to_update  = {'name', 'local_government', 'facility_type'}
+
+    @classmethod
+    def create_facility(cls, name: str, local_government: str, facility_type: str) -> Facility:
         db = get_db()
         if local_government.lower() not in FacilityServices.LOCAL_GOVERNMENT:
             raise ValidationError("Local Government does not exist in Akure")
-
         try:
-            FacilityServices.get_facility_by_name(name)
-            raise DuplicateError("Facility with the same name exists")
-        except MissingError:
-            pass
-        db.execute('INSERT INTO facility (name, local_government, facility_type) VALUES (?, ?, ?)', (name, local_government, facility_type))
-        db.commit()
-        return FacilityServices.get_facility_by_name(name)
+            cursor = db.execute(f'INSERT INTO {cls.table_name} (name, local_government, facility_type) VALUES (?, ?, ?)', (name, local_government, facility_type))
+            db.commit()
+            new_id = cursor.lastrowid
+            return cls.get_by_id(new_id)
+        except sqlite3.IntegrityError:
+            raise DuplicateError(f"Facility {name} already exist in database")
 
-    @staticmethod
-    def get_facility_by_name(name: str) -> Facility:
+    @classmethod
+    def get_facility_by_name(cls, name: str) -> Facility:
         db = get_db()
-        row = db.execute('SELECT * FROM facility WHERE name = ?', (name,)).fetchone()
+        row = db.execute(f'SELECT * FROM {cls.table_name} WHERE name = ?', (name,)).fetchone()
         if row is None:
             raise MissingError(f"No Facility with name {name}")
         return FacilityServices._row_to_model(row, Facility)
 
-    @staticmethod
-    def get_facility_by_id(id: int) -> Facility:
-        return FacilityServices._get_by_id('facility', Facility, id)
-
-    @staticmethod
-    def delete_facility(facility: Facility):
+    @classmethod
+    def delete_facility(cls, facility: Facility):
         db = get_db()
-        db.execute("DELETE FROM facility WHERE name =  ?",  [facility.name])
+        db.execute(f"DELETE FROM {cls.table_name} WHERE id = ?",  [facility.id])
         db.commit()
 
     @staticmethod
     def update_facility(facility: Facility):
-        db = get_db()
-
         if facility.local_government.lower() not in FacilityServices.LOCAL_GOVERNMENT:
             raise ValidationError("Local Government does not exist in Akure")
-
-        fields = [f'{key} = ?' for key in vars(facility).keys() if key != 'id']
-        values = [v for k, v in vars(facility).items() if k != 'id']
         try:
-            db.execute(f'UPDATE facility SET {",".join(fields)} WHERE id = ?', values + [facility.id])
-        except sqlite3.IntegrityError:
+            FacilityServices.update_data(facility)
+        except DuplicateError:
             raise DuplicateError(f'Facility with name {facility.name} already exists')
-        db.commit()
         return facility
-    
+
 
 class DiseaseServices(BaseServices):
     table_name = 'diseases'
     model = Disease
-    @staticmethod
-    def create_disease(disease_name: str, category_id: int):
+    columns = {'id', 'name', 'category_id'}
+    columns_to_update = {'name', 'category_id'}
+
+    @classmethod
+    def create_disease(cls, name: str, category_id: int) -> Disease:
         db = get_db()
         try:
-            row = DiseaseCategoryServices.get_category_by_id(category_id)
+            DiseaseCategoryServices.get_by_id(category_id)
         except MissingError:
-            raise InvalidReferenceError("Disease Category does not exists")
-
+            raise InvalidReferenceError('Disease Category does not exist')
         try:
-            db.execute('INSERT INTO diseases (name, category_id) VALUES (?, ?)', [disease_name, row.id])
+            cursor = db.execute(f'INSERT INTO {cls.table_name} (name, category_id) VALUES (?, ?)', [disease_name,category_id])
             db.commit()
+            new_id = cursor.lastrowid
+            return  cls.get_by_id(new_id)
         except sqlite3.IntegrityError:
             raise DuplicateError(f'Disease {disease_name} already exists')
-        return DiseaseServices.get_disease_by_name(disease_name)
 
-    @staticmethod
-    def delete_disease(disease: Disease):
+    @classmethod
+    def delete_disease(cls, disease: Disease):
         db = get_db()
-        db.execute('DELETE FROM diseases WHERE name = ?', (disease.name,))
+        db.execute(f'DELETE FROM {cls.table_name} WHERE id = ?', (disease.id,))
         db.commit()
 
-    @staticmethod
-    def get_disease_by_name(disease_name: str) -> Disease:
+    @classmethod
+    def get_disease_by_name(cls, disease_name: str) -> Disease:
         db = get_db()
-        row = db.execute('SELECT * FROM diseases WHERE name = ?', (disease_name,)).fetchone()
+        row = db.execute(f'SELECT * FROM {cls.table_name} WHERE name = ?', (disease_name,)).fetchone()
         if row is None:
             raise  MissingError('Disease does not Exist')
         return DiseaseServices._row_to_model(row, Disease)
 
-    @staticmethod
-    def get_disease_by_id(id: int):
-        return DiseaseServices._get_by_id('diseases', Disease, id)
 
     @staticmethod
     def update_disease(disease: Disease):
-        db = get_db()
-        try:
-            row = DiseaseCategoryServices.get_category_by_id(disease.category_id)
-        except MissingError:
-            raise InvalidReferenceError('Category does not exist! You can\'t create a disease with invalid category')
 
-        fields = [f'{key}=?' for key in vars(disease).keys() if key != 'id']
-        values = [v for k, v in vars(disease).items() if k != 'id']
-        db.execute(f'UPDATE diseases SET {",".join(fields)} WHERE id = ?', values + [disease.id])
-        db.commit()
+        try:
+            DiseaseServices.update_data(disease)
+        except DuplicateError:
+            raise DuplicateError("Disease name already exist")
         return disease
-    
+
 
 class DiseaseCategoryServices(BaseServices):
     model = DiseaseCategory
     table_name = 'diseases_category'
-    @staticmethod
-    def create_category(category_name):
+    columns= {'id', 'category_name'}
+    columns_to_update = {'category_name'}
+
+    @classmethod
+    def create_category(cls, category_name) -> DiseaseCategory:
         db = get_db()
+
         try:
-            db.execute('INSERT INTO diseases_category (category_name) VALUES(?)',
+            cursor = db.execute(f'INSERT INTO {cls.table_name} (category_name) VALUES(?)',
                        (category_name, ))
             db.commit()
+            new_id = cursor.lastrowid
+            return cls.get_by_id(new_id)
         except sqlite3.IntegrityError:
             raise DuplicateError(f"Category {category_name} already exist in database")
-        row = db.execute('SELECT * FROM diseases_category WHERE category_name = ?', (category_name, )).fetchone()
-        return DiseaseCategoryServices._row_to_model(row, DiseaseCategory)
     
-    @staticmethod
-    def get_category_by_id(id: int):
-        return DiseaseCategoryServices._get_by_id('diseases_category', 
-                                                 DiseaseCategory, id)
-    @staticmethod
-    def get_category_by_name(name: str):
-        db = get_db()
-        row = db.execute('SELECT * FROM diseases_category WHERE category_name = ?', (name,)).fetchone()
-        if row is None:
-            raise MissingError("Disease Category does not exist in database")
-        return DiseaseCategoryServices._row_to_model(row, DiseaseCategory)
 
 class EncounterServices(BaseServices):
     table_name = 'encounters'
     model = Encounter
-    @staticmethod
-    def create_encounter(facility_id: int,
+    columns = {'id', 'facility_id', 'disease_id', 'date', 'policy_number', 'client_name',
+               'gender', 'age', 'age_group', 'treatment', 'referral', 'doctor_name', 
+               'professional_service', 'created_by', 'created_at'}
+
+    columns_to_update = {'facility_id', 'disease_id', 'date', 'policy_number', 'client_name',
+               'gender', 'age', 'age_group', 'treatment', 'referral', 'doctor_name', 
+               'professional_service'}
+
+    @classmethod
+    def create_encounter(cls, facility_id: int,
                          disease_id: int,
                          date: date,
                          policy_number: str,
@@ -336,23 +398,8 @@ class EncounterServices(BaseServices):
                          referral: bool,
                          doctor_name: Optional[str], 
                          professional_service: Optional[str],
-                         created_by: int) -> Encounter:
+                         created_by: User) -> Encounter:
         db = get_db()
-        try:
-            FacilityServices.get_facility_by_id(facility_id)
-        except MissingError:
-            raise InvalidReferenceError("Facility does not exist in the database")
-        
-        try:
-           DiseaseServices.get_disease_by_id(disease_id) 
-        except MissingError:
-            raise InvalidReferenceError("Disease is not valid")
-
-        try: 
-            UserServices.get_user_by_id(created_by)
-        except MissingError:
-            raise InvalidReferenceError("User Cannot input Data")
-
         if gender.lower() not in ('m', 'f'):
             raise ValidationError("Gender can only be male or female")
         if age < 0 or age > 120:
@@ -361,17 +408,44 @@ class EncounterServices(BaseServices):
         if not re.match(r'\w{3}/\d+/\d+/\w/[012345]', policy_number):
             raise ValidationError('Invalid Policy number')
         
-        cur = db.execute('''INSERT INTO encounters (facility_id, disease_id, date, policy_number
+        created_by:int = created_by.id
+
+        try:
+            FacilityServices.get_by_id(facility_id)
+        except MissingError:
+            raise InvalidReferenceError('You cannot add Encounter to a facility that does not exists')
+        
+        try:
+            DiseaseServices.get_by_id(disease_id)
+        except MissingError:
+            raise InvalidReferenceError("Disease is not valid")
+
+        try:
+            UserServices.get_by_id(created_by)
+        except MissingError:
+            raise InvalidReferenceError("Unregistered User can't input data")
+            
+        created_at = datetime.now().date()
+        try:
+        
+            cur = db.execute(f'''INSERT INTO {cls.table_name} (facility_id, disease_id, date, policy_number
                    , client_name, gender, age, treatment, referral, doctor_name,
-                   professional_service, created_by) VALUES(?, ?, ?, ?, ?, ?, ?, ?,
-                   ?, ?, ?, ?)''', (facility_id, disease_id, date, policy_number, client_name,
+                   professional_service, created_by, created_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?,
+                   ?, ?, ?, ?, ?)''', (facility_id, disease_id, date, policy_number, client_name,
                                    gender, age, treatment, referral, doctor_name,
-                                   professional_service, created_by))
-        db.commit()
-        rowid =  cur.lastrowid
-        row = db.execute('SELECT * from encounters WHERE id = ?', (rowid,)).fetchone()
-        return EncounterServices._row_to_model(row, Encounter)
-    
-    @staticmethod
-    def get_encounter_by_id(id: int) -> Encounter:
-        return EncounterServices._get_by_id('encounters', Encounter, id)
+                                   professional_service, created_by, created_at))
+            db.commit()
+            new_id = cur.lastrowid
+            return cls.get_by_id(new_id)
+        except sqlite3.IntegrityError:
+            raise InvalidReferenceError("Invalid facility or disease or user")
+
+    @classmethod
+    def get_encounter_by_facility(cls, facility_id: int) -> Iterator:
+        return cls.get_all(and_filter=[('facility_id', facility_id, '=')])
+
+
+    @classmethod
+    def update_data(cls, model):
+        # do not allow update of encounter
+        raise NotImplementedError("Encounter are immutable and cannot be updated")
