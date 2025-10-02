@@ -31,26 +31,36 @@ def index():
 def login() -> Any:
     if is_logged_in():
         return redirect(url_for('index'))
-
+    print("In auth.login")
     form = LoginForm()
+
     if form.validate_on_submit():
+        print("Form validated")
         username = form.username.data
         password = form.password.data
         remember_me = form.remember_me.data
+        print(username, password)
         try:
             user = UserServices.get_verified_user(username, password)
+            print(user)
             authuser = AuthUser(user)
+            print("created auth user")
+            print(authuser)
             login_user(authuser, remember = remember_me)
             next_page = request.args.get('next')
 
             if not next_page or urlparse(next_page).netloc != '':
-                next_page = 'index'
-            return redirect(url_for(next_page))
+                next_page = url_for('index')
+            print(next_page)
+            return redirect(next_page)
 
         except AuthenticationError as e:
+            print('An error occured')
             flash(str(e), 'error')
-        except:
-            abort(500)
+        # except Exception as e:
+            # abort(500)
+    print("In login")
+    # return "<h1>Hello, world</h1>"
     return render_template('login.html', title='Sign in', form = form)
 
 @app.route('/auth/logout')
@@ -63,16 +73,19 @@ def logout():
 @login_required
 def add_encounter() -> Any:
     form:AddEncounterForm  = AddEncounterForm()
-    form.date.data = date.today()
+    disease_choices = [(dis.id, dis.name) for dis in DiseaseServices.get_all()]
     for subfield in form.diseases:
-        subfield.choices = [(dis.id, dis.name) for dis in DiseaseServices.get_all()]
+        subfield.choices =  [(0, 'Select a disease')] + disease_choices
+    print("In add Encounter")
     if form.validate_on_submit():
+        print('validated on submit')
         res = form_to_dict(form, Encounter)
         #for the purpose of the demo deadline use the first disease and ignore others
         diseases = [disease.data for disease in form.diseases]
-        res['diseases_id']  = diseases[0]
+        print("disease id", diseases)
+        res['disease_id']  = diseases[0]
         user = get_current_user()
-        res['created_by'] =user.id
+        res['created_by'] =user
         res['facility_id'] = user.facility_id
         try:
             EncounterServices.create_encounter(**res)
@@ -80,10 +93,14 @@ def add_encounter() -> Any:
             return redirect(url_for('add_encounter'))
         except (InvalidReferenceError, ValidationError ) as e:
             flash(str(e), 'error')
-        except:
-            abort(500)
+        # except:
+            # abort(500)
+
+    if request.method == 'GET':
+        form.date.data = date.today()
 
     return render_template('add_encounter.html', 
+                           disease_choices = disease_choices,
                            form = form, 
                            title = 'Add Encounter')
 

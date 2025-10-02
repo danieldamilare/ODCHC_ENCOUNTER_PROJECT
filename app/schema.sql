@@ -9,7 +9,8 @@ CREATE TABLE users (
         id INTEGER PRIMARY KEY,
         username VARCHAR(64) UNIQUE NOT NULL COLLATE NOCASE,
         password_hash VARCHAR(255) NOT NULL,
-        facility_id INTEGER NOT NULL,
+        facility_id INTEGER,
+        role VARCHAR(20) NOT NULL DEFAULT 'user' COLLATE NOCASE,
         FOREIGN KEY (facility_id) REFERENCES facility (id)
     );
 
@@ -32,7 +33,6 @@ CREATE INDEX idx_diseases_category_id ON diseases (category_id);
 CREATE TABLE encounters (
         id INTEGER PRIMARY KEY,
         facility_id INTEGER NOT NULL,
-        disease_id INTEGER NOT NULL,
         date DATE NOT NULL,
         policy_number VARCHAR(120) NOT NULL,
         client_name TEXT NOT NULL,
@@ -51,14 +51,23 @@ CREATE TABLE encounters (
         ) STORED,
         treatment TEXT,
         referral INTEGER NOT NULL DEFAULT 0, -- should be boolean 0 and 1
+        disease_id INTEGER NOT NULL,
         doctor_name VARCHAR(255) NOT NULL,
         professional_service TEXT,
         created_by INTEGER,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (facility_id) REFERENCES facility (id) ON DELETE SET NULL,
-        FOREIGN KEY (disease_id) REFERENCES diseases (id) ON DELETE SET NULL,
+        created_at DATE NOT NULL, 
         FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
+        FOREIGN KEY (disease_id) REFERENCES diseases (id) ON DELETE RESTRICT
     );
+
+-- To be updated once the whole application is working
+-- CREATE TABLE encounters_diseases(
+--     id INTEGER PRIMARY KEY,
+--     encounter_id INTEGER NOT NULL,
+--     disease_id INTEGER NOT NULL,
+--     FOREIGN KEY (encounter_id) REFERENCES encounters (id) ON DELETE CASCADE,
+--     FOREIGN KEY (disease_id) REFERENCES diseases (id) ON DELETE RESTRICT
+-- )
 
 CREATE INDEX idx_encounters_facility_id ON encounters (facility_id);
 

@@ -72,11 +72,11 @@ class DiseaseView:
     category: DiseaseCategory
 
 
-class AuthUser(UserMixin):
+class AuthUser(UserMixin, User):
     def __init__(self, user: User):
-        self.user = user
+        super().__init__(**user.__dict__)
     def  get_id(self) -> str:
-        return str(self.user.id)
+        return str(self.id)
 
 @login.user_loader
 def load_user(id:str) -> Optional[AuthUser]:
@@ -91,7 +91,5 @@ def load_user(id:str) -> Optional[AuthUser]:
 def is_logged_in() -> bool:
     return current_user.is_authenticated
 
-def get_current_user() -> Optional[User]:
-    if is_logged_in():
-        return current_user.user
-    return None
+def get_current_user() -> Optional[AuthUser]:
+    return current_user if current_user.is_authenticated else None

@@ -160,20 +160,24 @@ class UserServices(BaseServices):
     columns = {'id', 'username', 'facility_id', 'role', 'password_hash'}
 
     @classmethod
-    def create_user(cls, username: str, facility_id: int, password: str, role=None) -> User:
+    def create_user(cls, username: str, facility_id: Optional[int], password: str, role=None, commit = True) -> User:
         password_hash = generate_password_hash(password)
         role = ('admin' if role == Role.admin else 'user')
-        try:
-            FacilityServices.get_by_id(facility_id)
-        except MissingError:
-            raise InvalidReferenceError("You can't attach user to a facility that does not exists")
+        if (role != 'admin'):
+            if not facility_id:
+                raise ValidationError("User must have a facility")
+            try:
+                FacilityServices.get_by_id(facility_id)
+            except MissingError:
+                raise InvalidReferenceError("You can't attach user to a facility that does not exists")
 
         db = get_db()
         try:
             cursor = db.execute(f'INSERT INTO {cls.table_name}(username, password_hash, facility_id, role)'
                    ' VALUES (?, ?, ?, ?)', (username, password_hash,
                    facility_id, role))
-            db.commit()
+            if commit:
+                db.commit()
             new_id: int = cursor.lastrowid
             return cls.get_by_id(new_id)
         except sqlite3.IntegrityError:
@@ -272,13 +276,13 @@ class FacilityServices(BaseServices):
     columns_to_update  = {'name', 'local_government', 'facility_type'}
 
     @classmethod
-    def create_facility(cls, name: str, local_government: str, facility_type: str) -> Facility:
+    def create_facility(cls, name: str, local_government: str, facility_type: str, commit=True) -> Facility:
         db = get_db()
         if local_government.lower() not in FacilityServices.LOCAL_GOVERNMENT:
             raise ValidationError("Local Government does not exist in Akure")
         try:
             cursor = db.execute(f'INSERT INTO {cls.table_name} (name, local_government, facility_type) VALUES (?, ?, ?)', (name, local_government, facility_type))
-            db.commit()
+            if commit: db.commit()
             new_id = cursor.lastrowid
             return cls.get_by_id(new_id)
         except sqlite3.IntegrityError:
@@ -316,19 +320,19 @@ class DiseaseServices(BaseServices):
     columns_to_update = {'name', 'category_id'}
 
     @classmethod
-    def create_disease(cls, name: str, category_id: int) -> Disease:
+    def create_disease(cls, name: str, category_id: int, commit=True) -> Disease:
         db = get_db()
         try:
             DiseaseCategoryServices.get_by_id(category_id)
         except MissingError:
             raise InvalidReferenceError('Disease Category does not exist')
         try:
-            cursor = db.execute(f'INSERT INTO {cls.table_name} (name, category_id) VALUES (?, ?)', [disease_name,category_id])
-            db.commit()
+            cursor = db.execute(f'INSERT INTO {cls.table_name} (name, category_id) VALUES (?, ?)', [name,category_id])
+            if commit: db.commit()
             new_id = cursor.lastrowid
             return  cls.get_by_id(new_id)
         except sqlite3.IntegrityError:
-            raise DuplicateError(f'Disease {disease_name} already exists')
+            raise DuplicateError(f'Disease {name} already exists')
 
     @classmethod
     def delete_disease(cls, disease: Disease):
@@ -337,9 +341,9 @@ class DiseaseServices(BaseServices):
         db.commit()
 
     @classmethod
-    def get_disease_by_name(cls, disease_name: str) -> Disease:
+    def get_disease_by_name(cls, name: str) -> Disease:
         db = get_db()
-        row = db.execute(f'SELECT * FROM {cls.table_name} WHERE name = ?', (disease_name,)).fetchone()
+        row = db.execute(f'SELECT * FROM {cls.table_name} WHERE name = ?', (name,)).fetchone()
         if row is None:
             raise  MissingError('Disease does not Exist')
         return DiseaseServices._row_to_model(row, Disease)
@@ -362,13 +366,13 @@ class DiseaseCategoryServices(BaseServices):
     columns_to_update = {'category_name'}
 
     @classmethod
-    def create_category(cls, category_name) -> DiseaseCategory:
+    def create_category(cls, category_name, commit=True) -> DiseaseCategory:
         db = get_db()
 
         try:
             cursor = db.execute(f'INSERT INTO {cls.table_name} (category_name) VALUES(?)',
                        (category_name, ))
-            db.commit()
+            if commit: db.commit()
             new_id = cursor.lastrowid
             return cls.get_by_id(new_id)
         except sqlite3.IntegrityError:
@@ -398,7 +402,8 @@ class EncounterServices(BaseServices):
                          referral: bool,
                          doctor_name: Optional[str], 
                          professional_service: Optional[str],
-                         created_by: User) -> Encounter:
+                         created_by: User,
+                         commit=True) -> Encounter:
         db = get_db()
         if gender.lower() not in ('m', 'f'):
             raise ValidationError("Gender can only be male or female")
@@ -408,7 +413,6 @@ class EncounterServices(BaseServices):
         if not re.match(r'\w{3}/\d+/\d+/\w/[012345]', policy_number):
             raise ValidationError('Invalid Policy number')
         
-        created_by:int = created_by.id
 
         try:
             FacilityServices.get_by_id(facility_id)
@@ -420,11 +424,6 @@ class EncounterServices(BaseServices):
         except MissingError:
             raise InvalidReferenceError("Disease is not valid")
 
-        try:
-            UserServices.get_by_id(created_by)
-        except MissingError:
-            raise InvalidReferenceError("Unregistered User can't input data")
-            
         created_at = datetime.now().date()
         try:
         
@@ -433,7 +432,7 @@ class EncounterServices(BaseServices):
                    professional_service, created_by, created_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?,
                    ?, ?, ?, ?, ?)''', (facility_id, disease_id, date, policy_number, client_name,
                                    gender, age, treatment, referral, doctor_name,
-                                   professional_service, created_by, created_at))
+                                   professional_service, created_by.id, created_at))
             db.commit()
             new_id = cur.lastrowid
             return cls.get_by_id(new_id)
