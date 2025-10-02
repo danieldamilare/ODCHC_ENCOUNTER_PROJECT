@@ -47,13 +47,15 @@ class FacilityServicesTestCase(BaseServicesTestCase):
 
     def test_create_and_get_facility(self):
         facility = FacilityServices.get_facility_by_name("TestFacility1")
+        facility2 = FacilityServices.get_by_id(1)
         self.assertIsInstance(facility, Facility)
+        self.assertIsInstance(facility2, Facility)
         self.assertEqual(facility.name, "TestFacility1")
+        self.assertEqual(facility2.name, "TestFacility1")
         self.assertEqual(facility.local_government, "Owo")
+        self.assertEqual(facility2.local_government, "Owo")
         self.assertEqual(facility.facility_type, "Primary")
-        fetched_facility = FacilityServices.get_facility_by_name("TestFacility1")
-        self.assertEqual(facility, fetched_facility)
-        self.assertEqual(facility.id, fetched_facility.id)
+        self.assertEqual(facility2.facility_type, "Primary")
 
     def test_create_duplicate_facility(self):
         FacilityServices.create_facility("TestFacility2", "Akure South", "Secondary")
@@ -80,6 +82,10 @@ class FacilityServicesTestCase(BaseServicesTestCase):
         with self.assertRaises(MissingError):
             FacilityServices.get_facility_by_name("TestFacility3")
 
+    def test_facility_get_all(self):
+        res = list(FacilityServices.get_all())
+        self.assertEqual(len(res), 1)
+        self.assertEqual(res[0].name, 'TestFacility1')
 
 class UserServicesTestCase(BaseServicesTestCase):
     def setUp(self):
@@ -101,7 +107,7 @@ class UserServicesTestCase(BaseServicesTestCase):
         self.assertEqual(user2.username, "user2")
         self.assertEqual(user2.facility_id, 2)
 
-        user1 = UserServices.get_user_by_id(1)
+        user1 = UserServices.get_by_id(1)
         user11 = UserServices.get_user_by_username("user1")
         self.assertEqual(user1.username, "user1")
         self.assertEqual(user11.username, user1.username)
@@ -109,13 +115,13 @@ class UserServicesTestCase(BaseServicesTestCase):
         self.assertEqual(user11.facility_id, user1.facility_id)
 
         with self.assertRaises(MissingError):
-            UserServices.get_user_by_id(10)
+            UserServices.get_by_id(10)
         with self.assertRaises(MissingError):
             UserServices.get_user_by_username("NonExistentUser")  
 
     def test_authenticated_user(self):
         user = UserServices.create_user("user1", 1, "damilare20")
-        user1 = UserServices.get_user_by_id(1)
+        user1 = UserServices.get_by_id(1)
         with self.assertRaises(AuthenticationError):
             UserServices.get_verified_user("user1", "wrongpassword")
 
@@ -123,6 +129,33 @@ class UserServicesTestCase(BaseServicesTestCase):
         self.assertEqual(user_verified.username, user1.username)
         self.assertEqual(user_verified.facility_id, user1.facility_id)
         self.assertEqual(user_verified.password_hash, user1.password_hash)
+
+    def test_get_user_all(self):
+        user = UserServices.create_user("user1", 1, "damilare20")
+        user = UserServices.create_user("user2", 2, "damilare20")
+        user = UserServices.create_user("user3", 2, "damilare20")
+        user = UserServices.create_user("user4", 1, "damilare20")
+        res = list(UserServices.get_all())
+        users = {'user1', 'user2', 'user3', 'user4'}
+        user_found = set()
+        self.assertEqual(len(res), 4)
+        for elem in res:
+            self.assertIsInstance(elem, User)
+            self.assertIn(elem.username, users)
+            self.assertNotIn(elem.username, user_found)
+            user_found.add(elem.username)
+        self.assertEqual(UserServices.get_total(), 4)
+        res = list(UserServices.list_row_by_page(page=1, page_size=1))
+        self.assertEqual(len(res), 1)
+
+    def test_get_all_with_filter(self):
+        user = UserServices.create_user("user1", 1, "damilare20")
+        print("Testing get all with filter")
+        res = list(UserServices.get_all(and_filter =[('username', 'user1', '=')]))
+        self.assertEqual(len(res), 1)
+        self.assertEqual(res[0].username, 'user1')
+        self.assertEqual(res[0].id, 1)
+
 
     def test_duplicate_user(self):
         user = UserServices.create_user("user1", 1, "damilare20")
@@ -148,10 +181,10 @@ class UserServicesTestCase(BaseServicesTestCase):
 
     def test_update_user(self):
         user = UserServices.create_user("user1", 1, "damilare20")
-        user1 = UserServices.get_user_by_id(1)
+        user1 = UserServices.get_by_id(1)
         user1.username = "updated_user1"
-        UserServices.update_user_details(user1)
-        updated_user1 = UserServices.get_user_by_id(1)
+        UserServices.update_user(user1)
+        updated_user1 = UserServices.get_by_id(1)
         self.assertEqual(updated_user1.username, "updated_user1")
         self.assertEqual(updated_user1.facility_id, 1)
         self.assertEqual(updated_user1.password_hash, user1.password_hash)
@@ -161,14 +194,14 @@ class UserServicesTestCase(BaseServicesTestCase):
         user2 = UserServices.create_user("user2", 2, "damilare20")
         UserServices.delete_user(user2)
         with self.assertRaises(MissingError):
-            UserServices.get_user_by_id(user2.id)
+            UserServices.get_by_id(user2.id)
 
 class DiseaseCategoryServicesTestCase(BaseServicesTestCase):
     def test_create_and_get_disease_category(self):
         category = DiseaseCategoryServices.create_category("Infectious Diseases")
         self.assertIsInstance(category, DiseaseCategory)
         self.assertEqual(category.category_name, "Infectious Diseases")
-        fetched_category = DiseaseCategoryServices.get_category_by_name("Infectious Diseases")
+        fetched_category = DiseaseCategoryServices.get_by_id(1)
         self.assertEqual(category, fetched_category)
         self.assertEqual(category.id, fetched_category.id)
 
@@ -179,7 +212,7 @@ class DiseaseCategoryServicesTestCase(BaseServicesTestCase):
 
     def test_get_nonexistent_disease_category(self):
         with self.assertRaises(MissingError):
-            DiseaseCategoryServices.get_category_by_name("NonExistentCategory")
+            DiseaseCategoryServices.get_by_id(1)
 
 class DiseaseServicesTestCase(BaseServicesTestCase):
     def setUp(self):
@@ -240,12 +273,12 @@ class EncounterServicesTestCase(BaseServicesTestCase):
             referral=True,
             doctor_name="Dr. Smith",
             professional_service="Consultation",
-            created_by=self.user.id
+            created_by=self.user
         )
         self.assertIsInstance(encounter, Encounter)
         self.assertEqual(encounter.client_name, "John Doe")
         self.assertEqual(encounter.age_group, "20-44")
-        fetched = EncounterServices.get_encounter_by_id(encounter.id)
+        fetched = EncounterServices.get_by_id(encounter.id)
         self.assertEqual(encounter, fetched)
 
     def test_invalid_policy_number(self):
@@ -262,7 +295,7 @@ class EncounterServicesTestCase(BaseServicesTestCase):
                 referral=True,
                 doctor_name="Dr. Smith",
                 professional_service="Consultation",
-                created_by=self.user.id
+                created_by=self.user
             )
 
     def test_get_encounter_by_facility(self):
@@ -278,9 +311,9 @@ class EncounterServicesTestCase(BaseServicesTestCase):
             referral=True,
             doctor_name="Dr. Smith",
             professional_service="Consultation",
-            created_by=self.user.id
+            created_by=self.user
         )
-        encounters = list(EncounterServices.get_encounter_by_facility("TestFacility1", 1))
+        encounters = list(EncounterServices.get_encounter_by_facility(1))
         self.assertEqual(len(encounters), 1)
         self.assertEqual(encounters[0].client_name, "John Doe")
 
