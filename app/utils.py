@@ -2,22 +2,22 @@ from flask_wtf import FlaskForm
 import functools
 from flask import request, url_for, redirect, flash
 from typing import Any, TypeVar, Type
+from dataclasses import fields as datafield
 from app.models import get_current_user, Role
 
 def form_to_dict(form: FlaskForm, model: Any) -> dict:
     """Extract object attribute relating to a model from a form and create the model"""
+    # print("In form to dict")
     data = {}
+    # print(vars(model), form._fields.keys())
+    model_fields = {f.name for f in datafield(model)}
     for field_name, field_obj in form._fields.items():
-        if hasattr(model, field_name):
+        # print(field_name)
+        if  field_name in model_fields:
+            # print(field_name)
             data[field_name] = field_obj.data
+    # print(data)
     return data
-
-def populate_form(form: FlaskForm, obj: Any) -> None:
-    """Populate form fields from model object"""
-    for attr_name, value in vars(obj).items():
-        if (hasattr(form, attr_name)):
-            field = getattr(form, attr_name)
-            field.data = value
 
 def admin_required(func):
     @functools.wraps(func)

@@ -1,7 +1,7 @@
 from app.models import User, Facility, Disease 
 from wtforms import StringField, PasswordField, SubmitField, BooleanField, TextAreaField
 from wtforms import IntegerField, SelectField, HiddenField, FieldList, DateField
-from wtforms.validators import DataRequired, Length, NumberRange, EqualTo, Optional
+from wtforms.validators import DataRequired, Length, NumberRange, EqualTo, Optional, ValidationError
 from app.config import LOCAL_GOVERNMENT
 from app.services import FacilityServices, DiseaseCategoryServices, DiseaseServices
 from flask_wtf import FlaskForm
@@ -21,9 +21,14 @@ class AddEncounterForm(FlaskForm):
     date = DateField('Date', format="%Y-%m-%d", validators = [DataRequired()])
     professional_service = TextAreaField('Professional Service')
     gender = SelectField('Gender', choices= [('M', 'Male'), ('F','Female')], validators=[DataRequired()])
-    referral = BooleanField('Referral')
-    diseases  = FieldList(SelectField('Disease', validators=[DataRequired()]), min_entries=1)
+    referral = BooleanField('Referred')
+    diseases  = FieldList(SelectField('Disease', validators=[DataRequired()], coerce=int), min_entries=1)
     submit = SubmitField('submit')
+
+    def validate_diseases(self, diseases):
+        for disease in diseases:
+            if not disease.data or int(disease.data) == 0:
+                raise ValidationError("Please select a valid disease from the list")
 
 class AddFacilityForm(FlaskForm):
     name = StringField('Facility Name', validators =[DataRequired()])

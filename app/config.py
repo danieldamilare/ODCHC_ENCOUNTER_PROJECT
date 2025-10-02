@@ -25,5 +25,6 @@ LOCAL_GOVERNMENT = set([
     "Owo".lower()])
 
 class Config:
-    SECRET_KEY = os.getenv('SECRET_KEY') or secrets.token_hex(30)
+    SECRET_KEY = os.getenv('SECRET_KEY') or "This is supposed to be a secret key"
     ADMIN_PAGE_PAGINATION = 15
+    DATABASE = os.getenv('ODCHC_DATABASE') or 'odchc_encounter.db'
