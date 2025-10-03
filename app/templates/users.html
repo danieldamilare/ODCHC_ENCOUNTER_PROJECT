@@ -1,0 +1,115 @@
+{% extends "admin_base.html" %}
+
+{% block content %}
+<div class="container mx-auto p-4 md:p-8">
+    <!-- Add New User Form -->
+    <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+        <h2 class="text-2xl font-bold mb-6 text-gray-800">Add New User</h2>
+        <form action="{{ url_for('users') }}" method="post" novalidate>
+            {{ user_form.hidden_tag() }}
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                <div>
+                    {{ user_form.username.label(class="block text-sm font-medium text-gray-700") }}
+                    {{ user_form.username(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
+                    {% for error in user_form.username.errors %}
+                        <span class="text-red-500 text-xs mt-1">{{ error }}</span>
+                    {% endfor %}
+                </div>
+                
+                <div>
+                    {{ user_form.facility_id.label(class="block text-sm font-medium text-gray-700") }}
+                    {{ user_form.facility_id(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
+                    <!-- FIX: Added missing error message for facility selection -->
+                    {% for error in user_form.facility_id.errors %}
+                        <span class="text-red-500 text-xs mt-1">{{ error }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                    {{ user_form.password.label(class="block text-sm font-medium text-gray-700") }}
+                    {{ user_form.password(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
+                    {% for error in user_form.password.errors %}
+                        <span class="text-red-500 text-xs mt-1">{{ error }}</span>
+                    {% endfor %}
+                </div>
+                
+                <div>
+                    {{ user_form.password2.label(class="block text-sm font-medium text-gray-700") }}
+                    {{ user_form.password2(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
+                    {% for error in user_form.password2.errors %}
+                        <span class="text-red-500 text-xs mt-1">{{ error }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            {{ user_form.submit(class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500") }}
+        </form>
+    </div>
+
+    <!-- User List -->
+    <div class="bg-white rounded-lg shadow-lg p-6">
+        <h2 class="text-2xl font-bold mb-4 text-gray-800">Manage Users</h2>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Username</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Facility</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                        <th scope="col" class="relative px-6 py-3">
+                            <span class="sr-only">Edit</span>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for user in user_list %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ user.username }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ user.facility.name if user.facility else 'N/A' }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ user.role.name|title }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <a href="{{ url_for('edit_user', user_id=user.id) }}" class="text-indigo-600 hover:text-indigo-900">Edit</a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="px-6 py-4 text-center text-sm text-gray-500">No users found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- FIX: Added Pagination Controls -->
+        <nav class="mt-6 flex items-center justify-between" aria-label="Pagination">
+            <div>
+                {% if prev_url %}
+                    <a href="{{ prev_url }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                        Previous
+                    </a>
+                {% else %}
+                    <span class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-400 bg-gray-50 cursor-not-allowed">
+                        Previous
+                    </span>
+                {% endif %}
+            </div>
+            <div>
+                {% if next_url %}
+                    <a href="{{ next_url }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                        Next
+                    </a>
+                {% else %}
+                    <span class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-400 bg-gray-50 cursor-not-allowed">
+                        Next
+                    </span>
+                {% endif %}
+            </div>
+        </nav>
+    </div>
+</div>
+{% endblock %}
