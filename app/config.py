@@ -13,6 +13,7 @@ LOCAL_GOVERNMENT = set([
     "Ifedore".lower(),
     "Igbara-oke".lower(),
     "Ilaje".lower(),
+    "Ese-Odo"
     "Ile Oluji".lower(),
     "Irele".lower(),
     "Isua Akoko".lower(),

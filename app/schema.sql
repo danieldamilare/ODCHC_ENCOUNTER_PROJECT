@@ -16,7 +16,7 @@ CREATE TABLE users (
 
 CREATE TABLE diseases_category (
         id INTEGER PRIMARY KEY,
-        category_name UNIQUE NOT NULL COLLATE NOCASE
+        category_name VARCHAR(50) UNIQUE NOT NULL COLLATE NOCASE
     );
 
 CREATE TABLE diseases (
@@ -34,10 +34,10 @@ CREATE TABLE encounters (
         id INTEGER PRIMARY KEY,
         facility_id INTEGER NOT NULL,
         date DATE NOT NULL,
-        policy_number VARCHAR(120) NOT NULL,
+        policy_number VARCHAR(40) NOT NULL,
         client_name TEXT NOT NULL,
         gender CHAR(1) NOT NULL CHECK (gender IN ('M', 'F')),
-        age INTEGER NOT NULL CHECK (age >= 0),
+        age INTEGER NOT NULL CHECK (age >= 0 AND age <= 120),
         age_group VARCHAR(10) GENERATED ALWAYS AS (
             CASE
                 WHEN age < 1 THEN '<1'
@@ -46,31 +46,31 @@ CREATE TABLE encounters (
                 WHEN age <= 19 THEN '15-19'
                 WHEN age <= 44 THEN '20-44'
                 WHEN age <= 64 THEN '45-64'
-                ELSE '≥65'
+                ELSE '65&AB'
             END
         ) STORED,
         treatment TEXT,
         referral INTEGER NOT NULL DEFAULT 0, -- should be boolean 0 and 1
-        disease_id INTEGER NOT NULL,
         doctor_name VARCHAR(255) NOT NULL,
         professional_service TEXT,
         created_by INTEGER,
         created_at DATE NOT NULL, 
+        FOREIGN KEY (facility_id) REFERENCES facility (id) ON DELETE RESTRICT,
         FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
-        FOREIGN KEY (disease_id) REFERENCES diseases (id) ON DELETE RESTRICT
     );
 
 -- To be updated once the whole application is working
--- CREATE TABLE encounters_diseases(
---     id INTEGER PRIMARY KEY,
---     encounter_id INTEGER NOT NULL,
---     disease_id INTEGER NOT NULL,
---     FOREIGN KEY (encounter_id) REFERENCES encounters (id) ON DELETE CASCADE,
---     FOREIGN KEY (disease_id) REFERENCES diseases (id) ON DELETE RESTRICT
--- )
+CREATE TABLE encounters_diseases(
+    id INTEGER PRIMARY KEY,
+    encounter_id INTEGER NOT NULL,
+    disease_id INTEGER NOT NULL,
+    FOREIGN KEY (encounter_id) REFERENCES encounters (id) ON DELETE CASCADE,
+    FOREIGN KEY (disease_id) REFERENCES diseases (id) ON DELETE RESTRICT
+);
 
 CREATE INDEX idx_encounters_facility_id ON encounters (facility_id);
-
-CREATE INDEX idx_encounters_disease_id ON encounters (disease_id);
-
 CREATE INDEX idx_encounters_date ON encounters (date);
+CREATE INDEX idx_encounters_created_by ON encounters (created_by);
+CREATE INDEX idx_encounters_created_at ON encounters (created_at);
+
+CREATE INDEX idx_encounters_facility_date ON encounters (facility_id, date);
