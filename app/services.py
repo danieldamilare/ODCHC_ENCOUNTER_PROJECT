@@ -686,3 +686,74 @@ class EncounterServices(BaseServices):
         # do not allow update of encounter
         raise NotImplementedError("Encounter are immutable and cannot be updated")
 
+
+class DashboardServices(BaseServices):
+    model = None
+    table_name = None
+
+    @classmethod
+    def get_top_facilities(cls, start_date: Optional[date] = None, end_date: Optional[date] = None, limit: int = 5):
+        start_date, end_date, limit = cls._validate_date(start_date, end_date, limit)
+        query = '''
+        SELECT 
+            fc.name AS facility_name, 
+            COUNT(ec.id) as encounter_count,
+            (
+                SELECT dis.name 
+                FROM encounters AS ec2
+                JOIN encounters_diseases as ecd ON ec2.id = ecd.encounter_id
+                JOIN diseases AS dis ON ecd.disease_id = dis.id
+                WHERE ec2.facility_id = ec.facility_id 
+                    AND ec2.date >= ? AND ec2.date <= ?
+                 GROUP BY ecd.disease_id
+                 ORDER BY COUNT(ecd.disease_id) DESC 
+                 LIMIT 1
+            ) AS top_disease, 
+           MAX(ec.created_at) as last_submission
+           FROM encounters as ec
+            JOIN facility as fc on ec.facility_id = fc.id
+            WHERE ec.date >= ? AND ec.date <= ?
+            GROUP BY ec.facility_id
+            ORDER BY encounter_count DESC
+            LIMIT ?
+          '''
+
+        return cls._run_query(query, (start_date, end_date, start_date, end_date, limit),
+                              lambda row: {'facility_name': row['facility_name'], 
+                                           'encounter_count': row['encounter_count'],
+                                           'top_disease': row['top_disease'],
+                                           'last_submission': row['last_submission']})
+
+    @classmethod
+    def get_top_facility(cls):
+
+        query = '''
+            SELECT fc.name AS facility_name, COUNT(ec.id) AS encounter_count
+            FROM facility AS fc
+            JOIN encounters AS ec ON fc.id = ec.facility_id 
+            GROUP BY ec.facility_id
+            ORDER BY encounter_count DESC
+            LIMIT 1
+        '''
+        return cls._run_query(query,  [],
+                               lambda row: {'facility_name': row['facility_name'], 'encounter_count': row['encounter_count']})
+
+    @classmethod
+    def _validate_date(cls, start_date, end_date, limit):
+        today = datetime.today().date()
+        start_date = start_date or  today.replace(day=1)
+        end_date = end_date or today
+
+        if end_date < start_date:
+            raise ValidationError("Invalid Date Range")
+        if limit <= 0:
+            raise ValidationError("Invalid Display Row")
+
+        return start_date, end_date, limit
+
+    @classmethod
+    def _run_query(cls, query: str, params: tuple, row_mapper ):
+        db = get_db()
+        rows = db.execute(query, params)
+        return [ row_mapper(row) for row in rows]
+
