@@ -555,3 +555,59 @@ def admin():
                            top_facilities_raw = top_facilities_raw,
                            recent_encounters=recent_encounters  )
 
+
+@app.route('/admin/reports')
+@admin_required
+def reports():
+    facilities = list(FacilityServices.get_all())
+    
+    current_year = datetime.now().year
+    year_choices = [(year, year) for year in range(current_year - 5 , current_year + 1)]
+    month = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 
+             'September', 'October', 'Nobember', 'December']
+    month_choices = [(num, name) for num, name in enumerate(month, start=1)]
+    
+    return render_template('reports.html',
+                           title="Generate Reports",
+                           facilities=facilities,
+                           year_choices=year_choices,
+                           month_choices = month_choices)
+
+
+def get_report_data():
+    report_type = request.args.get('report_type')
+    facility_id_str = request.args.get('facility_id')
+    month_str = request.args.get('month')
+    year_str = request.args.get('year')
+    print('report_type', report_type, 'facility_id', facility_id_str, 'month_str', month_str, 'year_str', year_str)
+
+    month = int(month_str) if month_str else None
+    year = int(year_str) if year_str else None
+    facility_id = int(facility_id_str) if facility_id_str else None
+
+    report_data = None
+    report_title = ""
+    start_date = None
+
+    if report_type == 'utilization':
+        if not facility_id:
+            raise ValidationError("Please select a facility for the Utilization Report.")
+        facility, start_date, report_data = ReportServices.generate_service_utilization_report(
+            facility=facility_id, month=month, year=year
+        )
+        report_title = f"Service Utilization Report for {facility.name} "
+
+    elif report_type == 'encounter':
+        start_date, report_data = ReportServices.generate_encounter_report(month=month, year=year)
+        report_title = "Encounter Report "
+
+    elif report_type == 'categorization':
+        start_date, report_data = ReportServices.generate_categorization_report(month=month, year=year)
+        report_title = "Disease Categorization Report "
+    else:
+        raise ValidationError("Invalid report type selected.")
+    
+    return report_title, start_date, report_data
+
+ 
+
