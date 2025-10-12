@@ -11,12 +11,15 @@ from app.exceptions import InvalidReferenceError, DuplicateError
 from urllib.parse import urlparse
 from app.utils import form_to_dict, admin_required
 from app.forms import LoginForm, AddEncounterForm, AddFacilityForm, EditFacilityForm, AddDiseaseForm
-from app.forms import AddUserForm, AddCategoryForm, DeleteUserForm, EditUserForm
+from app.forms import AddUserForm, AddCategoryForm, DeleteUserForm, EditUserForm, EditDiseaseForm, EncounterFilterForm
 from flask_wtf import FlaskForm
+from app.services import DashboardServices, ReportServices
 from typing import Optional
 from flask_wtf.csrf import validate_csrf
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from typing import Any
+import json
+import io
 
 @app.route('/')
 @app.route('/index')
@@ -31,35 +34,35 @@ def index():
 def login() -> Any:
     if is_logged_in():
         return redirect(url_for('index'))
-    print("In auth.login")
+    # print("In auth.login")
     form = LoginForm()
 
     if form.validate_on_submit():
-        print("Form validated")
+        # print("Form validated")
         username = form.username.data
         password = form.password.data
         remember_me = form.remember_me.data
-        print(username, password)
+        # print(username, password)
         try:
             user = UserServices.get_verified_user(username, password)
-            print(user)
+            # print(user)
             authuser = AuthUser(user)
-            print("created auth user")
-            print(authuser)
+            # print("created auth user")
+            # print(authuser)
             login_user(authuser, remember = remember_me)
             next_page = request.args.get('next')
 
             if not next_page or urlparse(next_page).netloc != '':
                 next_page = url_for('index')
-            print(next_page)
+            # print(next_page)
             return redirect(next_page)
 
         except AuthenticationError as e:
-            print('An error occured')
+            # print('An error occured')
             flash(str(e), 'error')
         # except Exception as e:
             # abort(500)
-    print("In login")
+    # print("In login")
     # return "<h1>Hello, world</h1>"
     return render_template('login.html', title='Sign in', form = form)
 
@@ -73,17 +76,17 @@ def logout():
 @login_required
 def add_encounter() -> Any:
     form:AddEncounterForm  = AddEncounterForm()
-    disease_choices = [(dis.id, dis.name) for dis in DiseaseServices.get_all()]
+    disease_choices = [('0', 'Select a disease')] + sorted([(dis.id, str(dis.name).title()) for dis in DiseaseServices.get_all()], key=lambda x: x[1])
     for subfield in form.diseases:
-        subfield.choices =  [(0, 'Select a disease')] + disease_choices
-    print("In add Encounter")
+        subfield.choices =  disease_choices
+    # print("In add Encounter")
     if form.validate_on_submit():
-        print('validated on submit')
+        # print('validated on submit')
         res = form_to_dict(form, Encounter)
         #for the purpose of the demo deadline use the first disease and ignore others
         diseases = [disease.data for disease in form.diseases]
-        print("disease id", diseases)
-        res['disease_id']  = diseases[0]
+        # print("disease id", diseases)
+        res['diseases_id']  = diseases
         user = get_current_user()
         res['created_by'] =user
         res['facility_id'] = user.facility_id
@@ -100,7 +103,7 @@ def add_encounter() -> Any:
         form.date.data = date.today()
 
     return render_template('add_encounter.html', 
-                           disease_choices = disease_choices,
+                           disease_choices = disease_choices[1:],
                            form = form, 
                            title = 'Add Encounter')
 
@@ -158,8 +161,79 @@ def edit_facilities(pid: int) ->Any:
             abort(500)
 
     return render_template('edit_facilities.html', 
+                           facility = facility,
                            form = form, 
                            title = 'Edit Facility')
+
+
+@app.route('/admin/facilities/view/<int:pid>', methods=['GET', 'POST'])
+@admin_required
+def view_facilities(pid: int) -> Any:
+    # print("In view_facilities")
+    try:
+        facility = FacilityServices.get_by_id(pid)
+    except MissingError as e:
+        flash(str(e), 'error')
+        return redirect(url_for('facilities'))
+    except:
+        abort(500)
+
+    user_form: AddUserForm = AddUserForm()
+    user_form.facility_id.choices = [('0', 'Select a facility')] + sorted([(fac.id, fac.name.title()) for fac in FacilityServices.get_all()], key=lambda x: x[1])
+    user_form.facility_id.data = pid
+    # print("About to validate user_form")
+
+    if user_form.validate_on_submit():
+        # print("User form validate on submit in view_facilities")
+        try:
+            created_user = UserServices.create_user(username =user_form.username.data,
+                                     facility_id = pid, 
+                                     password=user_form.password.data)
+            # print("Successfully created user", created_user)
+            redirect(url_for('view_facilities', pid=pid))
+        except (DuplicateError, InvalidReferenceError, ValidationError) as e:
+            # print(e)
+            flash(str(e), "error")
+
+    # print("In view funtion after validation")
+    today = datetime.now().date()
+    first_month_day = today.replace(day=1)
+    # print(today, first_month_day)
+
+    user_count = UserServices.get_total(
+        and_filter = [('facility_id', pid, '=')]
+    )
+    and_filter =[('facility_id', pid, '='),
+                 ('date', first_month_day, '>='),
+                 ('date', today, '<=')]
+    and_filter2 = [('ec.facility_id', pid, '='), and_filter[1], and_filter[2]]
+
+    month_encounter_count = EncounterServices.get_total(
+                        and_filter=and_filter)
+
+    recent_encounters = list(EncounterServices.get_all(limit = 10,
+                            and_filter = and_filter2,
+                            order_by=[('date', 'DESC')]))
+
+    page = int(request.args.get('user_page', 1))
+    user_list = list(UserServices.list_row_by_page(page=page,
+                                and_filter=[('facility_id', pid, '=')]))
+
+    next_url = url_for('view_facilities', pid=pid, user_page=page + 1) if UserServices.has_next_page(page, and_filter = [and_filter[0]]) else None
+    prev_url = url_for('view_facilities', pid= pid, user_page=page - 1) if page > 1 else None
+
+    return render_template('view_facilities.html',
+                           month_encounter_count=month_encounter_count,
+                           facility = facility,
+                           recent_encounters=recent_encounters,
+                           user_list = user_list,
+                           user_count = user_count,
+                           user_form = user_form,
+                           next_url = next_url,
+                           prev_url = prev_url
+                           )
+    
+
 @app.route('/admin/diseases', methods=['GET'])
 @admin_required
 def diseases():
@@ -198,7 +272,7 @@ def add_category():
 @admin_required
 def add_disease():
     form = AddDiseaseForm()
-    form.category_id.choices = [(cat.id, cat.category_name) for cat in DiseaseCategoryServices.get_all()]
+    form.category_id.choices = [('0', 'Select a Category' )] + sorted([(cat.id, cat.category_name.title()) for cat in DiseaseCategoryServices.get_all()], key=lambda x: x[1])
     
     if form.validate_on_submit():
         try:
@@ -211,6 +285,7 @@ def add_disease():
             abort(500)
     return render_template('add_disease.html', title='Add Disease', form=form)
 
+
 @app.route('/admin/diseases/edit/<int:disease_id>', methods=['GET', 'POST'])
 @admin_required
 def edit_disease(disease_id: int):
@@ -220,7 +295,9 @@ def edit_disease(disease_id: int):
         abort(404)
 
     form = EditDiseaseForm(obj=disease) # Pre-populate form with existing data
-    form.category_id.choices = [(cat.id, cat.category_name) for cat in DiseaseCategoryServices.get_all()]
+    form.category_id.choices = [('0', 'Select a Category')] + sorted(
+                    [(cat.id, cat.category_name.title()) for cat in DiseaseCategoryServices.get_all()],
+                    key= lambda x: x[1])
 
     if form.validate_on_submit():
         try:
@@ -232,8 +309,7 @@ def edit_disease(disease_id: int):
             flash(str(e), 'error')
         except Exception:
             abort(500)
-            
-    return render_template('edit_disease.html', title=f"Edit Disease: {disease.name}", form=form, disease=disease)
+    return render_template('add_disease.html', title=f"Edit Disease: {disease.name}", form=form, disease=disease)
 
    
 @app.route('/admin/users', methods = ['GET', 'POST'])
@@ -243,10 +319,11 @@ def users():
     user_form: AddUserForm = AddUserForm()
 
     if not user_form.facility_id.choices:
-        user_form.facility_id.choices = [(fac.id, fac.name) for fac in FacilityServices.get_all()]
+        user_form.facility_id.choices = [('0', 'Select a facility')] + [(fac.id, fac.name.title()) for fac in FacilityServices.get_all()]
 
     if user_form.validate_on_submit():
         res = form_to_dict(user_form, User)
+        res['password'] = user_form.password.data
         try: 
             user =UserServices.create_user(**res)
             facility:Facility = FacilityServices.get_by_id(user.facility_id)
@@ -256,19 +333,20 @@ def users():
         except (DuplicateError, InvalidReferenceError) as e:
             flash(str(e), 'error')
 
-    user_list = UserServices.list_row_by_page(page)
+    user_list = list(UserServices.list_row_by_page(page))
     next_url = (url_for('users', page=page + 1) 
                 if UserServices.has_next_page(page) else None)
     prev_url = None if page == 1 else url_for('users', page =page - 1)
 
     return render_template('users.html', 
+                    title = "Manage User",
                     user_form = user_form,
                     user_list = user_list,
                     next_url = next_url,
                     prev_url = prev_url)
 
 
-@app.route('/admin/user/edit/<int:user_id>', methods=['GET', 'POST'])
+@app.route('/admin/users/edit/<int:user_id>', methods=['GET', 'POST'])
 @admin_required
 def edit_user(user_id: int):
     try:
@@ -277,11 +355,12 @@ def edit_user(user_id: int):
         flash('User not found in database')
         return redirect(url_for('users'))
     form = EditUserForm()
-    form.username.data = user.username
 
     if form.validate_on_submit():
+        # print(f"on validate form data: {form.username.data}")
         try:
             if user.username != form.username.data:
+                # print(user.username, form.username.data)
                 user.username = form.username.data
                 UserServices.update_user(user)
             if form.password.data:
@@ -291,8 +370,14 @@ def edit_user(user_id: int):
         except DuplicateError as e:
             flash(str(e), 'error')
         
+    if request.method == 'GET':
+        form.username.data = user.username
     delete_form = DeleteUserForm()
-    return render_template('edit_user.html', user=user, edit_form=form, delete_form=delete_form)
+    return render_template('edit_user.html', 
+                            title=f"Edit user {user.username}",
+                            user=user,
+                            edit_form=form, 
+                            delete_form=delete_form)
 
 @app.route('/admin/user/delete/<int:user_id>', methods=['POST'])
 @admin_required
@@ -314,42 +399,59 @@ def delete_user(user_id: int):
 def encounters():
     user =  get_current_user()
     page = int(request.args.get('page', 1))
-    start_date = request.args.get('start_date')
-    if start_date:
-        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
-    end_date = request.args.get('end_date')
-    if end_date:
-        end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+    filter_form = EncounterFilterForm(request.args)
+    filter_form.facility_id.choices = [('0', 'All Facilities')] + sorted(
+        [(fac.id, fac.name.title()) for fac in FacilityServices.get_all()],
+        key=lambda x: x[1])
 
     and_filter = []
-    if start_date:
+
+    if filter_form.start_date.data:
+        start_date = datetime.strptime(filter_form.start_date.data, '%Y-%m-%d').date()
         and_filter.append(('date', start_date, '>='))
-    if end_date:
+
+    if filter_form.end_date.data:
+        end_date = datetime.strptime(filter_form.end_date.data, '%Y-%m-%d').date()
         and_filter.append(('date', end_date, '<='))
+
     if user.role == Role.user:
-        and_filter.append(('facility_id', user.facility_id, '=' ))
+        and_filter.append(('ec.facility_id', user.facility_id, '=' ))
+    else:
+        lga = filter_form.local_government.data
+        facility_id = filter_form.facility_id.data
+        if lga:
+            and_filter.append(('fc.local_government', lga, '='))
+        if facility_id:
+            and_filter.append(('ec.facility_id', facility_id, '='))
+        
+
     encounter_list = EncounterServices.list_row_by_page(page,
                                                         and_filter=and_filter)
 
-    next_url = (url_for('users', page=page + 1) 
-                if UserServices.has_next_page(page) else None)
-    prev_url = None if page == 1 else url_for('users', page =page - 1)
+    pagination_args = {**request.args, "page": page +1}
+    next_url = (url_for('encounters', **pagination_args) 
+                if EncounterServices.has_next_page(page) else None)
+
+    pagination_args['page'] = page - 1
+    prev_url = None if page == 1 else url_for('encounters', **pagination_args)
     return render_template('encounters.html', 
+                           title = "Encounter List",
                            encounter_list = encounter_list, 
+                           filter_form = filter_form,
+                           next_url = next_url,
+                           prev_url = prev_url
                            )
 
-@app.route('/admin')
+@app.route('/encounters/view/<int:pid>')
 @admin_required
-def admin():
-    # basic dashboard interfacee for prototype still simplified for now
-    facilities_count = FacilityServices.get_total()
-    user_count = UserServices.get_total()
-    encounter_count = EncounterServices.get_total()
-    #should actually be encounter view since I don't want to show facility Id, I should show
-    # facility name, user name, and others. but currently I just want it working
-    recent_encounter = EncounterServices.get_all(10,
-                                                 order_by=('created_at', 'DESC'))
-    return render_template('admin.html', 
-                           facilities_count = facilities_count,
-                           encounter_count= encounter_count,
-                           recent_encounter = recent_encounter)
+def view_encounter(pid: int):
+    try:
+        EncounterServices.get_by_id(pid)
+    except MissingError as e:
+        flash(str(e), "error")
+    encounter_view = list(EncounterServices.get_all(and_filter=[
+        ("ec.id", pid, '=')]))[0]
+    return render_template('view_encounter.html', 
+                           title = f"Encounter Details: {encounter_view.client_name}", 
+                           encounter=encounter_view)
+
