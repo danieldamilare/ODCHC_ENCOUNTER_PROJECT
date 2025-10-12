@@ -67,6 +67,28 @@ class DiseaseView:
 
 
 @dataclass
+class EncounterView:
+    id: int
+    facility: FacilityView
+    diseases: List[DiseaseView]
+    policy_number: str
+    client_name: str
+    gender: str
+    date: date
+    age: int
+    treatment: Optional[str]
+    referral: bool
+    doctor_name: Optional[str]
+    professional_service: Optional[str]
+    created_by: str
+    created_at: datetime
+
+    @property
+    def diseases_name(self):
+        return ', '.join([disease.name for disease in self.diseases])
+
+
+@dataclass
 class UserView:
     id: int
     username: str
