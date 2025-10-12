@@ -610,4 +610,44 @@ def get_report_data():
     return report_title, start_date, report_data
 
  
+@app.route('/admin/view_report')
+@admin_required
+def view_report():
+    try:
+        report_title, start_date, report_data = get_report_data()
+    except (MissingError, ValidationError) as e:
+        flash(str(e), 'error')
+        return redirect(url_for('reports'))
+    except ValueError:
+        flash("Invalid value provided for month, year, or facility.", 'error')
+        return redirect(url_for('reports'))
+    # except Exception as e:
+        # abort(500)
 
+    # print(report_html)
+    header_info = []
+    if report_data is not None and not report_data.empty:
+        if report_data.columns.nlevels > 1:
+            # Handle MultiIndex
+            outer_headers = []
+            for col in report_data.columns:
+                if col[0] not in outer_headers:
+                    outer_headers.append(col[0])
+            
+            for header in outer_headers:
+                loc = report_data.columns.get_loc(header)
+                colspan = 1
+                if isinstance(loc, slice):
+                    colspan = loc.stop - loc.start
+                elif hasattr(loc, 'sum'): # It's a boolean numpy array
+                    colspan = loc.sum()
+                
+                header_info.append({'name': header, 'colspan': colspan})
+    
+    return render_template('view_report.html',
+                           title=report_title,
+                           report_title=report_title,
+                           start_date=start_date,
+                           report_data=report_data,
+                           header_info=header_info) # Pass the new header info
+                           
