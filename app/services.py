@@ -902,3 +902,86 @@ class DashboardServices(BaseServices):
         json_result = json.dumps({r["month_range"]: r["encounter_count"] for r in row})
         return json_result
 
+
+class ReportServices(BaseServices):
+
+    @classmethod
+    def get_start_end_date(cls, month: Optional[int], year: Optional[int]):
+        filter_date = datetime.now().date()
+        if month is not None:
+            filter_date = filter_date.replace(month = month)
+        if year is not None:
+            filter_date = filter_date.replace(year = year)
+
+        start_date = filter_date.replace(day = 1)
+        if filter_date.month == 12:
+            end_date = filter_date.replace(year=filter_date.year+1, month=1, day=1) - timedelta(days=1)
+        else:
+            end_date = filter_date.replace(month=filter_date.month+1, day=1) - timedelta(days=1)
+        return start_date, end_date
+
+    @classmethod
+    def generate_service_utilization_report(cls, facility: int, month: Optional[int] = None, 
+                                            year: Optional[int] = None,
+                                            ) -> Tuple:
+        import pandas as pd
+        try:
+            facility_name = FacilityServices.get_by_id(facility)
+        except MissingError:
+            raise MissingError("Facility does not exist. No report generated")
+
+        if month and month > 12:
+            raise ValidationError("Invalid month selection")
+        start_date, end_date = cls.get_start_end_date(month, year)
+
+        query = '''
+            SELECT 
+                ec.policy_number,
+                dis.name AS disease_name,
+                ec.gender,
+                ec.age_group 
+            FROM encounters AS ec
+            JOIN encounters_diseases as ed on ed.encounter_id = ec.id
+            JOIN diseases as dis on dis.id = ed.disease_id
+            WHERE ec.date >= ? and ec.date <= ?
+            AND ec.facility_id = ?
+        '''
+        args = (start_date, end_date, facility)
+        db = get_db()
+
+        rows = db.execute(query, args)
+        df = pd.DataFrame([dict(row) for row in rows])
+        print("In generate Service utilization report")
+        print('df', df)
+
+        if df.empty:
+            return df
+
+        age_groups = ['<1', '1-5', '6-14', '15-19', '20-44', '45-64', '65&AB']
+        gender = ['M', 'F']
+
+        table = df.pivot_table(
+            index = 'disease_name',
+            values = 'policy_number',
+            columns = ['age_group', 'gender'],
+            aggfunc='count',
+            fill_value = 0
+        ).reindex(
+            pd.MultiIndex.from_product([age_groups, gender]),
+            axis=1,
+            fill_value=0
+        )
+        # table
+
+        table['TOTAL_M'] = table.filter(like= 'M').sum(axis=1)
+        table['TOTAL_F'] = table.filter(like= 'F').sum(axis=1)
+        table['TOTAL'] =  table['TOTAL_M'] + table['TOTAL_F']
+        table.loc['TOTAL'] = table.sum()
+        table = table.reset_index()
+        table.index.name = ''
+        table.columns.name = ''
+        table.rename(columns={'disease_name': 'Diseases'}, inplace=True)
+        print(table)
+
+        return facility_name, start_date, table
+
