@@ -41,13 +41,11 @@ class AddFacilityForm(FlaskForm):
 
 class AddCategoryForm(FlaskForm):
     category_name = StringField('Category Name', validators=[DataRequired()])
-    form_name = HiddenField(default='add_category')
     submit = SubmitField('Add Category')
 
 class AddDiseaseForm(FlaskForm):
     name = StringField('Disease Name', validators=[DataRequired()])
     category_id = SelectField('Category', validators=[DataRequired()], coerce=int)
-    form_name= HiddenField(default='add_disease')
     submit = SubmitField('Add Disease')
 
 
@@ -56,27 +54,38 @@ class AddUserForm(FlaskForm):
     facility_id = SelectField('Facility',
                                  validators = [DataRequired("Please select facility from the list")], 
                                  coerce= int)
+    role =  SelectField("Role", validators=[DataRequired()],
+                        choices=[('admin', 'Admin'), ('user', "User")],
+                        default='user')
     password = PasswordField('Password', validators = [DataRequired("You must enter a password")] )
     password2 = PasswordField('Confirm Password', validators = [DataRequired("You must enter a password"), EqualTo('password', )])
     submit = SubmitField('Add New User')
 
 class DeleteUserForm(FlaskForm):
-    form_name = HiddenField(default="delete_form")
     submit = SubmitField("Delete User")
 
 
 class EditDiseaseForm(FlaskForm):
     name = StringField('Name', validators=[DataRequired('Please Enter disease name')])
     category_id = SelectField('Category', validators=[DataRequired('Please select a category')])
+    submit = SubmitField("Update Disease")
 
 
 class EditUserForm(FlaskForm):
-    form_name = HiddenField(default="edit_form")
     username = StringField('Username', validators = [DataRequired("Please enter a username")])
     password = PasswordField('Password', validators = [Optional(),  EqualTo('password2', "Password must match")] )
-    password2 = PasswordField('Password', validators = [Optional()])
+    password2 = PasswordField('Confirm Password', validators = [Optional()])
     submit = SubmitField('Change Password')
 
 
 class EditFacilityForm(AddFacilityForm):
     pass
+
+class EncounterFilterForm(FlaskForm):
+    start_date = DateField('Start Date', format='%Y-%m-%d', validators=[Optional()])
+    end_date = DateField('End Date', format='%Y-%m-%d', validators=[Optional()])
+    local_government =  SelectField('Local Government', 
+                                     choices=[(lga, lga) for lga in LOCAL_GOVERNMENT],
+                                     validators=[Optional()])
+    facility_id = SelectField('Facility', validators=[Optional()])
+    submit = SubmitField('Filter')
