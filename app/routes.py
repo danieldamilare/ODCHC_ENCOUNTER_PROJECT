@@ -455,3 +455,103 @@ def view_encounter(pid: int):
                            title = f"Encounter Details: {encounter_view.client_name}", 
                            encounter=encounter_view)
 
+
+@app.route('/admin')
+@admin_required
+def admin():
+    # --- 1. GET FILTERS FROM URL ---
+    period = request.args.get('period', 'this_month')
+    facility_id = request.args.get('facility_id', 'all')
+
+    # --- 2. CALCULATE DATE RANGE ---
+    today = date.today()
+    start_date = None
+    end_date = today
+
+    if period == 'this_month':
+        start_date = today.replace(day=1)
+    elif period == 'last_3_months':
+        start_date = today - timedelta(days=90)
+    elif period == 'last_year':
+        start_date = today.replace(year=today.year - 1)
+    
+    # Custom range would be handled by a different form, but this is good for demo
+    
+    # --- 3. BUILD FILTERS FOR SERVICES ---
+    encounter_and_filters = []
+    facility_and_filters = [] # For services that filter on the facility table directly
+    other_encounter_filter = []
+    if start_date:
+        encounter_and_filters.append(('date', start_date, '>='))
+        other_encounter_filter += encounter_and_filters
+    
+    if facility_id != 'all':
+        try:
+            # Filter for encounter-related queries
+            encounter_and_filters.append(('ec.facility_id', int(facility_id), '='))
+            other_encounter_filter.append(('facility_id', int(facility_id), '='))
+            # Filter for facility-related queries
+            facility_and_filters.append(('id', int(facility_id), '='))
+        except ValueError:
+            # Handle case where facility_id is not a valid integer
+            pass
+
+    # --- 4. FETCH DATA FROM SERVICES ---
+    print('other_encounter_filter', other_encounter_filter)
+    print('encounter_and_filter', encounter_and_filters)
+    total_encounters = EncounterServices.get_total(and_filter=other_encounter_filter)
+    # print(encounter_and_filters)
+    active_facilities = len(list(EncounterServices.get_all(and_filter=encounter_and_filters, group_by=['ec.facility_id'])))
+    
+    top_diseases_data = DashboardServices.top_diseases(start_date=start_date, end_date=end_date, limit=5)
+    
+    gender_distribution_data = DashboardServices.gender_distribution(start_date=start_date, end_date=end_date)
+    male_count = 0
+    female_count = 0
+    for item in gender_distribution_data:
+        if item['gender'] == 'Male':
+            male_count = item['gender_count']
+        elif item['gender'] == 'Female':
+            female_count = item['gender_count']
+    total_gender = male_count + female_count
+    male_perc = (male_count / total_gender * 100) if total_gender > 0 else 0
+    female_perc = (female_count / total_gender * 100) if total_gender > 0 else 0
+
+    # For charts
+    monthly_trend_raw = json.loads(DashboardServices.trend_last_n_weeks()) # 6 months
+    daily_trend_raw = json.loads(DashboardServices.trend_last_n_days())
+    age_distribution = DashboardServices.age_group_distribution(start_date = start_date, end_date = end_date)
+    # print(monthly_trend_raw)
+    top_facilities_raw = DashboardServices.get_top_facilities(start_date=start_date, end_date=end_date, limit=5)
+
+    # For recent encounters table
+    recent_encounters = list(EncounterServices.get_all(limit=5, order_by=[('date', 'DESC')], and_filter=encounter_and_filters))
+
+    # For dropdown
+    all_facilities = list(FacilityServices.get_all())
+
+    return render_template('admin.html',
+                           # Filters for UI
+                           all_facilities=all_facilities,
+                           current_period=period,
+                           current_facility_id=facility_id,
+
+                           # KPI Cards
+                           total_encounters=total_encounters,
+                           active_facilities=active_facilities,
+                           top_disease=top_diseases_data[0] if top_diseases_data else None,
+                           male_perc=round(male_perc, 1),
+                           female_perc=round(female_perc, 1),
+
+                           # Chart Data
+                           monthly_trend=monthly_trend_raw,
+                           gender_distribution=gender_distribution_data,
+                           top_diseases=top_diseases_data,
+                           top_facilities=top_facilities_raw,
+                           age_distribution = age_distribution,
+                           daily_trend_raw = daily_trend_raw,
+
+                           # Table Data
+                           top_facilities_raw = top_facilities_raw,
+                           recent_encounters=recent_encounters  )
+
