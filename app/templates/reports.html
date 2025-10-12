@@ -1,0 +1,93 @@
+{% extends "admin_base.html" %}
+
+{% block content %}
+<div class="space-y-8">
+    <h1 class="text-3xl font-bold text-gray-800">Generate Reports</h1>
+
+    <div class="bg-white rounded-lg shadow-lg p-6">
+        <form action="{{ url_for('view_report') }}" method="GET">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
+                
+                <!-- Report Type (The Master Control) -->
+                <div>
+                    <label for="report_type" class="block text-sm font-medium text-gray-700">Report Type</label>
+                    <select id="report_type" name="report_type" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        <option value="" disabled selected>Select a report...</option>
+                        <option value="utilization">Service Utilization (by Facility)</option>
+                        <option value="encounter">Encounter Summary (All Facilities)</option>
+                        <option value="categorization">Disease Categorization (All Facilities)</option>
+                    </select>
+                </div>
+                
+                <!-- Facility (The Slave Control - Hidden by default) -->
+                <div id="facility-selector-div" style="display: none;">
+                    <label for="facility_id" class="block text-sm font-medium text-gray-700">Facility</label>
+                    <select id="facility_id" name="facility_id" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        <option value="">Select a facility...</option>
+                        {% for facility in facilities %}
+                        <option value="{{ facility.id }}">{{ facility.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Month -->
+                <div>
+                    <label for="month" class="block text-sm font-medium text-gray-700">Month (Optional)</label>
+                    <select id="month" name="month" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        <option value="">Current Month</option>
+                        {% for num, name in month_choices %}
+                        <option value="{{ num }}">{{ name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Year -->
+                <div>
+                    <label for="year" class="block text-sm font-medium text-gray-700">Year (Optional)</label>
+                    <select id="year" name="year" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                         <option value="">Current Year</option>
+                        {% for year, label in year_choices %}
+                        <option value="{{ year }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+            </div>
+            <div class="mt-8">
+                <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    Generate Report
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const reportTypeSelect = document.getElementById('report_type');
+        const facilitySelectorDiv = document.getElementById('facility-selector-div');
+        const facilitySelect = document.getElementById('facility_id');
+
+        function toggleFacilitySelector() {
+            // Check if the selected value is 'utilization'
+            if (reportTypeSelect.value === 'utilization') {
+                facilitySelectorDiv.style.display = 'block';
+                // Make the facility dropdown required
+                facilitySelect.setAttribute('required', 'required');
+            } else {
+                facilitySelectorDiv.style.display = 'none';
+                // Make the facility dropdown not required
+                facilitySelect.removeAttribute('required');
+            }
+        }
+
+        // Add an event listener to run the function whenever the selection changes
+        reportTypeSelect.addEventListener('change', toggleFacilitySelector);
+        
+        // Run the function once on page load to set the initial state
+        toggleFacilitySelector();
+    });
+</script>
+
+{% endblock %}
+

@@ -1,0 +1,92 @@
+{% extends "admin_base.html" %}
+
+{% block content %}
+<div class="space-y-8">
+    <div class="flex items-center justify-between">
+        <div>
+            <a href="{{ url_for('reports') }}" 
+               class="text-sm text-indigo-600 hover:text-indigo-800 mb-2 inline-block">&larr; Back to Report Selection</a>
+            <h1 class="text-3xl font-bold text-gray-800">{{ report_title }}</h1>
+            {% if start_date %}
+            <p class="text-md text-gray-500">For the period starting {{ start_date.strftime('%B %Y') }}</p>
+            {% endif %}
+        </div>
+            {% if report_data is not none and not report_data.empty %}
+                <div>
+                    <a href="{{ url_for('download_report', **request.args) }}" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700">
+                    Download as Excel
+                    </a>
+                </div>
+            {% endif %}
+    </div>
+
+   </div>
+
+    <div class="bg-white rounded-lg shadow-lg border border-gray-200">
+        <div class="overflow-x-auto p-6">
+            {% if report_data is not none and not report_data.empty %}
+                <table class="min-w-full border border-gray-300 text-sm text-gray-800 rounded-lg">
+                    <thead class="bg-gray-100 text-gray-900 border-b border-gray-300">
+                        {% if report_data.columns.nlevels > 1 %}
+                            <tr>
+                                <th rowspan="2" 
+                                    class="px-4 py-3 text-left font-semibold border border-gray-300 bg-gray-50 sticky left-0 z-10">
+                                    {{ report_data.index.name|replace('_', ' ')|title }}
+                                </th>
+                                {% for header in header_info %}
+                                    <th colspan="{{ header.colspan }}" 
+                                        class="px-4 py-3 text-center font-semibold border border-gray-300">
+                                        {{ header.name|replace('_', ' ')|title }}
+                                    </th>
+                                {% endfor %}
+                            </tr>
+                            <tr>
+                                {% for col in report_data.columns %}
+                                    <th class="px-4 py-3 text-center font-semibold border border-gray-300 bg-gray-50">
+                                        {{ col[1]|title }}
+                                    </th>
+                                {% endfor %}
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <th scope="col" 
+                                    class="py-3 pl-4 pr-3 text-left font-semibold border border-gray-300 bg-gray-50">
+                                    {{ report_data.index.name|replace('_', ' ')|title if report_data.index.name else '' }}
+                                </th>
+                                {% for col in report_data.columns %}
+                                    <th scope="col" 
+                                        class="px-3 py-3 text-left font-semibold border border-gray-300 bg-gray-50">
+                                        {{ col|replace('_', ' ')|title }}
+                                    </th>
+                                {% endfor %}
+                            </tr>
+                        {% endif %}
+                    </thead>
+
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for index, row in report_data.iterrows() %}
+                        <tr class="odd:bg-white even:bg-gray-50 hover:bg-indigo-50 transition-colors duration-150 {% if index == 'TOTAL' %}bg-gray-200 font-bold text-gray-900{% endif %}">
+                            <td class="whitespace-nowrap py-3 pl-4 pr-3 border border-gray-300 text-left font-medium text-gray-900 sm:pl-6">
+                                {{ index }}
+                            </td>
+            {% for item in row %}
+                {% if loop.index0 == 0 %}
+                    <td class="whitespace-nowrap px-3 py-3 border border-gray-300  text-gray-700">
+                {% else %}
+                    <td class="whitespace-nowrap px-3 py-3 border border-gray-300 text-center text-gray-700">
+                {% endif %}
+        {{ item }}
+    </td>
+{% endfor %}
+
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p class="text-center text-gray-500 py-8">No data found for the selected criteria.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
