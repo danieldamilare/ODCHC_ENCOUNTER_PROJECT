@@ -808,3 +808,97 @@ class DashboardServices(BaseServices):
         return cls._run_query(query,
                               (start_date, end_date, limit),
                               lambda row: {'age_group': row['age_group'], 'age_group_count': row['age_group_count']})
+
+    @classmethod
+    def trend_last_n_weeks(cls, n: int = 8, facility_id: Optional[int] = None):
+        import pandas as pd
+        if n < 0:
+            raise ValidationError("Invalid month range")
+
+        today = datetime.today().date()
+        start_date = today -timedelta(weeks=n)
+
+        query = '''
+            SELECT date, COUNT(date) as date_count
+            FROM encounters 
+            WHERE date >= ?
+            GROUP BY date
+        '''
+        db = get_db()
+        rows = db.execute(query, (start_date, )).fetchall()
+        df = pd.DataFrame(rows, columns=['date', 'date_count'])
+
+        if df.empty:
+            return pd.DataFrame(columns=['date', 'date_count']).to_json(orient="records")
+        # print(df)
+        df['date'] = pd.to_datetime(df['date'])
+        df['date'] = df['date'].dt.to_period('W')
+        trend: pd.DataFrame = df.groupby(df['date'])["date_count"].sum().reset_index()
+        all_week = pd.period_range(start = start_date, end = today, freq='W')
+        trend =trend.set_index('date').reindex(all_week, fill_value=0).reset_index()
+        trend.rename(columns={'index': 'date'}, inplace=True)
+        trend['date'] = trend['date'].astype(str)
+        return trend.to_json(orient="records")
+
+    @classmethod
+    def trend_last_n_days(cls, n: int = 7, facility_id: Optional[int] = None):
+        import pandas as pd
+        if n <= 0:
+            raise ValidationError("Invalid day range")
+
+        today = datetime.today().date()
+        start_date = today - timedelta(days=n)
+
+        query = '''
+            SELECT date, COUNT(date) AS date_count
+            FROM encounters
+            WHERE date >= ?
+            GROUP BY date
+        '''
+        db = get_db()
+        rows = db.execute(query, (start_date,)).fetchall()
+
+        df = pd.DataFrame(rows, columns = ['date', 'date_count'])
+        if df.empty:
+            return pd.DataFrame(columns=['day', 'date_count']).to_json(orient="records")
+
+        df['date'] = pd.to_datetime(df['date'])
+        df['date'] = df['date'].dt.to_period('D')
+        trend = df.groupby('date')['date_count'].sum().reset_index()
+
+        all_days = pd.period_range(start=start_date, end=today, freq='D')
+        trend = trend.set_index('date').reindex(all_days, fill_value=0).reset_index()
+        trend.rename(columns={'index': 'day'}, inplace=True)
+        trend['day'] = trend['day'].astype(str)
+
+        return trend.to_json(orient="records")
+
+    @classmethod
+    def encounter_last_this_month(cls):
+        from datetime import timedelta
+        import json
+        this_month_end = datetime.now().date()
+        this_month_start = this_month_end.replace(day=1)
+
+        last_month_end = this_month_start - timedelta(days=1)
+        last_month_start = last_month_end.replace(day=1)
+        query = '''
+        SELECT month_range, COUNT(*) as encounter_count
+        FROM (
+            SELECT
+                CASE
+                    WHEN date >= ? AND date <= ? THEN 'LM'
+                    WHEN date >= ? AND date <= ? THEN 'TM'
+                END AS month_range
+            FROM encounters
+            WHERE date >= ? AND date <= ?
+       ) sub
+       GROUP BY month_range;
+       '''
+        db = get_db()
+        row = db.execute(query, (last_month_start, last_month_end,
+            this_month_start, this_month_end,
+            last_month_start, this_month_end)).fetchall()
+        json_result = json.dumps({r["month_range"]: r["encounter_count"] for r in row})
+        return json_result
+
