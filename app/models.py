@@ -4,7 +4,7 @@ from flask_login import UserMixin, current_user
 from enum import Enum, auto
 from app.exceptions import MissingError
 from app import login
-from typing import Optional
+from typing import Optional, List
 
 class Role(Enum):
     admin = auto()
@@ -41,7 +41,6 @@ class DiseaseCategory:
 class Encounter:
     id: int
     facility_id: int
-    disease_id: int
     date: date
     policy_number: str
     client_name: str
@@ -55,21 +54,24 @@ class Encounter:
     created_by: int
     created_at: datetime
 
-
 @dataclass
-class UserView:
-    id: int
-    username: str
-    facility: Facility
-    role: Role
-    password_hash: str
-
+class FacilityView:
+    name: str
+    lga: str
 
 @dataclass
 class DiseaseView:
     id: int
     name: str
     category: DiseaseCategory
+
+
+@dataclass
+class UserView:
+    id: int
+    username: str
+    facility: Optional[FacilityView]
+    role: Role
 
 
 class AuthUser(UserMixin, User):

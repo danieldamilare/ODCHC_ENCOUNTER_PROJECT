@@ -9,6 +9,9 @@ from flask_wtf import FlaskForm
 from app import app
 from app.config import LOCAL_GOVERNMENT
 import sqlite3
+from datetime import timedelta
+import pandas as pd
+import json
 
 
 T = TypeVar('T')
@@ -65,32 +68,41 @@ class BaseServices:
         return model
 
     @classmethod
-    def get_total(cls)-> int:
+    def get_total(cls, 
+                  and_filter: Optional[List[Tuple]] = None,
+                  or_filter: Optional[List[Tuple]] = None):
+
         query = f'SELECT COUNT(*) from {cls.table_name}'
+        query, args = cls._apply_filter(
+            base_query = query,
+            base_arg = [],
+            and_filter = and_filter,
+            or_filter = or_filter,
+        )
+        # print(query)
+
         db = get_db()
-        return int(db.execute(query).fetchone()[0])
+        return int(db.execute(query, args).fetchone()[0])
 
     @classmethod
-    def get_all(cls, 
-            limit: int = 0,
-            offset: int = 0, 
-            and_filter: Optional[List[Tuple]] = None,
-            or_filter: Optional[List[Tuple]] = None,
-            order_by: Optional[List[Tuple[str, str]]] = None,
-            group_by: Optional[List[str]] = None
-            ) -> Iterator:
-    
+    def _apply_filter(cls,
+                    base_query: str, 
+                    base_arg: Optional[List] = None,
+                    limit: int = 0,
+                    offset: int = 0, 
+                    and_filter: Optional[List[Tuple]] = None,
+                    or_filter: Optional[List[Tuple]] = None,
+                    order_by: Optional[List[Tuple[str, str]]] = None,
+                    group_by: Optional[List[str]] = None
+                      ):
         ALLOWED_OPERATORS = {'=', '>', '<', '>=', '<=', '!=', 'LIKE'}
         query = ''
-        args = []
+        args = base_arg  if base_arg is not None else []
         conditions = []
-
-        query = f"SELECT * FROM {cls.table_name}"
+        query = base_query
         
         if and_filter:
             for column_name, value, opt in and_filter:
-                if column_name not in cls.columns:
-                    raise ValidationError("Invalid Column access")
                 if opt not in ALLOWED_OPERATORS:
                     raise ValidationError(f"Invalid operator: {opt}")
                 conditions.append(f"{column_name} {opt} ?")
@@ -120,12 +132,14 @@ class BaseServices:
 
         # --- ORDER BY Clause ---
         if order_by:
-            col, direction = order_by
-            if col not in cls.columns:
-                raise ValidationError(f"Invalid column for order_by: {col}")
-            if direction.upper() not in ['ASC', 'DESC']:
-                raise ValidationError(f"Invalid sort direction: {direction}")
-            query += f" ORDER BY {col} {direction.upper()}"
+            clause = []
+            for col, direction in order_by:
+                if col not in cls.columns:
+                    raise ValidationError(f"Invalid column for order_by: {col}")
+                if direction.upper() not in ['ASC', 'DESC']:
+                    raise ValidationError(f"Invalid sort direction: {direction}")
+                clause.append(f"{col} {direction.upper()}")
+            query += f" ORDER BY {','.join(clause)}"
 
         
         if limit > 0:
@@ -135,23 +149,39 @@ class BaseServices:
         if offset > 0:
             query += ' OFFSET ?'
             args.append(offset)
-        print(query)
-        db = get_db()
-        try:
-            rows = db.execute(query, args)
-            for row in rows:
-                    yield cls._row_to_model(row, cls.model)
-        except :
-            raise ValidationError('Invalid limit selection')
 
+        return query, args
 
     @classmethod
-    def has_next_page(cls, page: int) -> bool:
-        total = cls.get_total()
+    def get_all(cls, 
+            limit: int = 0,
+            offset: int = 0, 
+            and_filter: Optional[List[Tuple]] = None,
+            or_filter: Optional[List[Tuple]] = None,
+            order_by: Optional[List[Tuple[str, str]]] = None,
+            group_by: Optional[List[str]] = None
+            ) -> Iterator:
+        query = f"SELECT * from {cls.table_name}"
+        query, args = cls._apply_filter(query, 
+                        limit = limit, offset = offset,
+                        and_filter= and_filter,
+                        or_filter = or_filter,
+                        order_by = order_by,
+                        group_by = group_by)
+        db = get_db()
+        rows = db.execute(query, args)
+        for  row in rows:
+            yield cls._row_to_model(row, cls.model)
+    
+
+    @classmethod
+    def has_next_page(cls, page: int, 
+                      and_filter: Optional[list[Tuple]] = None,
+                      or_filter: Optional[List[Tuple]]  = None) -> bool:
+        total = cls.get_total(and_filter=and_filter, or_filter=or_filter)
         current = page * app.config['ADMIN_PAGE_PAGINATION']
         if (current < total): return True
         return False
-
 
 class UserServices(BaseServices):
     model = User
@@ -186,10 +216,7 @@ class UserServices(BaseServices):
     @classmethod
     def get_user_by_username(cls, username: str) -> User:
         db = get_db()
-        try:
-            row = db.execute(f'SELECT * FROM {cls.table_name} where username = ?', [username]).fetchone()
-        except sqlite3.IntegrityError:
-            raise MissingError(f"User with {username} cannot be found")
+        row = db.execute(f'SELECT * FROM {cls.table_name} where username = ?', [username]).fetchone()
 
         if row is None:
             raise MissingError("Username does not exist")
@@ -216,7 +243,50 @@ class UserServices(BaseServices):
             row['role'] = Role.user
         return UserServices._row_to_model(row, User)
 
+    @classmethod
+    def get_all(cls, 
+            limit: int = 0,
+            offset: int = 0, 
+            and_filter: Optional[List[Tuple]] = None,
+            or_filter: Optional[List[Tuple]] = None,
+            order_by: Optional[List[Tuple[str, str]]] = None,
+            group_by: Optional[List[str]] = None
+            ) -> Iterator:
 
+        from app.models import UserView, FacilityView
+        db = get_db()
+        query = '''
+            SELECT 
+                u.id AS user_id,
+                u.username,
+                u.password_hash,
+                u.role AS role,
+                f.name AS facility_name,
+                f.local_government AS lga
+            FROM users AS u
+            LEFT JOIN facility AS f ON u.facility_id = f.id
+        '''
+        query, args = cls._apply_filter(
+            base_query = query,
+            base_arg = [],
+            limit= limit,
+            offset= offset, 
+            and_filter= and_filter,
+            or_filter= or_filter,
+            order_by=  order_by,
+            group_by=  group_by
+        )
+        rows = db.execute(query, args)
+
+        for row in rows:
+            facility = FacilityView(row['facility_name'], row['lga']) if row['facility_name'] else None
+            yield UserView(
+                id=row['user_id'],
+                username=row['username'],
+                facility=facility,
+                role=Role[row['role']],
+            )
+                
     @staticmethod
     def get_verified_user(username: str, password: str):
         db = get_db()
@@ -334,6 +404,49 @@ class DiseaseServices(BaseServices):
         except sqlite3.IntegrityError:
             raise DuplicateError(f'Disease {name} already exists')
 
+    
+    @classmethod
+    def get_all(cls, 
+            limit: int = 0,
+            offset: int = 0, 
+            and_filter: Optional[List[Tuple]] = None,
+            or_filter: Optional[List[Tuple]] = None,
+            order_by: Optional[List[Tuple[str, str]]] = None,
+            group_by: Optional[List[str]] = None
+            ) -> Iterator:
+
+        from app.models import DiseaseView
+        query = '''
+        SELECT 
+            d.id as disease_id,
+            d.name as disease_name,
+            dc.id as category_id,
+            dc.category_name 
+            FROM diseases as d
+            JOIN diseases_category as dc 
+            ON d.category_id = dc.id'''
+
+        query, args = cls._apply_filter(
+            base_query= query,
+            base_arg = [],
+            limit = limit,
+            offset = offset,
+            and_filter = and_filter,
+            or_filter= or_filter,
+            order_by= order_by,
+            group_by= group_by
+        )
+        db = get_db()
+        rows = db.execute(query, args)
+        for row in rows:
+            category= DiseaseCategory(row['category_id'], 
+                                      row['category_name'])
+            disease = DiseaseView(id =row['disease_id'],
+                                  name = row['disease_name'],
+                                  category =category)
+            yield disease
+
+
     @classmethod
     def delete_disease(cls, disease: Disease):
         db = get_db()
@@ -382,9 +495,10 @@ class DiseaseCategoryServices(BaseServices):
 class EncounterServices(BaseServices):
     table_name = 'encounters'
     model = Encounter
-    columns = {'id', 'facility_id', 'disease_id', 'date', 'policy_number', 'client_name',
+    columns = {'id', 'facility_id', 'date', 'policy_number', 'client_name',
                'gender', 'age', 'age_group', 'treatment', 'referral', 'doctor_name', 
-               'professional_service', 'created_by', 'created_at'}
+               'professional_service', 'created_by', 'created_at', "ec.facility_id", 
+               }
 
     columns_to_update = {'facility_id', 'disease_id', 'date', 'policy_number', 'client_name',
                'gender', 'age', 'age_group', 'treatment', 'referral', 'doctor_name', 
@@ -392,7 +506,7 @@ class EncounterServices(BaseServices):
 
     @classmethod
     def create_encounter(cls, facility_id: int,
-                         disease_id: int,
+                         diseases_id: List[int],
                          date: date,
                          policy_number: str,
                          client_name: str,
@@ -405,46 +519,48 @@ class EncounterServices(BaseServices):
                          created_by: User,
                          commit=True) -> Encounter:
         db = get_db()
-        if gender.lower() not in ('m', 'f'):
+        gender = gender.upper()
+        if gender not in ('M', 'F'):
             raise ValidationError("Gender can only be male or female")
         if age < 0 or age > 120:
             raise ValidationError("Age can only be between 0 and 120")
         import re
-        if not re.match(r'\w{3}/\d+/\d+/\w/[012345]', policy_number):
+        if not re.match(r'^[A-Za-z]{3}/\d+/\d+/[A-Za-z]/[0-5]$', policy_number):
             raise ValidationError('Invalid Policy number')
         
-
         try:
             FacilityServices.get_by_id(facility_id)
         except MissingError:
             raise InvalidReferenceError('You cannot add Encounter to a facility that does not exists')
         
-        try:
-            DiseaseServices.get_by_id(disease_id)
-        except MissingError:
-            raise InvalidReferenceError("Disease is not valid")
 
         created_at = datetime.now().date()
         try:
         
-            cur = db.execute(f'''INSERT INTO {cls.table_name} (facility_id, disease_id, date, policy_number
+            cur = db.execute(f'''INSERT INTO {cls.table_name} (facility_id, date, policy_number
                    , client_name, gender, age, treatment, referral, doctor_name,
-                   professional_service, created_by, created_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?,
-                   ?, ?, ?, ?, ?)''', (facility_id, disease_id, date, policy_number, client_name,
-                                   gender, age, treatment, referral, doctor_name,
+                   professional_service, created_by, created_at) VALUES( ?, ?, ?, ?, ?, ?, ?,
+                   ?, ?, ?, ?, ?)''', (facility_id, date, policy_number, client_name,
+                                   gender, age, treatment, int(referral), doctor_name,
                                    professional_service, created_by.id, created_at))
-            db.commit()
             new_id = cur.lastrowid
+
+            diseases_list = list(set((new_id, x) for x in diseases_id))
+            db.executemany('''INSERT into encounter_diseases(encounter_id, disease_id)
+                           VALUES(?, ?)''', diseases_list)
+            db.commit()
             return cls.get_by_id(new_id)
-        except sqlite3.IntegrityError:
-            raise InvalidReferenceError("Invalid facility or disease or user")
 
-    @classmethod
-    def get_encounter_by_facility(cls, facility_id: int) -> Iterator:
-        return cls.get_all(and_filter=[('facility_id', facility_id, '=')])
-
-
-    @classmethod
-    def update_data(cls, model):
-        # do not allow update of encounter
-        raise NotImplementedError("Encounter are immutable and cannot be updated")
+        except sqlite3.IntegrityError as e:
+            db.rollback()
+            error_msg = str(e).lower()
+            if 'foreign key' in error_msg:
+                raise InvalidReferenceError(
+                    "Invalid reference to facility, disease, or user"
+                )
+            elif 'check constraint' in error_msg:
+                raise ValidationError(
+                    "Data validation failed: check age and gender values"
+                )
+            else:
+                raise InvalidReferenceError(f"Database error: {str(e)}")
