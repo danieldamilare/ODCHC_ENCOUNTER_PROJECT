@@ -1,0 +1,87 @@
+          {% extends "admin_base.html" %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="bg-white rounded-lg shadow-lg">
+        <div class="p-6 border-b">
+            <div class="flex items-center justify-between">
+                <div>
+                    <a href="{{ url_for('encounters') }}" class="text-sm text-indigo-600 hover:text-indigo-800 mb-2 inline-block">&larr; Back to Encounters List</a>
+                    <h1 class="text-2xl font-bold text-gray-800">{{ encounter.client_name }}</h1>
+                    <p class="text-sm text-gray-500">Policy #: {{ encounter.policy_number }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="p-6">
+            <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-8">
+                <div class="sm:col-span-1">
+                    <dt class="text-sm font-medium text-gray-500">Facility</dt>
+                    <dd class="mt-1 text-sm text-gray-900">{{ encounter.facility.name if encounter.facility else 'N/A' }}</dd>
+                </div>
+
+                <!-- FIX: Display a list of diseases -->
+                <div class="sm:col-span-1">
+                    <dt class="text-sm font-medium text-gray-500">Diseases</dt>
+                    <dd class="mt-1 text-sm text-gray-900">
+                        <ul class="space-y-1">
+                            {% for disease in encounter.diseases %}
+                                <li>
+                                    <span class="font-medium">{{ disease.name }}</span>
+                                    <span class="text-xs text-gray-500">({{ disease.category.category_name }})</span>
+                                </li>
+                            {% else %}
+                                <li>N/A</li>
+                            {% endfor %}
+                        </ul>
+                    </dd>
+                </div>
+
+                <div class="sm:col-span-1">
+                    <dt class="text-sm font-medium text-gray-500">Gender</dt>
+                    <dd class="mt-1 text-sm text-gray-900">{{ 'Male' if encounter.gender == 'M' else 'Female' }}</dd>
+                </div>
+                <div class="sm:col-span-1">
+                    <dt class="text-sm font-medium text-gray-500">Age</dt>
+                    <dd class="mt-1 text-sm text-gray-900">{{ encounter.age }}</dd>
+                </div>
+                <div class="sm:col-span-1">
+                    <dt class="text-sm font-medium text-gray-500">Date of Visit</dt>
+                    <dd class="mt-1 text-sm text-gray-900">{{ encounter.date.strftime('%B %d, %Y') }}</dd>
+                </div>
+                <div class="sm:col-span-1">
+                    <dt class="text-sm font-medium text-gray-500">Doctor's Name</dt>
+                    <dd class="mt-1 text-sm text-gray-900">{{ encounter.doctor_name or 'N/A' }}</dd>
+                </div>
+                <div class="sm:col-span-1">
+                    <dt class="text-sm font-medium text-gray-500">Referral</dt>
+                    <dd class="mt-1 text-sm text-gray-900">
+                        {% if encounter.referral %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Yes</span>
+                        {% else %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">No</span>
+                        {% endif %}
+                    </dd>
+                </div>
+                <div class="sm:col-span-1">
+                    <dt class="text-sm font-medium text-gray-500">Recorded By</dt>
+                    <dd class="mt-1 text-sm text-gray-900">{{ encounter.created_by if encounter.created_by else 'N/A' }}</dd>
+                </div>
+                <div class="sm:col-span-2">
+                    <dt class="text-sm font-medium text-gray-500">Treatment</dt>
+                    <dd class="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{{ encounter.treatment or 'No treatment specified.' }}</dd>
+                </div>
+                <div class="sm:col-span-2">
+                    <dt class="text-sm font-medium text-gray-500">Professional Service</dt>
+                    <dd class="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{{ encounter.professional_service or 'No professional service specified.' }}</dd>
+                </div>
+                <div class="sm:col-span-2 text-xs text-gray-400 text-right">
+                    Record created on {{ encounter.created_at.strftime('%Y-%m-%d at %H:%M:%S') }}
+                </div>
+            </dl>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+ 
