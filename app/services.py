@@ -564,3 +564,125 @@ class EncounterServices(BaseServices):
                 )
             else:
                 raise InvalidReferenceError(f"Database error: {str(e)}")
+
+    @classmethod
+    def get_all(cls, 
+        limit: int = 0,
+        offset: int = 0, 
+        and_filter: Optional[List[Tuple]] = None,
+        or_filter: Optional[List[Tuple]] = None,
+        order_by: Optional[List[Tuple[str, str]]] = None,
+        group_by: Optional[List[str]] = None
+    ) -> Iterator:
+    
+        query = '''
+            SELECT 
+                ec.id,
+                ec.client_name,
+                ec.gender,
+                ec.age,
+                ec.policy_number,
+                ec.referral ,
+                ec.date,
+                ec.doctor_name,
+                ec.professional_service,
+                ec.created_at,
+                ec.treatment,
+                fc.name AS facility_name,
+                fc.local_government AS lga,
+                u.username AS created_by
+            FROM encounters AS ec
+            JOIN facility AS fc ON ec.facility_id = fc.id
+            LEFT JOIN users AS u ON ec.created_by = u.id
+        '''
+        
+        query, args = cls._apply_filter(
+            base_query=query,
+            base_arg=[],
+            limit=limit,
+            offset=offset,
+            and_filter=and_filter,
+            or_filter=or_filter,
+            group_by= group_by,
+            order_by=order_by
+        )
+        
+        db = get_db()
+        encounters_rows = db.execute(query, args).fetchall()
+        
+        # Get all encounter IDs
+        encounter_ids = [row['id'] for row in encounters_rows]
+        
+        if not encounter_ids:
+            return
+        
+        # Fetch all diseases for these encounters in ONE query
+        placeholders = ','.join('?' * len(encounter_ids))
+        diseases_query = f'''
+            SELECT 
+                ecd.encounter_id,
+                dis.id AS disease_id,
+                dis.name AS disease_name,
+                cg.id AS category_id,
+                cg.category_name
+            FROM encounters_diseases AS ecd
+            JOIN diseases AS dis ON ecd.disease_id = dis.id
+            JOIN diseases_category AS cg ON dis.category_id = cg.id
+            WHERE ecd.encounter_id IN ({placeholders})
+            ORDER BY ecd.encounter_id
+        '''
+        
+        diseases_rows = db.execute(diseases_query, encounter_ids).fetchall()
+        
+        from collections import defaultdict
+        diseases_by_encounter = defaultdict(list)
+        from app.models import EncounterView, DiseaseView, FacilityView
+        
+        for row in diseases_rows:
+            encounter_id = row['encounter_id']
+            category = DiseaseCategory(
+                id=row['category_id'],
+                category_name=row['category_name']
+            )
+            disease = DiseaseView(
+                id=row['disease_id'],
+                name=row['disease_name'],
+                category=category
+            )
+            diseases_by_encounter[encounter_id].append(disease)
+        
+        for row in encounters_rows:
+            facility = FacilityView(
+                name=row['facility_name'],
+                lga=row['lga']
+            )
+            
+            encounter = EncounterView(
+                id=row['id'],
+                facility=facility,
+                diseases=diseases_by_encounter[row['id']],  
+                policy_number=row['policy_number'],
+                client_name=row['client_name'],
+                referral=bool(row['referral']),
+                gender=row['gender'],
+                date=row['date'],
+                age=row['age'],
+                treatment=row['treatment'],
+                doctor_name=row['doctor_name'],
+                professional_service=row['professional_service'],
+                created_by=row['created_by'],
+                created_at=row['created_at']
+            )
+            
+            yield encounter
+
+    @classmethod
+    def get_encounter_by_facility(cls, facility_id: int) -> Iterator:
+        return cls.get_all(and_filter=[('ec.facility_id', facility_id, '=')])
+
+
+    @classmethod
+    def update_data(cls, model):
+        # do not allow update of encounter
+        raise NotImplementedError("Encounter are immutable and cannot be updated")
+
