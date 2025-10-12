@@ -1,0 +1,102 @@
+{% extends "admin_base.html" %}
+
+{% block content %}
+<div class="space-y-8">
+    <h1 class="text-3xl font-bold text-gray-800">Manage Facilities</h1>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        <!-- Left Column: Add New Facility Form -->
+        <div class="lg:col-span-1">
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-xl font-bold mb-6 text-gray-800">Add New Facility</h2>
+                <form action="{{ url_for('facilities') }}" method="post" novalidate>
+                    {{ facility_form.hidden_tag() }}
+                    <div class="space-y-6">
+                        <div>
+                            {{ facility_form.name.label(class="block text-sm font-medium text-gray-700") }}
+                            {{ facility_form.name(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
+                            {% for error in facility_form.name.errors %}
+                                <span class="text-red-500 text-xs mt-1">{{ error }}</span>
+                            {% endfor %}
+                        </div>
+                        
+                        <div>
+                            {{ facility_form.local_government.label(class="block text-sm font-medium text-gray-700") }}
+                            {{ facility_form.local_government(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
+                             {% for error in facility_form.local_government.errors %}
+                                <span class="text-red-500 text-xs mt-1">{{ error }}</span>
+                            {% endfor %}
+                        </div>
+
+                        <div>
+                            {{ facility_form.facility_type.label(class="block text-sm font-medium text-gray-700") }}
+                            {{ facility_form.facility_type(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
+                             {% for error in facility_form.facility_type.errors %}
+                                <span class="text-red-500 text-xs mt-1">{{ error }}</span>
+                            {% endfor %}
+                        </div>
+
+                        <div>
+                            {{ facility_form.submit(class="w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500") }}
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Right Column: Facility List -->
+        <div class="lg:col-span-2">
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-xl font-bold mb-4 text-gray-800">All Facilities ({{ facility_total }})</h2>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Local Government</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                <th scope="col" class="relative px-6 py-3"><span class="sr-only">Actions</span></th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% for facility in facility_list %}
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ facility.name }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ facility.local_government|title }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ facility.facility_type|title }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-4">
+                                    <a href="{{ url_for('view_facilities', pid=facility.id) }}" class="text-green-600 hover:text-green-900">View</a>
+                                    <a href="{{ url_for('edit_facilities', pid=facility.id) }}" class="text-indigo-600 hover:text-indigo-900">Edit</a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="px-6 py-4 text-center text-sm text-gray-500">No facilities found.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <!-- Pagination -->
+                <nav class="mt-6 flex items-center justify-between" aria-label="Pagination">
+                    <div>
+                        {% if prev_url %}
+                            <a href="{{ prev_url }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Previous</a>
+                        {% else %}
+                            <span class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-400 bg-gray-50 cursor-not-allowed">Previous</span>
+                        {% endif %}
+                    </div>
+                    <div>
+                        {% if next_url %}
+                            <a href="{{ next_url }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Next</a>
+                        {% else %}
+                            <span class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-400 bg-gray-50 cursor-not-allowed">Next</span>
+                        {% endif %}
+                    </div>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

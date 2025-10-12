@@ -2,51 +2,62 @@
 
 {% block content %}
 <div class="container mx-auto p-4 md:p-8">
-    <!-- Add New User Form -->
-    <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
-        <h2 class="text-2xl font-bold mb-6 text-gray-800">Add New User</h2>
-        <form action="{{ url_for('users') }}" method="post" novalidate>
-            {{ user_form.hidden_tag() }}
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
-                <div>
-                    {{ user_form.username.label(class="block text-sm font-medium text-gray-700") }}
-                    {{ user_form.username(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
-                    {% for error in user_form.username.errors %}
-                        <span class="text-red-500 text-xs mt-1">{{ error }}</span>
-                    {% endfor %}
+    <!-- Add New User Accordion -->
+    <div class="bg-white rounded-lg shadow-lg mb-8">
+        <!-- Accordion Header/Button -->
+        <button id="add-user-accordion-btn" class="w-full flex justify-between items-center p-6 text-left">
+            <h2 class="text-2xl font-bold text-gray-800">Add New User</h2>
+            <!-- Chevron Icon -->
+            <svg id="accordion-chevron" class="w-6 h-6 text-gray-500 transform transition-transform duration-200 {% if user_form.errors %}rotate-180{% endif %}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+        </button>
+
+        <!-- Accordion Content (The Form) -->
+        <!-- The form is hidden by default unless there are errors -->
+        <div id="add-user-form-container" class="px-6 pb-6 border-t border-gray-200 {% if not user_form.errors %}hidden{% endif %}">
+            <form action="{{ url_for('users') }}" method="post" novalidate class="mt-6">
+                {{ user_form.hidden_tag() }}
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                    <div>
+                        {{ user_form.username.label(class="block text-sm font-medium text-gray-700") }}
+                        {{ user_form.username(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
+                        {% for error in user_form.username.errors %}
+                            <span class="text-red-500 text-xs mt-1">{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                    
+                    <div>
+                        {{ user_form.facility_id.label(class="block text-sm font-medium text-gray-700") }}
+                        {{ user_form.facility_id(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
+                        {% for error in user_form.facility_id.errors %}
+                            <span class="text-red-500 text-xs mt-1">{{ error }}</span>
+                        {% endfor %}
+                    </div>
                 </div>
                 
-                <div>
-                    {{ user_form.facility_id.label(class="block text-sm font-medium text-gray-700") }}
-                    {{ user_form.facility_id(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
-                    <!-- FIX: Added missing error message for facility selection -->
-                    {% for error in user_form.facility_id.errors %}
-                        <span class="text-red-500 text-xs mt-1">{{ error }}</span>
-                    {% endfor %}
-                </div>
-            </div>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div>
-                    {{ user_form.password.label(class="block text-sm font-medium text-gray-700") }}
-                    {{ user_form.password(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
-                    {% for error in user_form.password.errors %}
-                        <span class="text-red-500 text-xs mt-1">{{ error }}</span>
-                    {% endfor %}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                        {{ user_form.password.label(class="block text-sm font-medium text-gray-700") }}
+                        {{ user_form.password(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
+                        {% for error in user_form.password.errors %}
+                            <span class="text-red-500 text-xs mt-1">{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                    
+                    <div>
+                        {{ user_form.password2.label(class="block text-sm font-medium text-gray-700") }}
+                        {{ user_form.password2(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
+                        {% for error in user_form.password2.errors %}
+                            <span class="text-red-500 text-xs mt-1">{{ error }}</span>
+                        {% endfor %}
+                    </div>
                 </div>
                 
-                <div>
-                    {{ user_form.password2.label(class="block text-sm font-medium text-gray-700") }}
-                    {{ user_form.password2(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
-                    {% for error in user_form.password2.errors %}
-                        <span class="text-red-500 text-xs mt-1">{{ error }}</span>
-                    {% endfor %}
-                </div>
-            </div>
-            
-            {{ user_form.submit(class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500") }}
-        </form>
+                {{ user_form.submit(class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500") }}
+            </form>
+        </div>
     </div>
 
     <!-- User List -->
@@ -85,7 +96,7 @@
             </table>
         </div>
         
-        <!-- FIX: Added Pagination Controls -->
+        <!-- Pagination Controls -->
         <nav class="mt-6 flex items-center justify-between" aria-label="Pagination">
             <div>
                 {% if prev_url %}
@@ -112,4 +123,24 @@
         </nav>
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const accordionBtn = document.getElementById('add-user-accordion-btn');
+        const formContainer = document.getElementById('add-user-form-container');
+        const chevron = document.getElementById('accordion-chevron');
+
+        accordionBtn.addEventListener('click', function() {
+            const isHidden = formContainer.classList.contains('hidden');
+            if (isHidden) {
+                formContainer.classList.remove('hidden');
+                chevron.classList.add('rotate-180');
+            } else {
+                formContainer.classList.add('hidden');
+                chevron.classList.remove('rotate-180');
+            }
+        });
+    });
+</script>
+
 {% endblock %}
