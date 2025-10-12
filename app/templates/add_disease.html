@@ -1,0 +1,47 @@
+{% extends "admin_base.html" %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="bg-white rounded-lg shadow-lg p-6">
+        <div class="mb-6">
+             <a href="{{ url_for('diseases') }}" class="text-sm text-indigo-600 hover:text-indigo-800 mb-2 inline-block">&larr; Back to Diseases List</a>
+            <h1 class="text-2xl font-bold text-gray-800">{{ title }}</h1>
+            <p class="text-sm text-gray-500">
+                {% if disease %}
+                    Update the name or category for this disease.
+                {% else %}
+                    Create a new disease to be used in encounters.
+                {% endif %}
+            </p>
+        </div>
+        
+        <form action="" method="post" novalidate>
+            {{ form.hidden_tag() }}
+            <div class="space-y-6">
+                <div>
+                    {{ form.name.label(class="block text-sm font-medium text-gray-700") }}
+                    {{ form.name(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
+                    {% for error in form.name.errors %}
+                        <span class="text-red-500 text-xs mt-1">{{ error }}</span>
+                    {% endfor %}
+                </div>
+                
+                <div>
+                    {{ form.category_id.label(class="block text-sm font-medium text-gray-700") }}
+                    {{ form.category_id(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
+                    {% for error in form.category_id.errors %}
+                        <span class="text-red-500 text-xs mt-1">{{ error }}</span>
+                    {% endfor %}
+                </div>
+
+                <div class="pt-2">
+                    {{ form.submit(class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500") }}
+                    <a href="{{ url_for('diseases') }}" class="ml-4 inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                        Cancel
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
