@@ -985,3 +985,102 @@ class ReportServices(BaseServices):
 
         return facility_name, start_date, table
 
+
+    @classmethod
+    def generate_encounter_report(cls, month: Optional[int] = None,
+                                   year: Optional[int] = None,
+                                   )->Tuple:
+
+        if month and (month > 12 or month < 1):
+            raise ValidationError("Invalid month selection")
+
+        start_date, end_date = cls.get_start_end_date(month, year)
+
+        query = '''
+            SELECT 
+                f.name as facility_name,
+                ec.policy_number, 
+                ec.gender,
+                ec.age_group
+            FROM encounters as ec
+            JOIN facility as f ON ec.facility_id = f.id
+            WHERE  ec.date >= ? AND ec.date <= ?
+        '''
+
+        db = get_db()
+        rows = db.execute(query, (start_date, end_date))
+        df = pd.DataFrame([dict(row) for row in rows])
+
+        if df.empty:
+            return df
+
+        age_groups = ['<1', '1-5', '6-14', '15-19', '20-44', '45-64', '65&AB']
+        gender = ['M', 'F']
+
+        print('In generate_encounter_report')
+
+        print('df', df)
+
+        table = df.pivot_table(
+            index = 'facility_name',
+            values = 'policy_number',
+            columns = ['age_group', 'gender'],
+            aggfunc = 'count',
+            fill_value = 0,
+
+        ).reindex(
+            pd.MultiIndex.from_product([age_groups, gender]),
+            fill_value = 0,
+            axis=1
+        )
+
+        table['TOTAL_F'] = table.filter(like= 'F').sum(axis=1)
+        table['TOTAL_M'] = table.filter(like = 'M').sum(axis=1)
+        table['TOTAL'] =  table['TOTAL_M'] + table['TOTAL_F']
+        table.loc['TOTAL'] = table.sum()
+        table.reset_index(inplace=True)
+        table.index.name = ''
+        table.columns.name = ''
+        table.rename(columns={'facility_name': 'Facilities'}, inplace=True)
+        print(table)
+        return start_date, table
+
+
+    @classmethod
+    def generate_categorization_report(cls, month: Optional[None], year: Optional[None]):
+        if month and (month <1 or month > 12):
+            raise ValidationError("Invalid Month selection")
+        start_date, end_date = cls.get_start_end_date(month, year)
+        query = '''
+            SELECT
+              ec.policy_number, 
+              cg.category_name,
+              f.name as facility_name
+            FROM encounters as ec
+            JOIN facility as f on ec.facility_id = f.id
+            JOIN encounters_diseases as ed on ed.encounter_id = ec.id
+            JOIN diseases as dis on dis.id = ed.disease_id
+            JOIN diseases_category as cg on cg.id = dis.category_id
+            WHERE ec.date >= ? AND ec.date <= ?
+        '''
+        db = get_db()
+        rows = db.execute(query, (start_date, end_date))
+        df = pd.DataFrame([dict(row) for row in rows])
+        table = df.pivot_table(
+            index = 'facility_name',
+            values = 'policy_number',
+            columns = ['category_name'],
+            aggfunc = 'count',
+            fill_value = 0
+        )
+        rows = db.execute('SELECT category_name from diseases_category')
+        categories = [row['category_name'] for row in rows]
+        table.reindex(categories, axis=1, fill_value=0)
+        table['TOTAL'] = table.sum(axis=1)
+        table.loc['TOTAL'] = table.sum()
+        table.reset_index(inplace=True)
+        table.index.name = ''
+        table.columns.name = ''
+        table.rename(columns={'facility_name': 'Facilities'}, inplace=True)
+
+        return start_date, table
