@@ -757,3 +757,54 @@ class DashboardServices(BaseServices):
         rows = db.execute(query, params)
         return [ row_mapper(row) for row in rows]
 
+
+    @classmethod
+    def  top_diseases(cls, start_date: Optional[date] = None, end_date: Optional[date]= None, facility_id: Optional[int] = 0, limit: int = 5):
+        start_date, end_date, limit = cls._validate_date(start_date, end_date, limit)
+        query = '''
+             SELECT dis.name AS disease_name, COUNT(dis.id) AS disease_count
+             FROM encounters AS ec
+             JOIN encounters_diseases as ecd ON ecd.encounter_id = ec.id
+             JOIN diseases as dis ON ecd.disease_id = dis.id
+             WHERE ec.date >= ? AND ec.date <= ?
+             GROUP BY dis.id
+             ORDER BY disease_count DESC
+             LIMIT ?
+        '''
+
+        return cls._run_query(query, 
+                            (start_date, end_date, limit),
+                            lambda row: {'disease_name': row['disease_name'], 'disease_count': row['disease_count']})
+
+    @classmethod
+    def gender_distribution(cls, start_date: Optional[date] = None, end_date: Optional[date] = None, facility_id: Optional[int] =0,  limit: int = 5):
+        start_date, end_date, limit = cls._validate_date(start_date, end_date, limit)
+        query = '''
+            SELECT 
+              CASE
+                WHEN ec.gender = 'M' THEN 'Male'
+                WHEN ec.gender = 'F' THEN 'Female'
+              END as gender,
+            COUNT(ec.gender) as gender_count
+            FROM encounters AS ec
+            WHERE ec.date >= ? AND ec.date <= ?
+            GROUP BY ec.gender
+            LIMIT ?
+        '''
+        return cls._run_query(query,
+                              (start_date, end_date, limit,),
+                              lambda row: {'gender': row['gender'], 'gender_count': row['gender_count']})
+
+    @classmethod
+    def age_group_distribution(cls, start_date: Optional[date] = None, end_date: Optional[date] = None, facility_id: Optional[int] = 0, limit: int = 5):
+        start_date, end_date, limit = cls._validate_date(start_date= start_date, end_date = end_date, limit = limit)
+        query = '''
+            SELECT age_group, COUNT(*) as age_group_count 
+            FROM encounters as ec
+            WHERE ec.date >= ? AND ec.date <= ?
+            GROUP BY ec.age_group
+            LIMIT ?
+        '''
+        return cls._run_query(query,
+                              (start_date, end_date, limit),
+                              lambda row: {'age_group': row['age_group'], 'age_group_count': row['age_group_count']})
