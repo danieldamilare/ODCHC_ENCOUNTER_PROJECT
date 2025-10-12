@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto p-4 md:p-8">
+    <div class="max-w-4xl mx-auto bg-white p-6 md:p-8 rounded-lg shadow-lg">
+        <h1 class="text-2xl font-bold text-gray-800 mb-6">{{ title }}</h1>
+        
+        <form method="POST" novalidate>
+            {{ form.hidden_tag() }}
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Policy Number -->
+                <div>
+                    {{ form.policy_number.label(class="block text-sm font-medium text-gray-700") }}
+                    {{ form.policy_number(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
+                    {% for error in form.policy_number.errors %}<span class="text-red-500 text-xs">{{ error }}</span>{% endfor %}
+                </div>
+
+                <!-- Client Name -->
+                <div>
+                    {{ form.client_name.label(class="block text-sm font-medium text-gray-700") }}
+                    {{ form.client_name(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
+                    {% for error in form.client_name.errors %}<span class="text-red-500 text-xs">{{ error }}</span>{% endfor %}
+                </div>
+
+                <!-- Age -->
+                <div>
+                    {{ form.age.label(class="block text-sm font-medium text-gray-700") }}
+                    {{ form.age(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
+                    {% for error in form.age.errors %}<span class="text-red-500 text-xs">{{ error }}</span>{% endfor %}
+                </div>
+
+                <!-- Gender -->
+                <div>
+                    {{ form.gender.label(class="block text-sm font-medium text-gray-700") }}
+                    {{ form.gender(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
+                    {% for error in form.gender.errors %}<span class="text-red-500 text-xs">{{ error }}</span>{% endfor %}
+                </div>
+
+                <!-- Date -->
+                <div>
+                    {{ form.date.label(class="block text-sm font-medium text-gray-700") }}
+                    {{ form.date(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
+                    {% for error in form.date.errors %}<span class="text-red-500 text-xs">{{ error }}</span>{% endfor %}
+                </div>
+
+                <!-- Doctor Name -->
+                <div>
+                    {{ form.doctor_name.label(class="block text-sm font-medium text-gray-700") }}
+                    {{ form.doctor_name(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
+                    {% for error in form.doctor_name.errors %}<span class="text-red-500 text-xs">{{ error }}</span>{% endfor %}
+                </div>
+ 
+            <!-- DYNAMIC DISEASE FIELDS -->
+            <div class="md:col-span-2">
+                <h3 class="text-lg font-medium text-gray-900">Diseases</h3>
+                <div id="diseases-container" class="mt-4 space-y-4">
+                    {% for disease_field in form.diseases %}
+                        <div class="disease-field flex items-center space-x-2">
+                            {{ disease_field.label(class="w-20 text-sm font-medium text-gray-700") }}
+                            {{ disease_field(class="flex-grow block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
+                            {% if loop.index0 > 0 %}
+                                <button type="button" class="remove-disease-btn inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">Remove</button>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+                <button id="add-disease-btn" type="button" class="mt-4 inline-flex items-center px-4 py-2 border border-dashed border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-gray-50 hover:bg-gray-100">
+                    Add Another Disease
+                </button>
+            </div>               
+                <!-- Treatment (Full Width) -->
+                <div class="md:col-span-2">
+                    {{ form.treatment.label(class="block text-sm font-medium text-gray-700") }}
+                    {{ form.treatment(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm", rows=3) }}
+                    {% for error in form.treatment.errors %}<span class="text-red-500 text-xs">{{ error }}</span>{% endfor %}
+                </div>
+
+                <!-- Professional Service (Full Width) -->
+                <div class="md:col-span-2">
+                    {{ form.professional_service.label(class="block text-sm font-medium text-gray-700") }}
+                    {{ form.professional_service(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm", rows=3) }}
+                    {% for error in form.professional_service.errors %}<span class="text-red-500 text-xs">{{ error }}</span>{% endfor %}
+                </div>
+
+                <!-- Referral -->
+                <div class="md:col-span-2 flex items-center">
+                    {{ form.referral(class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded") }}
+                    {{ form.referral.label(class="ml-2 block text-sm text-gray-900") }}
+                </div>
+            </div>
+
+            
+            <!-- SUBMIT BUTTON -->
+            <div class="pt-6">
+                {{ form.submit(class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500") }}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Remove the <template> tag entirely -->
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const addBtn = document.getElementById('add-disease-btn');
+    const container = document.getElementById('diseases-container');
+    const diseaseChoices = {{ disease_choices|tojson|safe }};
+    let diseaseIndex = {{ form.diseases|length }};
+
+    addBtn.addEventListener('click', function() {
+        const newField = document.createElement('div');
+        newField.className = 'disease-field flex items-center space-x-2';
+        
+        // Build options HTML
+        let optionsHtml = '<option value="">Select a disease</option>';
+        diseaseChoices.forEach(function(choice) {
+            optionsHtml += `<option value="${choice[0]}">${choice[1]}</option>`;
+        });
+        
+        newField.innerHTML = `
+            <label for="diseases-${diseaseIndex}" class="w-20 text-sm font-medium text-gray-700">Disease</label>
+            <select id="diseases-${diseaseIndex}" 
+                    name="diseases-${diseaseIndex}" 
+                    class="flex-grow block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                ${optionsHtml}
+            </select>
+            <button type="button" class="remove-disease-btn inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                Remove
+            </button>
+        `;
+        
+        container.appendChild(newField);
+        diseaseIndex++;
+    });
+
+    // Event delegation for remove buttons
+    container.addEventListener('click', function(e) {
+        if (e.target && e.target.classList.contains('remove-disease-btn')) {
+            const fields = container.querySelectorAll('.disease-field');
+            if (fields.length > 1) {  // Keep at least one field
+                e.target.closest('.disease-field').remove();
+            }
+        }
+    });
+});
+</script>
+
+{% endblock %}
