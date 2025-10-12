@@ -1,0 +1,14 @@
+{% extends "admin_base.html" %}
+
+{% block content %}
+<form action="" method = "post">
+    {{form.hidden_tag()}}
+    <div>
+        {{form.category_name.label}}
+        {{ form.category_name()}}
+    </div>
+    <div>
+        {{ form.submit()}}
+    </div>
+</form>
+{% endblock %}
