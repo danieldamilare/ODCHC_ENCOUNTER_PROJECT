@@ -1,5 +1,5 @@
 from app import app
-from flask import redirect, flash, url_for, request, render_template, abort
+from flask import redirect, flash, url_for, request, render_template, abort, Response, make_response
 from flask_login import login_required, login_user, logout_user
 from app.models import Role, is_logged_in, get_current_user, AuthUser, Facility, Encounter
 from app.models import DiseaseCategory, Disease, User
@@ -10,7 +10,7 @@ from app.exceptions import AuthenticationError, MissingError, ValidationError
 from app.exceptions import InvalidReferenceError, DuplicateError
 from urllib.parse import urlparse
 from app.utils import form_to_dict, admin_required
-from app.forms import LoginForm, AddEncounterForm, AddFacilityForm, EditFacilityForm, AddDiseaseForm
+from app.forms import LoginForm, AddEncounterForm, AddFacilityForm, EditFacilityForm, AddDiseaseForm, ExcelUploadForm
 from app.forms import AddUserForm, AddCategoryForm, DeleteUserForm, EditUserForm, EditDiseaseForm, EncounterFilterForm
 from flask_wtf import FlaskForm
 from app.services import DashboardServices, ReportServices
@@ -19,7 +19,6 @@ from flask_wtf.csrf import validate_csrf
 from datetime import datetime, date, timedelta
 from typing import Any
 import json
-import io
 
 @app.route('/')
 @app.route('/index')
@@ -588,6 +587,7 @@ def get_report_data():
     report_data = None
     report_title = ""
     start_date = None
+    facility = None
 
     if report_type == 'utilization':
         if not facility_id:
@@ -607,14 +607,14 @@ def get_report_data():
     else:
         raise ValidationError("Invalid report type selected.")
     
-    return report_title, start_date, report_data
+    return report_title, start_date, facility, report_data
 
  
 @app.route('/admin/view_report')
 @admin_required
 def view_report():
     try:
-        report_title, start_date, report_data = get_report_data()
+        report_title, start_date, facility, report_data = get_report_data()
     except (MissingError, ValidationError) as e:
         flash(str(e), 'error')
         return redirect(url_for('reports'))
@@ -650,4 +650,147 @@ def view_report():
                            start_date=start_date,
                            report_data=report_data,
                            header_info=header_info) # Pass the new header info
-                           
+
+import io
+import pandas as pd
+from openpyxl import load_workbook
+from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+from openpyxl.utils import get_column_letter
+
+def append_utilization_header(report_data, start_date: date, facility: Facility):
+    output_buffer = io.BytesIO()
+    with pd.ExcelWriter(output_buffer) as writer:
+        report_data.to_excel(writer, startrow=3)
+    output_buffer.seek(0)
+
+    wb = load_workbook(output_buffer)
+    ws = wb.active
+    ws.merge_cells("A1:S1")
+    ws['A1'].value = 'ONDO STATE CONTRIBUTORY HEALTH COMMISSION'
+    ws['A1'].font = Font(bold=True, size=14)
+    ws['A1'].alignment = Alignment(horizontal='center')
+    
+    ws.merge_cells('A2:S2')
+    ws['A2'].value = start_date.strftime("%b-%y")
+    ws['A2'].alignment = Alignment(horizontal='center')
+    ws['A2'].font = Font(bold=True)
+
+    ws.merge_cells('A3:R3')
+    ws['A3'].value = f'ORANGHIS SERVICE UTILIZATION ({facility.name})'
+    ws['A3'].alignment = Alignment(horizontal="center")
+    ws['A3'].font = Font(bold=True)
+    ws['B4'].value = 'GROUP AGE'
+    ws['B4'].font = Font(bold=True)
+    ws['B4'].alignment = Alignment(horizontal="center")
+    ws['B5'].value = 'SEX'
+    ws['B5'].font = Font(bold=True)
+    ws['B5'].alignment = Alignment(horizontal="center")
+    ws['B6'].font = Font(bold=True)
+    ws['B6'].value = 'DISEASES'
+    ws['B6'].alignment = Alignment(horizontal="center")
+    ws.merge_cells('A4:A6')
+    ws['A4'].values = 'S/N'
+    ws['A4'].font = Font(bold=True)
+    ws['A4'].alignment = Alignment(horizontal='center', vertical='center')
+
+    for row in ws['C4':'S6']:
+        for cell in row:
+            cell.font = Font(bold=True)
+            cell.alignment = Alignment(horizontal='center')
+    final_output = io.BytesIO()
+    ws.column_dimensions['B'].width = 65
+    ws.column_dimensions['S'].width = 18 
+    ws.column_dimensions['A'].width = 5
+    wb.save(final_output)
+    return final_output
+
+def append_encounter_header(report_data, start_date: date):
+    output_buffer = io.BytesIO()
+    with pd.ExcelWriter(output_buffer) as writer:
+        report_data.to_excel(writer, startrow=1)
+    output_buffer.seek(0)
+
+    wb = load_workbook(output_buffer)
+    ws = wb.active
+    ws.merge_cells("A1:S1")
+    ws['A1'].value = f'{start_date.strftime('%B').upper()} ENCOUNTER PER FACILITIES'
+    ws['A1'].font = Font(bold=True, size=14)
+    ws['A1'].alignment = Alignment(horizontal='center')
+    
+    ws['B2'].value = 'GROUP AGE'
+    ws['B2'].font = Font(bold=True)
+    ws['B2'].alignment = Alignment(horizontal="center")
+    ws['B3'].value = 'SEX'
+    ws['B3'].font = Font(bold=True)
+    ws['B3'].alignment = Alignment(horizontal="center")
+    ws['B4'].font = Font(bold=True)
+    ws['B4'].value = 'FACILITIES'
+    ws['B4'].alignment = Alignment(horizontal="center")
+
+    for row in ws['C2':'S4']:
+        for cell in row:
+            cell.font = Font(bold=True)
+            cell.alignment = Alignment(horizontal='center')
+    ws.merge_cells('A2:A4')
+    # ws.column_dimensions['S'] = 20
+    # ws.column_dimensions['B'] = 25
+    # ws.column_dimensions['A'] = 8
+    ws['A2'].value = 'S/N'
+    ws['A2'].font = Font(bold=True)
+    ws['A2'].alignment = Alignment(vertical="center", horizontal='center')
+    ws.column_dimensions['B'].width = 65 
+    ws.column_dimensions['S'].width = 18 
+    ws.column_dimensions['A'].width = 5
+    final_output = io.BytesIO()
+    wb.save(final_output)
+    return final_output
+
+def append_categorization_header(report_data, start_date: date):
+    output_buffer = io.BytesIO()
+    with pd.ExcelWriter(output_buffer) as writer:
+        report_data.to_excel(writer, startrow=1)
+    output_buffer.seek(0)
+
+    wb = load_workbook(output_buffer)
+    ws = wb.active
+    ws.merge_cells("A1:J1")
+    ws['A1'].value = f"{start_date.strftime('%B').upper()} DISEASE CATEGORIZATION PER FACILITIES"
+    ws['A1'].font = Font(bold=True, size=14)
+    ws['A1'].alignment = Alignment(horizontal='center')
+    ws['A2'].value = 'S/N'
+    ws['A2'].font = Font(bold=True)
+    ws['A2'].alignment = Alignment(vertical="center", horizontal='center')
+    ws.column_dimensions['B'].width =65 
+    final_output = io.BytesIO()
+    wb.save(final_output)
+    return final_output
+
+
+@app.route('/admin/download_report')
+@admin_required
+def download_report():
+    import calendar
+    try:
+        report_title, start_date, facility, report_data = get_report_data()
+    except (MissingError, ValidationError) as e:
+        flash(str(e), 'error')
+        return redirect(url_for('reports'))
+    except ValueError:
+        flash("Invalid value provided for month, year, or facility.", 'error')
+        return redirect(url_for('reports'))
+    # except Exception as e:
+        # abort(500)
+    report_name = f'{report_title.replace(' ', '_')}_{start_date.strftime("%B")}.xlsx'
+
+    report_type = request.args.get('report_type')
+    if report_type == 'utilization':
+        output_buffer = append_utilization_header(report_data, start_date, facility)
+    elif  report_type == 'encounter':
+        output_buffer = append_encounter_header(report_data, start_date)
+    elif report_type == 'categorization':
+        output_buffer = append_categorization_header(report_data, start_date)
+    output_buffer.seek(0)
+    res = Response(output_buffer.read())
+    res.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    res.headers['Content-Disposition'] = f'attachment; filename="{report_name}"'
+    return res
