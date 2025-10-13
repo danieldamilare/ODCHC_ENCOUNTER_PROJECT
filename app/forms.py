@@ -1,10 +1,11 @@
 from app.models import User, Facility, Disease 
 from wtforms import StringField, PasswordField, SubmitField, BooleanField, TextAreaField
-from wtforms import IntegerField, SelectField, HiddenField, FieldList, DateField
-from wtforms.validators import DataRequired, Length, NumberRange, EqualTo, Optional, ValidationError
+from wtforms import IntegerField, SelectField, HiddenField, FieldList, DateField, FileField
+from wtforms.validators import DataRequired, Length, NumberRange, EqualTo, Optional, ValidationError 
 from app.config import LOCAL_GOVERNMENT
 from app.services import FacilityServices, DiseaseCategoryServices, DiseaseServices
 from flask_wtf import FlaskForm
+from flask_wtf.file import FileAllowed, FileRequired
 
 class LoginForm(FlaskForm):
     username = StringField('Enter Username: ', validators=[DataRequired() ])
@@ -89,3 +90,12 @@ class EncounterFilterForm(FlaskForm):
                                      validators=[Optional()])
     facility_id = SelectField('Facility', validators=[Optional()])
     submit = SubmitField('Filter')
+
+class ExcelUploadForm(FlaskForm):
+    facility = SelectField('Facility', validators=[DataRequired()])
+    month = SelectField("Month", validators = [DataRequired()])
+    excel_file =  FileField("Upload Excel File", validators=[
+            FileRequired(),
+            FileAllowed(['xls', 'xlsx'], "Excel files only!")
+            ])
+    submit = SubmitField("Upload")
