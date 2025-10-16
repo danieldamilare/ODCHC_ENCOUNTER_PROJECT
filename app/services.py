@@ -125,9 +125,6 @@ class BaseServices:
 
         # --- GROUP BY Clause ---
         if group_by:
-            for col in group_by:
-                if col not in cls.columns:
-                    raise ValidationError(f"Invalid column for group_by: {col}")
             query += f" GROUP BY {', '.join(group_by)}"
 
         # --- ORDER BY Clause ---
@@ -771,6 +768,9 @@ class DashboardServices(BaseServices):
              ORDER BY disease_count DESC
              LIMIT ?
         '''
+        and_filter = [('ec.date', start_date, '>='), ('ec.date', end_date, '<='), ('ec.facility_id', facility_id, '=')]
+
+        cls._apply_filter(query, limit = limit, and_filter = and_filter, group_by=[''])
 
         return cls._run_query(query, 
                             (start_date, end_date, limit),
@@ -955,7 +955,7 @@ class ReportServices(BaseServices):
         print('df', df)
 
         if df.empty:
-            return df
+            raise MissingError("No report available for this timeframe!")
 
         age_groups = ['<1', '1-5', '6-14', '15-19', '20-44', '45-64', '65&AB']
         gender = ['M', 'F']
@@ -973,9 +973,9 @@ class ReportServices(BaseServices):
         )
         # table
 
-        table['TOTAL_M'] = table.filter(like= 'M').sum(axis=1)
-        table['TOTAL_F'] = table.filter(like= 'F').sum(axis=1)
-        table['TOTAL'] =  table['TOTAL_M'] + table['TOTAL_F']
+        table[('TOTAL', 'M')] = table.filter(like= 'M').sum(axis=1)
+        table[('TOTAL', 'F')] = table.filter(like= 'F').sum(axis=1)
+        table['GRAND TOTAL'] =  table[('TOTAL', 'M')] + table[('TOTAL', 'F')]
         table.loc['TOTAL'] = table.sum()
         table = table.reset_index()
         table.index.name = ''
@@ -1012,7 +1012,7 @@ class ReportServices(BaseServices):
         df = pd.DataFrame([dict(row) for row in rows])
 
         if df.empty:
-            return df
+            raise MissingError("No report available for this timeframe!")
 
         age_groups = ['<1', '1-5', '6-14', '15-19', '20-44', '45-64', '65&AB']
         gender = ['M', 'F']
@@ -1034,15 +1034,15 @@ class ReportServices(BaseServices):
             axis=1
         )
 
-        table['TOTAL_F'] = table.filter(like= 'F').sum(axis=1)
-        table['TOTAL_M'] = table.filter(like = 'M').sum(axis=1)
-        table['TOTAL'] =  table['TOTAL_M'] + table['TOTAL_F']
+        table[('TOTAL', 'M')] = table.filter(like= 'M').sum(axis=1)
+        table[('TOTAL', 'F')] = table.filter(like= 'F').sum(axis=1)
+        table['GRAND TOTAL'] =  table[('TOTAL', 'M')] + table[('TOTAL', 'F')]
         table.loc['TOTAL'] = table.sum()
-        table.reset_index(inplace=True)
+        table = table.reset_index()
         table.index.name = ''
         table.columns.name = ''
         table.rename(columns={'facility_name': 'Facilities'}, inplace=True)
-        print(table)
+        # print(table)
         return start_date, table
 
 
@@ -1066,6 +1066,8 @@ class ReportServices(BaseServices):
         db = get_db()
         rows = db.execute(query, (start_date, end_date))
         df = pd.DataFrame([dict(row) for row in rows])
+        if df.empty:
+            raise MissingError("No report available for the time frame")
         table = df.pivot_table(
             index = 'facility_name',
             values = 'policy_number',
@@ -1084,3 +1086,9 @@ class ReportServices(BaseServices):
         table.rename(columns={'facility_name': 'Facilities'}, inplace=True)
 
         return start_date, table
+
+class UploadServices(BaseServices):
+    
+    @classmethod
+    def upload_sheet(cls):
+        return

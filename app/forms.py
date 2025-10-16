@@ -86,14 +86,14 @@ class EncounterFilterForm(FlaskForm):
     start_date = DateField('Start Date', format='%Y-%m-%d', validators=[Optional()])
     end_date = DateField('End Date', format='%Y-%m-%d', validators=[Optional()])
     local_government =  SelectField('Local Government', 
-                                     choices=[(lga, lga) for lga in LOCAL_GOVERNMENT],
+                                     choices=[('', 'Select Local Government')] + [ (lga, lga.title()) for lga in LOCAL_GOVERNMENT],
                                      validators=[Optional()])
     facility_id = SelectField('Facility', validators=[Optional()])
     submit = SubmitField('Filter')
 
 class ExcelUploadForm(FlaskForm):
-    facility = SelectField('Facility', validators=[DataRequired()])
-    month = SelectField("Month", validators = [DataRequired()])
+    facility_id = SelectField('Facility', coerce=int, validators=[DataRequired()])
+    month = SelectField("Month", coerce=int, validators = [DataRequired()])
     excel_file =  FileField("Upload Excel File", validators=[
             FileRequired(),
             FileAllowed(['xls', 'xlsx'], "Excel files only!")

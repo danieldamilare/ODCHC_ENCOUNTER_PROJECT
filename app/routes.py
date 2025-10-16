@@ -455,12 +455,18 @@ def view_encounter(pid: int):
                            encounter=encounter_view)
 
 
-@app.route('/admin')
-@admin_required
+@app.route('/dashboard')
 def admin():
     # --- 1. GET FILTERS FROM URL ---
     period = request.args.get('period', 'this_month')
-    facility_id = request.args.get('facility_id', 'all')
+    facility_id = request.args.get('facility_id', None) 
+    user = get_current_user()
+
+    if user.role.name != 'admin':
+        if facility_id != 'all':
+            flash("You cannot access another facility", 'error')
+            return redirect(url_for('admin'))
+        facility_id = user.facility_id
 
     # --- 2. CALCULATE DATE RANGE ---
     today = date.today()
@@ -484,7 +490,7 @@ def admin():
         encounter_and_filters.append(('date', start_date, '>='))
         other_encounter_filter += encounter_and_filters
     
-    if facility_id != 'all':
+    if facility_id is not None:
         try:
             # Filter for encounter-related queries
             encounter_and_filters.append(('ec.facility_id', int(facility_id), '='))
@@ -502,9 +508,9 @@ def admin():
     # print(encounter_and_filters)
     active_facilities = len(list(EncounterServices.get_all(and_filter=encounter_and_filters, group_by=['ec.facility_id'])))
     
-    top_diseases_data = DashboardServices.top_diseases(start_date=start_date, end_date=end_date, limit=5)
+    top_diseases_data = DashboardServices.top_diseases(start_date=start_date, end_date=end_date, limit=5, facility_id= facility_id)
     
-    gender_distribution_data = DashboardServices.gender_distribution(start_date=start_date, end_date=end_date)
+    gender_distribution_data = DashboardServices.gender_distribution(start_date=start_date, end_date=end_date, facility_id = facility_id)
     male_count = 0
     female_count = 0
     for item in gender_distribution_data:
@@ -517,8 +523,8 @@ def admin():
     female_perc = (female_count / total_gender * 100) if total_gender > 0 else 0
 
     # For charts
-    monthly_trend_raw = json.loads(DashboardServices.trend_last_n_weeks()) # 6 months
-    daily_trend_raw = json.loads(DashboardServices.trend_last_n_days())
+    monthly_trend_raw = json.loads(DashboardServices.trend_last_n_weeks(facility_id=facility_id)) # 6 months
+    daily_trend_raw = json.loads(DashboardServices.trend_last_n_days(facility_id=facility_id))
     age_distribution = DashboardServices.age_group_distribution(start_date = start_date, end_date = end_date)
     # print(monthly_trend_raw)
     top_facilities_raw = DashboardServices.get_top_facilities(start_date=start_date, end_date=end_date, limit=5)
@@ -527,10 +533,11 @@ def admin():
     recent_encounters = list(EncounterServices.get_all(limit=5, order_by=[('date', 'DESC')], and_filter=encounter_and_filters))
 
     # For dropdown
-    all_facilities = list(FacilityServices.get_all())
+    all_facilities = sorted(FacilityServices.get_all(), key=lambda x: x.name)
 
     return render_template('admin.html',
                            # Filters for UI
+                           title = 'Dashboard',
                            all_facilities=all_facilities,
                            current_period=period,
                            current_facility_id=facility_id,
@@ -689,7 +696,7 @@ def append_utilization_header(report_data, start_date: date, facility: Facility)
     ws['B6'].value = 'DISEASES'
     ws['B6'].alignment = Alignment(horizontal="center")
     ws.merge_cells('A4:A6')
-    ws['A4'].values = 'S/N'
+    ws['A4'].value = 'S/N'
     ws['A4'].font = Font(bold=True)
     ws['A4'].alignment = Alignment(horizontal='center', vertical='center')
 
@@ -745,6 +752,7 @@ def append_encounter_header(report_data, start_date: date):
     wb.save(final_output)
     return final_output
 
+
 def append_categorization_header(report_data, start_date: date):
     output_buffer = io.BytesIO()
     with pd.ExcelWriter(output_buffer) as writer:
@@ -769,6 +777,7 @@ def append_categorization_header(report_data, start_date: date):
 @app.route('/admin/download_report')
 @admin_required
 def download_report():
+    from werkzeug.utils import secure_filename
     import calendar
     try:
         report_title, start_date, facility, report_data = get_report_data()
@@ -790,7 +799,29 @@ def download_report():
     elif report_type == 'categorization':
         output_buffer = append_categorization_header(report_data, start_date)
     output_buffer.seek(0)
-    res = Response(output_buffer.read())
-    res.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    res.headers['Content-Disposition'] = f'attachment; filename="{report_name}"'
-    return res
+    from flask import send_file
+    return send_file(
+        output_buffer,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=secure_filename(report_name)
+    )
+
+@app.route('/admin/upload_excel', methods=['GET', 'POST'])
+@admin_required
+def upload_excel():
+    import calendar
+    from werkzeug.utils import secure_filename
+    form = ExcelUploadForm()
+    facility_list = [('0', 'Select Facility')] + [(facility.id, facility.name ) for facility in sorted(FacilityServices.get_all(), key=lambda x: x.name)]
+    month_list = [('0', 'Select Month')] + [(i, calendar.month_name[i]) for i in range(1, 13)]
+    form.facility_id.choices = facility_list
+    form.month.choices = month_list
+    if form.validate_on_submit():
+        file_data = form.facility.data
+        month = form.month
+        facility_id = form.facility_id.data
+        user = get_current_user()
+        print("Doing nothing")
+
+    return render_template('upload_excel.html', title='Upload Encounter Sheet', form = form)
