@@ -1,0 +1,51 @@
+{% extends "admin_base.html" %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="bg-white rounded-lg shadow-lg p-6">
+        <div class="mb-6">
+            <h1 class="text-2xl font-bold text-gray-800">{{ title }}</h1>
+            <p class="text-sm text-gray-500 mt-2">
+                For facilities with no internet access, you can upload their monthly encounter data using an Excel spreadsheet.
+                The file must have the following columns: <code class="text-xs bg-gray-100 p-1 rounded">Date</code>, <code class="text-xs bg-gray-100 p-1 rounded">Policy Number</code>, <code class="text-xs bg-gray-100 p-1 rounded">Client Name</code>, <code class="text-xs bg-gray-100 p-1 rounded">Gender</code>, <code class="text-xs bg-gray-100 p-1 rounded">Age</code>, <code class="text-xs bg-gray-100 p-1 rounded">Doctor Name</code>, and <code class="text-xs bg-gray-100 p-1 rounded">Diseases</code>. 
+            </p>
+        </div>
+        
+        <!-- IMPORTANT: enctype is required for file uploads -->
+        <form method="post" enctype="multipart/form-data" novalidate>
+            {{ form.hidden_tag() }}
+            <div class="space-y-6">
+                <div>
+                    {{ form.facility_id.label(class="block text-sm font-medium text-gray-700") }}
+                    {{ form.facility_id(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
+                    {% for error in form.facility_id.errors %}
+                        <span class="text-red-500 text-xs mt-1">{{ error }}</span>
+                    {% endfor %}
+                </div>
+                <div>
+                    {{ form.month.label(class="block text-sm font-medium text-gray-700") }}
+                    {{ form.month(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
+                    {% for error in form.month.errors %}
+                        <span class="text-red-500 text-xs mt-1">{{ error }}</span>
+                    {% endfor %}
+                </div>
+
+                
+                <div>
+                    {{ form.excel_file.label(class="block text-sm font-medium text-gray-700") }}
+                    <div class="mt-1">
+                        {{ form.excel_file(class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100") }}
+                    </div>
+                    {% for error in form.excel_file.errors %}
+                        <span class="text-red-500 text-xs mt-1">{{ error }}</span>
+                    {% endfor %}
+                </div>
+
+                <div class="pt-2">
+                    {{ form.submit(class="w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500") }}
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
