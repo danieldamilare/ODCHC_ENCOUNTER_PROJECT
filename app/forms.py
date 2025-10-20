@@ -39,7 +39,7 @@ class AddFacilityForm(FlaskForm):
     facility_type = SelectField('Facility Type', 
                                 choices= ['Primary', 'Secondary', 'Private'], validators=[DataRequired()])
 
-    insurance_scheme = SelectMultipleField('Insurance Scheme', 
+    scheme = SelectMultipleField('Insurance Scheme', coerce=int, 
                                     validators=[DataRequired("Please select the insurance scheme allowed for this facility")]);
     submit = SubmitField('submit')
 

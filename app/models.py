@@ -90,6 +90,8 @@ class InsuranceScheme:
 class FacilityView:
     name: str
     lga: str
+    scheme: List[str]
+    facility_type: str
 
 @dataclass
 class DiseaseView:
@@ -101,7 +103,7 @@ class DiseaseView:
 @dataclass
 class EncounterView:
     id: int
-    facility: FacilityView
+    facility: str
     diseases: List[DiseaseView]
     policy_number: str
     client_name: str
