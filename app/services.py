@@ -1,7 +1,7 @@
 from werkzeug.security import generate_password_hash, check_password_hash
 from typing import Optional, Type, TypeVar, Any, Iterator, List, Tuple
 from app.db import get_db, close_db
-from app.models import User, Facility, Disease, Encounter, DiseaseCategory, Role
+from app.models import User, Facility, Disease, Encounter, DiseaseCategory, Role, InsuranceScheme
 from app.exceptions import MissingError, InvalidReferenceError, DuplicateError
 from app.exceptions import ValidationError, AuthenticationError
 from datetime import datetime, date
@@ -31,7 +31,7 @@ class BaseServices:
         db = get_db()
         row = db.execute(f'SELECT * FROM {cls.table_name} WHERE id = ?', (id,)).fetchone()
         if row is None:
-            raise MissingError(f"Object not found in the database")
+            raise MissingError(f"{cls.model.get_name()} not found in the database")
         return cls._row_to_model(row, cls.model)
 
     @classmethod
@@ -63,9 +63,7 @@ class BaseServices:
         try:
             db.execute(f'UPDATE {cls.table_name} SET {",".join(field)} WHERE id = ?', values + [model.id])
             db.commit()
-        except sqlite3.IntegrityError:
-            raise DuplicateError
-        return model
+            return model
 
     @classmethod
     def get_total(cls, 
@@ -111,8 +109,6 @@ class BaseServices:
         if or_filter:
             or_conditions = []
             for column_name, value, opt in or_filter:
-                if column_name not in cls.columns:
-                    raise ValidationError("Invalid Column access")
                 if opt not in ALLOWED_OPERATORS:
                     raise ValidationError(f"Invalid operator: {opt}")
                 or_conditions.append(f"{column_name} {opt} ?")
@@ -131,8 +127,6 @@ class BaseServices:
         if order_by:
             clause = []
             for col, direction in order_by:
-                if col not in cls.columns:
-                    raise ValidationError(f"Invalid column for order_by: {col}")
                 if direction.upper() not in ['ASC', 'DESC']:
                     raise ValidationError(f"Invalid sort direction: {direction}")
                 clause.append(f"{col} {direction.upper()}")
@@ -338,22 +332,34 @@ class UserServices(BaseServices):
 class FacilityServices(BaseServices):
     table_name = 'facility'
     model = Facility
-    LOCAL_GOVERNMENT = LOCAL_GOVERNMENT
+    LOCAL_GOVERNMENT = sorted(LOCAL_GOVERNMENT)
     columns = {'id', 'name', 'local_government', 'facility_type'}
     columns_to_update  = {'name', 'local_government', 'facility_type'}
 
     @classmethod
-    def create_facility(cls, name: str, local_government: str, facility_type: str, commit=True) -> Facility:
+    def create_facility(cls, name: str, local_government: str,
+                         facility_type: str, insurance_scheme: List[int],
+                         commit=True) -> Facility:
         db = get_db()
         if local_government.lower() not in FacilityServices.LOCAL_GOVERNMENT:
             raise ValidationError("Local Government does not exist in Akure")
         try:
             cursor = db.execute(f'INSERT INTO {cls.table_name} (name, local_government, facility_type) VALUES (?, ?, ?)', (name, local_government, facility_type))
-            if commit: db.commit()
             new_id = cursor.lastrowid
+            scheme_list = list(set((new_id, x) for x in insurance_scheme))
+            cls.add_scheme(scheme_list)
             return cls.get_by_id(new_id)
+            if commit: db.commit()
         except sqlite3.IntegrityError:
+            db.rollback()
             raise DuplicateError(f"Facility {name} already exist in database")
+
+    
+    @classmethod
+    def add_scheme(cls, scheme_list:List[Tuple[int, int]]):
+        db.executemany('INSERT INTO facility_scheme (facility_id, scheme_id) VALUES (? ?)',
+                        scheme_list)
+
 
     @classmethod
     def get_facility_by_name(cls, name: str) -> Facility:
@@ -369,13 +375,24 @@ class FacilityServices(BaseServices):
         db.execute(f"DELETE FROM {cls.table_name} WHERE id = ?",  [facility.id])
         db.commit()
 
-    @staticmethod
-    def update_facility(facility: Facility):
+    @classmethod
+    def update_facility(cls, facility: Facility):
         if facility.local_government.lower() not in FacilityServices.LOCAL_GOVERNMENT:
             raise ValidationError("Local Government does not exist in Akure")
+        db = get_db()
         try:
+            current_scheme = set(db.execute(
+                'SELECT scheme_id from facility_scheme where facility_id = ?',
+                (facility.id,)
+            ))
+            new_scheme = list(set((facility.id, sc)
+                                   for sc in facility.scheme if sc not in current_scheme))
+            cls.add_scheme(new_scheme)
+
+            #update data does commit
             FacilityServices.update_data(facility)
         except DuplicateError:
+            db.rollback()
             raise DuplicateError(f'Facility with name {facility.name} already exists')
         return facility
 
@@ -973,7 +990,7 @@ class ReportServices(BaseServices):
         )
         # table
 
-        table[('TOTAL', 'M')] = table.filter(like= 'M').sum(axis=1)
+       table[('TOTAL', 'M')] = table.filter(like= 'M').sum(axis=1)
         table[('TOTAL', 'F')] = table.filter(like= 'F').sum(axis=1)
         table['GRAND TOTAL'] =  table[('TOTAL', 'M')] + table[('TOTAL', 'F')]
         table.loc['TOTAL'] = table.sum()
@@ -1090,5 +1107,6 @@ class ReportServices(BaseServices):
 class UploadServices(BaseServices):
     
     @classmethod
+    #todo
     def upload_sheet(cls):
         return
