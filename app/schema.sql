@@ -61,12 +61,24 @@ CREATE TABLE encounters (
 
 -- To be updated once the whole application is working
 CREATE TABLE encounters_diseases(
-    id INTEGER PRIMARY KEY,
     encounter_id INTEGER NOT NULL,
     disease_id INTEGER NOT NULL,
     FOREIGN KEY (encounter_id) REFERENCES encounters (id) ON DELETE CASCADE,
-    FOREIGN KEY (disease_id) REFERENCES diseases (id) ON DELETE RESTRICT
+    FOREIGN KEY (disease_id) REFERENCES diseases (id) ON DELETE RESTRICT,
+    PRIMARY KEY(encounter_id, disease_id)
 );
+
+CREATE TABLE insurance_scheme(
+    id INTEGER PRIMARY KEY,
+    scheme_name TEXT UNIQUE NOT NULL
+);
+
+CREATE TABLE facility_scheme(
+    facility_id INTEGER NOT NULL,
+    scheme_id INTEGER NOT NULL,
+    PRIMARY KEY(facility_id, scheme_id)
+);
+
 
 CREATE INDEX idx_encounters_facility_id ON encounters (facility_id);
 CREATE INDEX idx_encounters_date ON encounters (date);

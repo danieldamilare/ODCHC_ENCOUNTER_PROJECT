@@ -18,12 +18,22 @@ class User:
     role: Role
     password_hash: str
 
+    @property
+    def get_name():
+        return f"User"
+
+
 @dataclass
 class Facility:
     id: int
     name: str
     local_government: str
-    facility_type: str #(health center -> primary, hospital -> second, specialist hospital -> tertiary)
+    facility_type: str #(health center -> primary, hospital -> secondary, private)
+    scheme: list[int]
+
+    @property
+    def get_name() -> str:
+        return f"Facility"
 
 @dataclass
 class Disease:
@@ -31,10 +41,19 @@ class Disease:
     name:  str
     category_id:  int
 
+    @property
+    def get_name() -> str:
+        return f"Disease"
+
+
 @dataclass
 class DiseaseCategory:
     id: int
     category_name: str
+
+    @property
+    def get_name() -> str:
+        return f"Disease Category"
 
 
 @dataclass
@@ -53,6 +72,19 @@ class Encounter:
     professional_service: Optional[str]
     created_by: int
     created_at: datetime
+
+    @property
+    def get_name() -> str:
+        return "Encounter"
+
+@dataclass
+class InsuranceScheme:
+    id: int
+    scheme_name: str
+
+    @property
+    def get_name() -> str:
+        return "Insurance Scheme"
 
 @dataclass
 class FacilityView:
