@@ -2,10 +2,9 @@ from app import app
 from flask import redirect, flash, url_for, request, render_template, abort, Response, make_response
 from flask_login import login_required, login_user, logout_user
 from app.models import Role, is_logged_in, get_current_user, AuthUser, Facility, Encounter
-from app.models import DiseaseCategory, Disease, User
-from app.models import get_current_user
+from app.models import DiseaseCategory, Disease, User, InsuranceScheme, get_current_user
 from app.services import UserServices, EncounterServices, FacilityServices, DiseaseServices
-from app.services import DiseaseCategoryServices
+from app.services import DiseaseCategoryServices, InsuranceSchemeServices
 from app.exceptions import AuthenticationError, MissingError, ValidationError
 from app.exceptions import InvalidReferenceError, DuplicateError
 from urllib.parse import urlparse
@@ -111,6 +110,9 @@ def add_encounter() -> Any:
 @admin_required
 def facilities() -> Any:
     facility_form = AddFacilityForm()
+    facility_form.scheme.choices = [('0', 'Select Insurance Scheme')] 
+    others = [(sc.id, sc.scheme_name) for sc in InsuranceSchemeServices.get_all()]
+    facility_form.scheme.choices += others
     if facility_form.validate_on_submit():
         res = form_to_dict(facility_form, Facility)
         try:
@@ -148,6 +150,10 @@ def edit_facilities(pid: int) ->Any:
         abort(500)
 
     form: FlaskForm = EditFacilityForm(obj=facility)
+    form.scheme.choices = [('0', 'Select Insurance Scheme')] 
+    others = [(sc.id, sc.scheme_name) for sc in InsuranceSchemeServices.get_all()]
+    form.scheme.choices += others
+
     if form.validate_on_submit():
         try:
             form.populate_obj(facility)
