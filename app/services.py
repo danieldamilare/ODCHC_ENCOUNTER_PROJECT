@@ -397,6 +397,33 @@ class FacilityServices(BaseServices):
         return facility
 
 
+class InsuranceSchemeServices(BaseServices):
+    table_name = 'insurance_scheme'
+    model = InsuranceScheme
+    columns_to_update = {'scheme_name'}
+    columns = {'id', 'scheme_name'}
+
+    @classmethod
+    def create_scheme(cls, name: str, commit=True):
+        db = get_db()
+        try:
+            cursor = db.execute('INSERT INTO {cls.table_name} (scheme_name) VALUES (?)',
+                                (name, ))
+            if commit: db.commit()
+            new_id = cursor.lastrowid
+            return cls.get_by_id(new_id)
+
+        except sqlite3.IntegrityError:
+            raise DuplicateError("Insurance scheme already exists in the database")
+    
+    @classmethod
+    def update_scheme(cls, scheme: InsuranceScheme):
+        try:
+            cls.update_data(scheme)
+        except sqlite3.IntegrityError:
+            raise DuplicateError(f"{scheme.scheme_name) already exists in database")
+        
+
 class DiseaseServices(BaseServices):
     table_name = 'diseases'
     model = Disease
