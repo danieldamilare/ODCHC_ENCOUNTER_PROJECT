@@ -270,7 +270,7 @@ class UserServices(BaseServices):
         rows = db.execute(query, args)
 
         for row in rows:
-            facility = FacilityView(row['facility_name'], row['lga']) if row['facility_name'] else None
+            facility = row['facility_name'] if row['facility_name'] else None
             yield UserView(
                 id=row['user_id'],
                 username=row['username'],
@@ -411,7 +411,7 @@ class FacilityServices(BaseServices):
         SELECT 
             fc.id,
             fc.name as facility_name,
-            fc.local_government
+            fc.local_government,
             fc.facility_type
         FROM {cls.table_name} as fc
         '''
@@ -425,6 +425,7 @@ class FacilityServices(BaseServices):
             group_by= group_by
         )
         db = get_db()
+        print(query)
         facility_rows = list(db.execute(query, args).fetchall())
         row_ids = [row['id'] for row in facility_rows]
         placeholders = ','.join(('?' * len(row_ids)))
@@ -441,20 +442,21 @@ class FacilityServices(BaseServices):
         WHERE fc.id IN ({placeholders})
         '''
 
-        scheme_rows = db.execute(query, placeholders).fetchall()
-        scheme_map = defaultdict(List)
+        scheme_rows = db.execute(query, row_ids).fetchall()
+        scheme_map = defaultdict(list)
         for row in scheme_rows:
             scheme_map[row['id']].append(row['scheme_name'])
 
         for row in facility_rows:
             from app.models import FacilityView
             facility = FacilityView(
+                id = row['id'],
                 name = row['facility_name'],
                 lga = row['local_government'],
                 facility_type = row['facility_type'],
                 scheme =  scheme_map[row['id']]
             )
-            yield faciltiy
+            yield facility
 
 
 class InsuranceSchemeServices(BaseServices):
@@ -481,7 +483,7 @@ class InsuranceSchemeServices(BaseServices):
         try:
             cls.update_data(scheme)
         except sqlite3.IntegrityError:
-            raise DuplicateError(f"{scheme.scheme_name) already exists in database")
+            raise DuplicateError(f"{scheme.scheme_name} already exists in database")
         
 
 class DiseaseServices(BaseServices):
@@ -1072,7 +1074,7 @@ class ReportServices(BaseServices):
         )
         # table
 
-       table[('TOTAL', 'M')] = table.filter(like= 'M').sum(axis=1)
+        table[('TOTAL', 'M')] = table.filter(like= 'M').sum(axis=1)
         table[('TOTAL', 'F')] = table.filter(like= 'F').sum(axis=1)
         table['GRAND TOTAL'] =  table[('TOTAL', 'M')] + table[('TOTAL', 'F')]
         table.loc['TOTAL'] = table.sum()

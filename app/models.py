@@ -29,7 +29,6 @@ class Facility:
     name: str
     local_government: str
     facility_type: str #(health center -> primary, hospital -> secondary, private)
-    scheme: list[int]
 
     @property
     def get_name() -> str:
@@ -88,6 +87,7 @@ class InsuranceScheme:
 
 @dataclass
 class FacilityView:
+    id: int
     name: str
     lga: str
     scheme: List[str]
@@ -126,7 +126,7 @@ class EncounterView:
 class UserView:
     id: int
     username: str
-    facility: Optional[FacilityView]
+    facility: str
     role: Role
 
 

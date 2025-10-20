@@ -146,8 +146,8 @@ def edit_facilities(pid: int) ->Any:
     except MissingError as e:
         flash(str(e), 'error')
         return redirect(url_for('facilities'))
-    except:
-        abort(500)
+    # except:
+        # abort(500)
 
     form: FlaskForm = EditFacilityForm(obj=facility)
     form.scheme.choices = [('0', 'Select Insurance Scheme')] 
@@ -180,8 +180,8 @@ def view_facilities(pid: int) -> Any:
     except MissingError as e:
         flash(str(e), 'error')
         return redirect(url_for('facilities'))
-    except:
-        abort(500)
+    # except:
+        # abort(500)
 
     user_form: AddUserForm = AddUserForm()
     user_form.facility_id.choices = [('0', 'Select a facility')] + sorted([(fac.id, fac.name.title()) for fac in FacilityServices.get_all()], key=lambda x: x[1])
@@ -268,8 +268,8 @@ def add_category():
             return redirect(url_for('diseases'))
         except DuplicateError as e:
             flash(str(e), 'error')
-        except Exception:
-            abort(500)
+        # except Exception:
+            # abort(500)
     return render_template('add_category.html', title='Add Disease Category', form=form)
 
 
@@ -286,8 +286,8 @@ def add_disease():
             return redirect(url_for('diseases'))
         except (DuplicateError, InvalidReferenceError) as e:
             flash(str(e), 'error')
-        except Exception:
-            abort(500)
+        # except Exception:
+            # abort(500)
     return render_template('add_disease.html', title='Add Disease', form=form)
 
 
@@ -312,8 +312,8 @@ def edit_disease(disease_id: int):
             return redirect(url_for('diseases'))
         except (DuplicateError, InvalidReferenceError) as e:
             flash(str(e), 'error')
-        except Exception:
-            abort(500)
+        # except Exception:
+            # abort(500)
     return render_template('add_disease.html', title=f"Edit Disease: {disease.name}", form=form, disease=disease)
 
    

@@ -37,9 +37,9 @@
                             {% endfor %}
                         </div>
                         <div>
-                           {{facility_form.insurance_scheme.label(class="block text-sm font-medium text-gray-700")}}
+                           {{facility_form.scheme.label(class="block text-sm font-medium text-gray-700")}}
                             <ul>
-                                {% for subfield in form.insurance_scheme %}
+                                {% for subfield in facility_form.scheme %}
                                 <li>{{subfield()}} {{subfield.label}}</li>
                                 {% endfor %}
                             </ul>
