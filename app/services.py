@@ -3,6 +3,7 @@ from typing import Optional, Type, TypeVar, Any, Iterator, List, Tuple
 from app.db import get_db, close_db
 from app.models import User, Facility, Disease, Encounter, DiseaseCategory, Role, InsuranceScheme
 from app.exceptions import MissingError, InvalidReferenceError, DuplicateError
+from collections import defaultdict
 from app.exceptions import ValidationError, AuthenticationError
 from datetime import datetime, date
 from flask_wtf import FlaskForm
@@ -60,10 +61,9 @@ class BaseServices:
         field = [f"{key}=?" for key in vars(model).keys() if key in cls.columns_to_update]
         values = [v for k, v in vars(model).items() if k in cls.columns_to_update]
 
-        try:
-            db.execute(f'UPDATE {cls.table_name} SET {",".join(field)} WHERE id = ?', values + [model.id])
-            db.commit()
-            return model
+        db.execute(f'UPDATE {cls.table_name} SET {",".join(field)} WHERE id = ?', values + [model.id])
+        db.commit()
+        return model
 
     @classmethod
     def get_total(cls, 
@@ -338,7 +338,7 @@ class FacilityServices(BaseServices):
 
     @classmethod
     def create_facility(cls, name: str, local_government: str,
-                         facility_type: str, insurance_scheme: List[int],
+                         facility_type: str, scheme: List[int],
                          commit=True) -> Facility:
         db = get_db()
         if local_government.lower() not in FacilityServices.LOCAL_GOVERNMENT:
@@ -395,6 +395,66 @@ class FacilityServices(BaseServices):
             db.rollback()
             raise DuplicateError(f'Facility with name {facility.name} already exists')
         return facility
+
+
+    @classmethod
+    def get_all(cls, 
+            limit: int = 0,
+            offset: int = 0, 
+            and_filter: Optional[List[Tuple]] = None,
+            or_filter: Optional[List[Tuple]] = None,
+            order_by: Optional[List[Tuple[str, str]]] = None,
+            group_by: Optional[List[str]] = None
+            ) -> Iterator:
+        from app.models import FacilityView
+        query = f'''
+        SELECT 
+            fc.id,
+            fc.name as facility_name,
+            fc.local_government
+            fc.facility_type
+        FROM {cls.table_name} as fc
+        '''
+        query, args = cls._apply_filter(
+            base_query=query,
+            limit = limit,
+            offset = offset,
+            and_filter= and_filter,
+            or_filter= or_filter,
+            order_by= order_by,
+            group_by= group_by
+        )
+        db = get_db()
+        facility_rows = list(db.execute(query, args).fetchall())
+        row_ids = [row['id'] for row in facility_rows]
+        placeholders = ','.join(('?' * len(row_ids)))
+
+        query = f'''
+        SELECT  
+            fc.id,
+            isc.scheme_name
+        FROM {cls.table_name} as fc
+        JOIN facility_scheme as fsc 
+        ON fc.id = fsc.facility_id
+        JOIN insurance_scheme as isc
+        ON isc.id = fsc.scheme_id
+        WHERE fc.id IN ({placeholders})
+        '''
+
+        scheme_rows = db.execute(query, placeholders).fetchall()
+        scheme_map = defaultdict(List)
+        for row in scheme_rows:
+            scheme_map[row['id']].append(row['scheme_name'])
+
+        for row in facility_rows:
+            from app.models import FacilityView
+            facility = FacilityView(
+                name = row['facility_name'],
+                lga = row['local_government'],
+                facility_type = row['facility_type'],
+                scheme =  scheme_map[row['id']]
+            )
+            yield faciltiy
 
 
 class InsuranceSchemeServices(BaseServices):
@@ -463,9 +523,9 @@ class DiseaseServices(BaseServices):
             d.name as disease_name,
             dc.id as category_id,
             dc.category_name 
-            FROM diseases as d
-            JOIN diseases_category as dc 
-            ON d.category_id = dc.id'''
+        FROM diseases as d
+        JOIN diseases_category as dc 
+        ON d.category_id = dc.id'''
 
         query, args = cls._apply_filter(
             base_query= query,
@@ -675,7 +735,6 @@ class EncounterServices(BaseServices):
         
         diseases_rows = db.execute(diseases_query, encounter_ids).fetchall()
         
-        from collections import defaultdict
         diseases_by_encounter = defaultdict(list)
         from app.models import EncounterView, DiseaseView, FacilityView
         
@@ -693,14 +752,10 @@ class EncounterServices(BaseServices):
             diseases_by_encounter[encounter_id].append(disease)
         
         for row in encounters_rows:
-            facility = FacilityView(
-                name=row['facility_name'],
-                lga=row['lga']
-            )
             
             encounter = EncounterView(
                 id=row['id'],
-                facility=facility,
+                facility= row['facility_name'],
                 diseases=diseases_by_encounter[row['id']],  
                 policy_number=row['policy_number'],
                 client_name=row['client_name'],
