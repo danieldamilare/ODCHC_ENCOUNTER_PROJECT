@@ -1,8 +1,9 @@
 from werkzeug.security import generate_password_hash, check_password_hash
 from typing import Optional, Type, TypeVar, Any, Iterator, List, Tuple
 from app.db import get_db, close_db
-from app.models import User, Facility, Disease, Encounter, DiseaseCategory, Role
+from app.models import User, Facility, Disease, Encounter, DiseaseCategory, Role, InsuranceScheme, FacilityView, UserView
 from app.exceptions import MissingError, InvalidReferenceError, DuplicateError
+from collections import defaultdict
 from app.exceptions import ValidationError, AuthenticationError
 from datetime import datetime, date
 from flask_wtf import FlaskForm
@@ -31,7 +32,7 @@ class BaseServices:
         db = get_db()
         row = db.execute(f'SELECT * FROM {cls.table_name} WHERE id = ?', (id,)).fetchone()
         if row is None:
-            raise MissingError(f"Object not found in the database")
+            raise MissingError(f"{cls.model.get_name()} not found in the database")
         return cls._row_to_model(row, cls.model)
 
     @classmethod
@@ -60,11 +61,8 @@ class BaseServices:
         field = [f"{key}=?" for key in vars(model).keys() if key in cls.columns_to_update]
         values = [v for k, v in vars(model).items() if k in cls.columns_to_update]
 
-        try:
-            db.execute(f'UPDATE {cls.table_name} SET {",".join(field)} WHERE id = ?', values + [model.id])
-            db.commit()
-        except sqlite3.IntegrityError:
-            raise DuplicateError
+        db.execute(f'UPDATE {cls.table_name} SET {",".join(field)} WHERE id = ?', values + [model.id])
+        db.commit()
         return model
 
     @classmethod
@@ -111,8 +109,6 @@ class BaseServices:
         if or_filter:
             or_conditions = []
             for column_name, value, opt in or_filter:
-                if column_name not in cls.columns:
-                    raise ValidationError("Invalid Column access")
                 if opt not in ALLOWED_OPERATORS:
                     raise ValidationError(f"Invalid operator: {opt}")
                 or_conditions.append(f"{column_name} {opt} ?")
@@ -131,8 +127,6 @@ class BaseServices:
         if order_by:
             clause = []
             for col, direction in order_by:
-                if col not in cls.columns:
-                    raise ValidationError(f"Invalid column for order_by: {col}")
                 if direction.upper() not in ['ASC', 'DESC']:
                     raise ValidationError(f"Invalid sort direction: {direction}")
                 clause.append(f"{col} {direction.upper()}")
@@ -250,7 +244,6 @@ class UserServices(BaseServices):
             group_by: Optional[List[str]] = None
             ) -> Iterator:
 
-        from app.models import UserView, FacilityView
         db = get_db()
         query = '''
             SELECT 
@@ -276,7 +269,7 @@ class UserServices(BaseServices):
         rows = db.execute(query, args)
 
         for row in rows:
-            facility = FacilityView(row['facility_name'], row['lga']) if row['facility_name'] else None
+            facility = row['facility_name'] if row['facility_name'] else None
             yield UserView(
                 id=row['user_id'],
                 username=row['username'],
@@ -338,22 +331,40 @@ class UserServices(BaseServices):
 class FacilityServices(BaseServices):
     table_name = 'facility'
     model = Facility
-    LOCAL_GOVERNMENT = LOCAL_GOVERNMENT
+    LOCAL_GOVERNMENT = sorted(LOCAL_GOVERNMENT)
     columns = {'id', 'name', 'local_government', 'facility_type'}
     columns_to_update  = {'name', 'local_government', 'facility_type'}
 
     @classmethod
-    def create_facility(cls, name: str, local_government: str, facility_type: str, commit=True) -> Facility:
+    def create_facility(cls, name: str, local_government: str,
+                         facility_type: str, scheme: List[int],
+                         commit=True) -> Facility:
         db = get_db()
         if local_government.lower() not in FacilityServices.LOCAL_GOVERNMENT:
             raise ValidationError("Local Government does not exist in Akure")
         try:
             cursor = db.execute(f'INSERT INTO {cls.table_name} (name, local_government, facility_type) VALUES (?, ?, ?)', (name, local_government, facility_type))
-            if commit: db.commit()
             new_id = cursor.lastrowid
+            scheme_list = list(set((new_id, x) for x in insurance_scheme))
+            cls.add_scheme(scheme_list)
+            if commit: db.commit()
             return cls.get_by_id(new_id)
         except sqlite3.IntegrityError:
+            db.rollback()
             raise DuplicateError(f"Facility {name} already exist in database")
+
+    
+    @classmethod
+    def add_scheme(cls, scheme_list:List[Tuple[int, int]]):
+        db = get_db()
+        db.executemany('INSERT INTO facility_scheme (facility_id, scheme_id) VALUES (? ?)',
+                        scheme_list)
+
+    @classmethod
+    def get_current_scheme(cls, facility_id: int):
+        db = get_db()
+        cur = db.execute('SELECT scheme_id from facility_scheme WHERE facility_id = ?', [ facility_id ])
+        return [row['scheme_id'] for row in cur]
 
     @classmethod
     def get_facility_by_name(cls, name: str) -> Facility:
@@ -369,16 +380,115 @@ class FacilityServices(BaseServices):
         db.execute(f"DELETE FROM {cls.table_name} WHERE id = ?",  [facility.id])
         db.commit()
 
-    @staticmethod
-    def update_facility(facility: Facility):
+    @classmethod
+    def update_facility(cls, facility: Facility, scheme: List[int]):
         if facility.local_government.lower() not in FacilityServices.LOCAL_GOVERNMENT:
             raise ValidationError("Local Government does not exist in Akure")
+        db = get_db()
         try:
+            db.execute('DELETE FROM facility_scheme WHERE facility_id = ?', (facility.id, ))
+            if new_scheme:
+                scheme_list = [(facility.id, sc) for sc in scheme]
+                cls.add_scheme(scheme_list)
+
+            #update data does commit
             FacilityServices.update_data(facility)
         except DuplicateError:
+            db.rollback()
             raise DuplicateError(f'Facility with name {facility.name} already exists')
         return facility
 
+
+    @classmethod
+    def get_all(cls, 
+            limit: int = 0,
+            offset: int = 0, 
+            and_filter: Optional[List[Tuple]] = None,
+            or_filter: Optional[List[Tuple]] = None,
+            order_by: Optional[List[Tuple[str, str]]] = None,
+            group_by: Optional[List[str]] = None
+            ) -> Iterator:
+        query = f'''
+        SELECT 
+            fc.id,
+            fc.name as facility_name,
+            fc.local_government,
+            fc.facility_type
+        FROM {cls.table_name} as fc
+        '''
+        query, args = cls._apply_filter(
+            base_query=query,
+            limit = limit,
+            offset = offset,
+            and_filter= and_filter,
+            or_filter= or_filter,
+            order_by= order_by,
+            group_by= group_by
+        )
+        db = get_db()
+        print(query)
+        facility_rows = list(db.execute(query, args).fetchall())
+        row_ids = [row['id'] for row in facility_rows]
+        placeholders = ','.join(('?' * len(row_ids)))
+
+        query = f'''
+        SELECT  
+            fc.id,
+            isc.scheme_name
+        FROM {cls.table_name} as fc
+        JOIN facility_scheme as fsc 
+        ON fc.id = fsc.facility_id
+        JOIN insurance_scheme as isc
+        ON isc.id = fsc.scheme_id
+        WHERE fc.id IN ({placeholders})
+        '''
+
+        scheme_rows = db.execute(query, row_ids).fetchall()
+        scheme_map = defaultdict(list)
+        for row in scheme_rows:
+            scheme_map[row['id']].append(row['scheme_name'])
+
+        for row in facility_rows:
+            facility = FacilityView(
+                id = row['id'],
+                name = row['facility_name'],
+                lga = row['local_government'],
+                facility_type = row['facility_type'],
+                scheme =  scheme_map[row['id']]
+            )
+            yield facility
+
+    @classmethod
+    def get_view_by_id(cls, facility_id: int) -> FacilityView:
+        return next(cls.get_all(and_filter=[ ('fc.id', facility_id, '=')]))
+
+
+class InsuranceSchemeServices(BaseServices):
+    table_name = 'insurance_scheme'
+    model = InsuranceScheme
+    columns_to_update = {'scheme_name'}
+    columns = {'id', 'scheme_name'}
+
+    @classmethod
+    def create_scheme(cls, name: str, commit=True):
+        db = get_db()
+        try:
+            cursor = db.execute(f'INSERT INTO {cls.table_name} (scheme_name) VALUES (?)',
+                                (name, ))
+            if commit: db.commit()
+            new_id = cursor.lastrowid
+            return cls.get_by_id(new_id)
+
+        except sqlite3.IntegrityError:
+            raise DuplicateError("Insurance scheme already exists in the database")
+    
+    @classmethod
+    def update_scheme(cls, scheme: InsuranceScheme):
+        try:
+            cls.update_data(scheme)
+        except sqlite3.IntegrityError:
+            raise DuplicateError(f"{scheme.scheme_name} already exists in database")
+        
 
 class DiseaseServices(BaseServices):
     table_name = 'diseases'
@@ -419,9 +529,9 @@ class DiseaseServices(BaseServices):
             d.name as disease_name,
             dc.id as category_id,
             dc.category_name 
-            FROM diseases as d
-            JOIN diseases_category as dc 
-            ON d.category_id = dc.id'''
+        FROM diseases as d
+        JOIN diseases_category as dc 
+        ON d.category_id = dc.id'''
 
         query, args = cls._apply_filter(
             base_query= query,
@@ -631,7 +741,6 @@ class EncounterServices(BaseServices):
         
         diseases_rows = db.execute(diseases_query, encounter_ids).fetchall()
         
-        from collections import defaultdict
         diseases_by_encounter = defaultdict(list)
         from app.models import EncounterView, DiseaseView, FacilityView
         
@@ -649,14 +758,10 @@ class EncounterServices(BaseServices):
             diseases_by_encounter[encounter_id].append(disease)
         
         for row in encounters_rows:
-            facility = FacilityView(
-                name=row['facility_name'],
-                lga=row['lga']
-            )
             
             encounter = EncounterView(
                 id=row['id'],
-                facility=facility,
+                facility= row['facility_name'],
                 diseases=diseases_by_encounter[row['id']],  
                 policy_number=row['policy_number'],
                 client_name=row['client_name'],
@@ -1090,5 +1195,6 @@ class ReportServices(BaseServices):
 class UploadServices(BaseServices):
     
     @classmethod
+    #todo
     def upload_sheet(cls):
         return

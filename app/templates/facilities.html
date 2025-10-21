@@ -16,25 +16,33 @@
                         <div>
                             {{ facility_form.name.label(class="block text-sm font-medium text-gray-700") }}
                             {{ facility_form.name(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
-                            {% for error in facility_form.name.errors %}
-                                <span class="text-red-500 text-xs mt-1">{{ error }}</span>
-                            {% endfor %}
+                            {% for error in facility_form.name.errors %}<span class="text-red-500 text-xs mt-1">{{ error }}</span>{% endfor %}
                         </div>
                         
                         <div>
                             {{ facility_form.local_government.label(class="block text-sm font-medium text-gray-700") }}
                             {{ facility_form.local_government(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
-                             {% for error in facility_form.local_government.errors %}
-                                <span class="text-red-500 text-xs mt-1">{{ error }}</span>
-                            {% endfor %}
+                            {% for error in facility_form.local_government.errors %}<span class="text-red-500 text-xs mt-1">{{ error }}</span>{% endfor %}
                         </div>
 
                         <div>
                             {{ facility_form.facility_type.label(class="block text-sm font-medium text-gray-700") }}
                             {{ facility_form.facility_type(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
-                             {% for error in facility_form.facility_type.errors %}
-                                <span class="text-red-500 text-xs mt-1">{{ error }}</span>
-                            {% endfor %}
+                            {% for error in facility_form.facility_type.errors %}<span class="text-red-500 text-xs mt-1">{{ error }}</span>{% endfor %}
+                        </div>
+
+                        <!-- STYLED CHECKBOXES for Insurance Schemes -->
+                        <div>
+                            {{ facility_form.scheme.label(class="block text-sm font-medium text-gray-700") }}
+                            <div class="mt-2 space-y-2">
+                                {% for subfield in facility_form.scheme %}
+                                <div class="flex items-center">
+                                    {{ subfield(class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500") }}
+                                    {{ subfield.label(class="ml-2 block text-sm text-gray-900") }}
+                                </div>
+                                {% endfor %}
+                            </div>
+                             {% for error in facility_form.scheme.errors %}<span class="text-red-500 text-xs mt-1">{{ error }}</span>{% endfor %}
                         </div>
 
                         <div>
@@ -63,8 +71,10 @@
                             {% for facility in facility_list %}
                             <tr>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ facility.name }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ facility.local_government|title }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ facility.facility_type|title }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ facility.lga|title }}</td>
+
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ facility.facility_type}}</td>
+                                
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-4">
                                     <a href="{{ url_for('view_facilities', pid=facility.id) }}" class="text-green-600 hover:text-green-900">View</a>
                                     <a href="{{ url_for('edit_facilities', pid=facility.id) }}" class="text-indigo-600 hover:text-indigo-900">Edit</a>
@@ -81,18 +91,10 @@
                 <!-- Pagination -->
                 <nav class="mt-6 flex items-center justify-between" aria-label="Pagination">
                     <div>
-                        {% if prev_url %}
-                            <a href="{{ prev_url }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Previous</a>
-                        {% else %}
-                            <span class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-400 bg-gray-50 cursor-not-allowed">Previous</span>
-                        {% endif %}
+                        {% if prev_url %}<a href="{{ prev_url }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Previous</a>{% else %}<span class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-400 bg-gray-50 cursor-not-allowed">Previous</span>{% endif %}
                     </div>
                     <div>
-                        {% if next_url %}
-                            <a href="{{ next_url }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Next</a>
-                        {% else %}
-                            <span class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-400 bg-gray-50 cursor-not-allowed">Next</span>
-                        {% endif %}
+                        {% if next_url %}<a href="{{ next_url }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Next</a>{% else %}<span class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-400 bg-gray-50 cursor-not-allowed">Next</span>{% endif %}
                     </div>
                 </nav>
             </div>
@@ -100,3 +102,4 @@
     </div>
 </div>
 {% endblock %}
+

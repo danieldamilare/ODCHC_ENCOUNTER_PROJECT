@@ -2,10 +2,9 @@ from app import app
 from flask import redirect, flash, url_for, request, render_template, abort, Response, make_response
 from flask_login import login_required, login_user, logout_user
 from app.models import Role, is_logged_in, get_current_user, AuthUser, Facility, Encounter
-from app.models import DiseaseCategory, Disease, User
-from app.models import get_current_user
+from app.models import DiseaseCategory, Disease, User, InsuranceScheme, get_current_user
 from app.services import UserServices, EncounterServices, FacilityServices, DiseaseServices
-from app.services import DiseaseCategoryServices
+from app.services import DiseaseCategoryServices, InsuranceSchemeServices
 from app.exceptions import AuthenticationError, MissingError, ValidationError
 from app.exceptions import InvalidReferenceError, DuplicateError
 from urllib.parse import urlparse
@@ -111,8 +110,11 @@ def add_encounter() -> Any:
 @admin_required
 def facilities() -> Any:
     facility_form = AddFacilityForm()
+    others = [(sc.id, sc.scheme_name) for sc in InsuranceSchemeServices.get_all()]
+    facility_form.scheme.choices = others
     if facility_form.validate_on_submit():
         res = form_to_dict(facility_form, Facility)
+        res['scheme'] = facility_form.scheme.data
         try:
             FacilityServices.create_facility(**res)
             flash("You have successfuly created a new facility", 'success')
@@ -144,14 +146,18 @@ def edit_facilities(pid: int) ->Any:
     except MissingError as e:
         flash(str(e), 'error')
         return redirect(url_for('facilities'))
-    except:
-        abort(500)
+    # except:
+        # abort(500)
 
     form: FlaskForm = EditFacilityForm(obj=facility)
+    others = [(sc.id, sc.scheme_name) for sc in InsuranceSchemeServices.get_all()]
+    form.scheme.choices = others
+    current_scheme = FacilityServices.get_current_scheme(pid)
+    form.scheme.data = current_scheme
     if form.validate_on_submit():
         try:
             form.populate_obj(facility)
-            FacilityServices.update_facility(facility)
+            FacilityServices.update_facility(facility, form.scheme.data)
             flash("You have successfully added a new facility", 'success')
             return redirect(url_for('facilities'))
         except (DuplicateError, ValidationError) as e:
@@ -170,12 +176,12 @@ def edit_facilities(pid: int) ->Any:
 def view_facilities(pid: int) -> Any:
     # print("In view_facilities")
     try:
-        facility = FacilityServices.get_by_id(pid)
+        facility = FacilityServices.get_view_by_id(pid)
     except MissingError as e:
         flash(str(e), 'error')
         return redirect(url_for('facilities'))
-    except:
-        abort(500)
+    # except:
+        # abort(500)
 
     user_form: AddUserForm = AddUserForm()
     user_form.facility_id.choices = [('0', 'Select a facility')] + sorted([(fac.id, fac.name.title()) for fac in FacilityServices.get_all()], key=lambda x: x[1])
@@ -262,8 +268,8 @@ def add_category():
             return redirect(url_for('diseases'))
         except DuplicateError as e:
             flash(str(e), 'error')
-        except Exception:
-            abort(500)
+        # except Exception:
+            # abort(500)
     return render_template('add_category.html', title='Add Disease Category', form=form)
 
 
@@ -280,8 +286,8 @@ def add_disease():
             return redirect(url_for('diseases'))
         except (DuplicateError, InvalidReferenceError) as e:
             flash(str(e), 'error')
-        except Exception:
-            abort(500)
+        # except Exception:
+            # abort(500)
     return render_template('add_disease.html', title='Add Disease', form=form)
 
 
@@ -306,8 +312,8 @@ def edit_disease(disease_id: int):
             return redirect(url_for('diseases'))
         except (DuplicateError, InvalidReferenceError) as e:
             flash(str(e), 'error')
-        except Exception:
-            abort(500)
+        # except Exception:
+            # abort(500)
     return render_template('add_disease.html', title=f"Edit Disease: {disease.name}", form=form, disease=disease)
 
    

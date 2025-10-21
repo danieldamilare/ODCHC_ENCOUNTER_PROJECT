@@ -1,7 +1,8 @@
 from app.models import User, Facility, Disease 
 from wtforms import StringField, PasswordField, SubmitField, BooleanField, TextAreaField
-from wtforms import IntegerField, SelectField, HiddenField, FieldList, DateField, FileField
+from wtforms import IntegerField, SelectField, HiddenField, FieldList, DateField, FileField, SelectMultipleField
 from wtforms.validators import DataRequired, Length, NumberRange, EqualTo, Optional, ValidationError 
+from wtforms import widgets
 from app.config import LOCAL_GOVERNMENT
 from app.services import FacilityServices, DiseaseCategoryServices, DiseaseServices
 from flask_wtf import FlaskForm
@@ -37,7 +38,12 @@ class AddFacilityForm(FlaskForm):
                                      choices=[(lga, lga) for lga in LOCAL_GOVERNMENT],
                                      validators=[DataRequired('Please select a local government from list')])
     facility_type = SelectField('Facility Type', 
-                                choices= ['Primary', 'Secondary', 'Tertiary'], validators=[DataRequired()])
+                                choices= ['Primary', 'Secondary', 'Private'], validators=[DataRequired()])
+
+    scheme = SelectMultipleField('Insurance Scheme', coerce=int, 
+                                    validators=[DataRequired("Please select the insurance scheme allowed for this facility")],
+                                    widget=widgets.ListWidget(),
+                                    option_widget=widgets.CheckboxInput());
     submit = SubmitField('submit')
 
 class AddCategoryForm(FlaskForm):
@@ -61,6 +67,11 @@ class AddUserForm(FlaskForm):
     password = PasswordField('Password', validators = [DataRequired("You must enter a password")] )
     password2 = PasswordField('Confirm Password', validators = [DataRequired("You must enter a password"), EqualTo('password', )])
     submit = SubmitField('Add New User')
+
+class AddInsuranceSchemeForm(FlaskForm):
+    name = StringField("Insurance SCheme Name", 
+                       validators = [DataRequired("Enter the name of scheme to add")])
+    submit = SubmitField("Add Insurance Scheme")
 
 class DeleteUserForm(FlaskForm):
     submit = SubmitField("Delete User")
