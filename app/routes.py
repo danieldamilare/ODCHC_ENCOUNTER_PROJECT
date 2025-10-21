@@ -3,7 +3,7 @@ from flask import redirect, flash, url_for, request, render_template, abort, Res
 from flask_login import login_required, login_user, logout_user
 from app.models import Role, is_logged_in, get_current_user, AuthUser, Facility, Encounter
 from app.models import DiseaseCategory, Disease, User, InsuranceScheme, get_current_user
-from app.services import UserServices, EncounterServices, FacilityServices, DiseaseServices
+from app.services import UserServices, EncounterServices, FacilityServices, DiseaseServices, TreatmentOutcomeServices
 from app.services import DiseaseCategoryServices, InsuranceSchemeServices
 from app.exceptions import AuthenticationError, MissingError, ValidationError
 from app.exceptions import InvalidReferenceError, DuplicateError
@@ -70,17 +70,40 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-@app.route('/add_encounter', methods = ['GET', 'POST'])
+
+@app.route('/add_encounter', methods  = ['GET'])
 @login_required
-def add_encounter() -> Any:
+def add_encounter():
+    schemes = InsuranceSchemeServices.get_all()
+
+
+@app.route('/add_encounter/<insurance_scheme>', methods = ['GET', 'POST'])
+@login_required
+def add_scheme_encounter(insurance_scheme) -> Any:
+    try:
+        insurance = InsuranceSchemeServices.get_by_id(insurance_scheme)
+    except MissingError as e:
+        flash(str(e), "error")
+        return redirect(url_for('add_encounter'))
     form:AddEncounterForm  = AddEncounterForm()
     disease_choices = [('0', 'Select a disease')] + sorted([(dis.id, str(dis.name).title()) for dis in DiseaseServices.get_all()], key=lambda x: x[1])
     for subfield in form.diseases:
         subfield.choices =  disease_choices
+    treatment_outcomes = list(TreatmentOutcomeServices.get_all())
+    form.outcome.choices = ([('0', 'Select treatment outcome')] + 
+                            [(t.id, t.name) for t in treatment_outcomes if t.type.lower() != 'death'] +
+                            [('-1', 'Death')])
+
+    form.death_type.choices = ([('0', 'Select death type')] + 
+                               [(t.id, t.name) for t in treatment_outcomes if t.type.lower() == 'death'])
+    print(form.death_type.choices)
+
     # print("In add Encounter")
     if form.validate_on_submit():
         # print('validated on submit')
         res = form_to_dict(form, Encounter)
+        if form.outcome.data == -1:
+            res['outcome'] = form.death_type.data
         #for the purpose of the demo deadline use the first disease and ignore others
         diseases = [disease.data for disease in form.diseases]
         # print("disease id", diseases)
@@ -88,6 +111,8 @@ def add_encounter() -> Any:
         user = get_current_user()
         res['created_by'] =user
         res['facility_id'] = user.facility_id
+        res['scheme'] = insurance_scheme
+        print(res)
         try:
             EncounterServices.create_encounter(**res)
             flash('Encounter has successfully been added', 'success')
@@ -100,7 +125,7 @@ def add_encounter() -> Any:
     if request.method == 'GET':
         form.date.data = date.today()
 
-    return render_template('add_encounter.html', 
+    return render_template('add_scheme_encounter.html', 
                            disease_choices = disease_choices[1:],
                            form = form, 
                            title = 'Add Encounter')

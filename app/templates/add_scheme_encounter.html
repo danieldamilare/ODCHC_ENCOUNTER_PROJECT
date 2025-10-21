@@ -73,6 +73,23 @@
                     Add Another Disease
                 </button>
             </div>               
+             <!-- Treatment and Outcome Section -->
+            <div class="mt-6 border-t pt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Treatment Outcome -->
+                <div>
+                    {{ form.outcome.label(class="block text-sm font-medium text-gray-700") }}
+                    {{ form.outcome(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3") }}
+                    {% for error in form.outcome.errors %}<span class="text-red-500 text-xs mt-1">{{ error }}</span>{% endfor %}
+                </div>
+
+                 <!-- Death Type (hidden by default) -->
+                <div id="death-type-container" class="hidden">
+                    {{ form.death_type.label(class="block text-sm font-medium text-gray-700") }}
+                    {{ form.death_type(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3") }}
+                    {% for error in form.death_type.errors %}<span class="text-red-500 text-xs mt-1">{{ error }}</span>{% endfor %}
+                </div>
+            </div>
+
                 <!-- Treatment (Full Width) -->
                 <div class="md:col-span-2">
                     {{ form.treatment.label(class="block text-sm font-medium text-gray-700") }}
@@ -80,21 +97,6 @@
                     {% for error in form.treatment.errors %}<span class="text-red-500 text-xs">{{ error }}</span>{% endfor %}
                 </div>
 
-                <!-- Professional Service (Full Width) -->
-                <div class="md:col-span-2">
-                    {{ form.professional_service.label(class="block text-sm font-medium text-gray-700") }}
-                    {{ form.professional_service(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm", rows=3) }}
-                    {% for error in form.professional_service.errors %}<span class="text-red-500 text-xs">{{ error }}</span>{% endfor %}
-                </div>
-
-                <!-- Referral -->
-                <div class="md:col-span-2 flex items-center">
-                    {{ form.referral(class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded") }}
-                    {{ form.referral.label(class="ml-2 block text-sm text-gray-900") }}
-                </div>
-            </div>
-
-            
             <!-- SUBMIT BUTTON -->
             <div class="pt-6">
                 {{ form.submit(class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500") }}
@@ -103,7 +105,6 @@
     </div>
 </div>
 
-<!-- Remove the <template> tag entirely -->
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -147,7 +148,23 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
+
+    const outcome_select = document.getElementById('outcome-select')
+    const death_type_container = document.getElementById('death-type-container')
+
+    function toggleDeathType(){
+            if (outcome_select.value === '-1'){
+                death_type_container.classList.remove('hidden')
+            } else{
+                death_type_container.classList.add('hidden')
+                
+            }
+    }
+    outcome_select.addEventListener('change', toggleDeathType)
+    toggleDeathType()
+
 });
+
 </script>
 
 {% endblock %}

@@ -23,8 +23,8 @@ class AddEncounterForm(FlaskForm):
     date = DateField('Date', format="%Y-%m-%d", validators = [DataRequired()])
     gender = SelectField('Gender', choices= [('M', 'Male'), ('F','Female')], validators=[DataRequired()])
     diseases  = FieldList(SelectField('Disease/Diagnosis/Services', validators=[DataRequired()], coerce=int), min_entries=1)
-    outcome = SelectField('Treatment Outcome', validators = [Optional()], coerce=int)
-    death_type = SelectField("Death Type", validators=[Optional()], coerce = int)
+    outcome = SelectField('Treatment Outcome',  validators = [Optional()], coerce=int, render_kw={'id': 'outcome-select'})
+    death_type = SelectField("Death Type", validators=[Optional()], coerce = int, render_kw={'id': 'death-type-select'})
     submit = SubmitField('submit')
 
     def validate_diseases(self, diseases):
@@ -32,9 +32,19 @@ class AddEncounterForm(FlaskForm):
             if not disease.data or int(disease.data) == 0:
                 raise ValidationError("Please select a valid disease from the list")
 
-    def validate_outcome(self, outcome):
-        if not outcome.data and not self.death_type:
-            raise ValidationError("Please Select death type")
+    def validate(self, extra_validators=None):
+        # First, run all the standard validators
+        if not super().validate(extra_validators):
+            return False
+
+        # Now, add your custom cross-field logic
+        # Assuming '5' is the ID for the 'Death' outcome
+        if self.outcome.data == -1 and not self.death_type.data:
+            self.death_type.errors.append("Please select a death type when the outcome is 'Death'.")
+            return False
+
+        # If all is good
+        return True
 
 class AddFacilityForm(FlaskForm):
     name = StringField('Facility Name', validators =[DataRequired()])
