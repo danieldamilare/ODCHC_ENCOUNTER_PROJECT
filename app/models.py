@@ -82,8 +82,17 @@ class InsuranceScheme:
     scheme_name: str
 
     @property
-    def get_name() -> str:
+    def get_name(self) -> str:
         return "Insurance Scheme"
+
+@dataclass
+class TreatmentOutcome:
+    id: int
+    name: str
+    type: str
+
+@dataclass
+
 
 @dataclass
 class FacilityView:
@@ -110,10 +119,11 @@ class EncounterView:
     gender: str
     date: date
     age: int
+    scheme: str
     treatment: Optional[str]
     referral: bool
     doctor_name: Optional[str]
-    professional_service: Optional[str]
+    treatment_outcome: str
     created_by: str
     created_at: datetime
 

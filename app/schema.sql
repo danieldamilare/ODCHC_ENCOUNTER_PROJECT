@@ -82,9 +82,9 @@ CREATE TABLE facility_scheme(
 );
 
 CREATE TABLE treatment_outcome(
-    id INTEGER PRIMARY KEY AUTO INCREMENT,
+    id INTEGER PRIMARY KEY  AUTOINCREMENT,
     name VARCHAR(255) UNIQUE NOT NULL,
-    type VARCHAR(255) UNIQUE NOT NULL
+    type VARCHAR(255) NOT NULL
 );
 
 
@@ -92,7 +92,8 @@ CREATE INDEX idx_encounters_facility_id ON encounters (facility_id);
 CREATE INDEX idx_encounters_date ON encounters (date);
 CREATE INDEX idx_encounters_created_by ON encounters (created_by);
 CREATE INDEX idx_encounters_created_at ON encounters (created_at);
-CREATE INDEX idx_insurance_facility_id ON insurance_scheme (facility_id)
-CREATE INDEX idx_insurance_scheme_id ON insurance_scheme (scheme_id)
-CREATE INDEX idx_treatment_outcome_id ON treatment_outcome(id)
+CREATE INDEX idx_facility_facility_id ON facility_scheme (facility_id);
+CREATE INDEX idx_insurance_scheme_id ON insurance_scheme (id);
+CREATE INDEX idx_facility_scheme_id ON facility_scheme (scheme_id);
+CREATE INDEX idx_treatment_outcome_id ON treatment_outcome(id);
 CREATE INDEX idx_encounters_facility_date ON encounters (facility_id, date);

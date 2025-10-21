@@ -789,6 +789,24 @@ class EncounterServices(BaseServices):
         raise NotImplementedError("Encounter are immutable and cannot be updated")
 
 
+
+class TreatmentOutcomeServices(BaseServices):
+    table_name = 'treatment_outcome'
+    columns = {'id', 'name', 'type'}
+    model = TreatmentOutcome
+
+    @classmethod
+    def creat_treatment_outcome(cls, name: str, treatment_type: str, commit: bool = True) -> TreatmentOutcome:
+        db = get_db()
+        try:
+            cur = db.execute(f'INSERT INTO {cls.table_name} (name, type) VALUES (?, ?)', (name, treatment_type))
+            if commit: db.commit()
+            new_id  = cur.lastrowid
+        except sqlite3.IntegrityError:
+            db.rollback()
+            raise ValidationError("Treatment Outcome already exist in the database")
+        
+
 class DashboardServices(BaseServices):
     model = None
     table_name = None
