@@ -1,7 +1,7 @@
 from werkzeug.security import generate_password_hash, check_password_hash
 from typing import Optional, Type, TypeVar, Any, Iterator, List, Tuple
 from app.db import get_db, close_db
-from app.models import User, Facility, Disease, Encounter, DiseaseCategory, Role, InsuranceScheme, FacilityView, UserView
+from app.models import User, Facility, Disease, Encounter, TreatmentOutcome, DiseaseCategory, Role, InsuranceScheme, FacilityView, UserView
 from app.exceptions import MissingError, InvalidReferenceError, DuplicateError
 from collections import defaultdict
 from app.exceptions import ValidationError, AuthenticationError
@@ -604,12 +604,8 @@ class EncounterServices(BaseServices):
     model = Encounter
     columns = {'id', 'facility_id', 'date', 'policy_number', 'client_name',
                'gender', 'age', 'age_group', 'treatment', 'referral', 'doctor_name', 
-               'professional_service', 'created_by', 'created_at', "ec.facility_id", 
+               'professional_service', 'created_by', 'created_at', "scheme", "outcome"
                }
-
-    columns_to_update = {'facility_id', 'disease_id', 'date', 'policy_number', 'client_name',
-               'gender', 'age', 'age_group', 'treatment', 'referral', 'doctor_name', 
-               'professional_service'}
 
     @classmethod
     def create_encounter(cls, facility_id: int,
@@ -622,7 +618,8 @@ class EncounterServices(BaseServices):
                          treatment: Optional[str], 
                          referral: bool,
                          doctor_name: Optional[str], 
-                         professional_service: Optional[str],
+                         scheme: int,
+                         outcome: int,
                          created_by: User,
                          commit=True) -> Encounter:
         db = get_db()
@@ -646,10 +643,10 @@ class EncounterServices(BaseServices):
         
             cur = db.execute(f'''INSERT INTO {cls.table_name} (facility_id, date, policy_number
                    , client_name, gender, age, treatment, referral, doctor_name,
-                   professional_service, created_by, created_at) VALUES( ?, ?, ?, ?, ?, ?, ?,
-                   ?, ?, ?, ?, ?)''', (facility_id, date, policy_number, client_name,
-                                   gender, age, treatment, int(referral), doctor_name,
-                                   professional_service, created_by.id, created_at))
+                   scheme, outcome, created_by, created_at) VALUES( ?, ?, ?, ?, ?, ?, ?,
+                   ?, ?, ?, ?, ?, ?)''', (facility_id, date, policy_number, client_name,
+                                   gender, age, treatment, int(referral), doctor_name, 
+                                   scheme, outcome, created_by.id, created_at))
             new_id = cur.lastrowid
 
             diseases_list = list(set((new_id, x) for x in diseases_id))
@@ -691,8 +688,9 @@ class EncounterServices(BaseServices):
                 ec.policy_number,
                 ec.referral ,
                 ec.date,
+                isc.scheme_name,
                 ec.doctor_name,
-                ec.professional_service,
+                tc.name as treatment_outcome,
                 ec.created_at,
                 ec.treatment,
                 fc.name AS facility_name,
@@ -700,6 +698,8 @@ class EncounterServices(BaseServices):
                 u.username AS created_by
             FROM encounters AS ec
             JOIN facility AS fc ON ec.facility_id = fc.id
+            JOIN insurance_scheme as isc on isc.scheme_id = ec.scheme
+            JOIN treatment_outcome as tc on ec.outcome = tc.id
             LEFT JOIN users AS u ON ec.created_by = u.id
         '''
         
@@ -742,7 +742,7 @@ class EncounterServices(BaseServices):
         diseases_rows = db.execute(diseases_query, encounter_ids).fetchall()
         
         diseases_by_encounter = defaultdict(list)
-        from app.models import EncounterView, DiseaseView, FacilityView
+        from app.models import EncounterView, DiseaseView
         
         for row in diseases_rows:
             encounter_id = row['encounter_id']

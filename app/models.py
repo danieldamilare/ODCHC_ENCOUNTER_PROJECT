@@ -19,7 +19,7 @@ class User:
     password_hash: str
 
     @property
-    def get_name():
+    def get_name(self):
         return f"User"
 
 
@@ -31,7 +31,7 @@ class Facility:
     facility_type: str #(health center -> primary, hospital -> secondary, private)
 
     @property
-    def get_name() -> str:
+    def get_name(self) -> str:
         return f"Facility"
 
 @dataclass
@@ -41,7 +41,7 @@ class Disease:
     category_id:  int
 
     @property
-    def get_name() -> str:
+    def get_name(self) -> str:
         return f"Disease"
 
 
@@ -51,7 +51,7 @@ class DiseaseCategory:
     category_name: str
 
     @property
-    def get_name() -> str:
+    def get_name(self) -> str:
         return f"Disease Category"
 
 
@@ -66,14 +66,13 @@ class Encounter:
     age: int
     age_group: str
     treatment: Optional[str]
-    referral: bool
+    outcome: str
     doctor_name: Optional[str]
-    professional_service: Optional[str]
     created_by: int
     created_at: datetime
 
     @property
-    def get_name() -> str:
+    def get_name(self) -> str:
         return "Encounter"
 
 @dataclass

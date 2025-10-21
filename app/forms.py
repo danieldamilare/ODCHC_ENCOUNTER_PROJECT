@@ -21,16 +21,20 @@ class AddEncounterForm(FlaskForm):
     doctor_name = StringField('Doctor Name', validators = [DataRequired(), Length(min = 2)])
     age = IntegerField('Age', validators=[DataRequired(), NumberRange(0, 120, 'Age must be between 0 - 120 ')])
     date = DateField('Date', format="%Y-%m-%d", validators = [DataRequired()])
-    professional_service = TextAreaField('Professional Service')
     gender = SelectField('Gender', choices= [('M', 'Male'), ('F','Female')], validators=[DataRequired()])
-    referral = BooleanField('Referred')
-    diseases  = FieldList(SelectField('Disease', validators=[DataRequired()], coerce=int), min_entries=1)
+    diseases  = FieldList(SelectField('Disease/Diagnosis/Services', validators=[DataRequired()], coerce=int), min_entries=1)
+    outcome = SelectField('Treatment Outcome', validators = [Optional()], coerce=int)
+    death_type = SelectField("Death Type", validators=[Optional()], coerce = int)
     submit = SubmitField('submit')
 
     def validate_diseases(self, diseases):
         for disease in diseases:
             if not disease.data or int(disease.data) == 0:
                 raise ValidationError("Please select a valid disease from the list")
+
+    def validate_outcome(self, outcome):
+        if not outcome.data and not self.death_type:
+            raise ValidationError("Please Select death type")
 
 class AddFacilityForm(FlaskForm):
     name = StringField('Facility Name', validators =[DataRequired()])
