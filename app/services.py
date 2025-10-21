@@ -1,7 +1,7 @@
 from werkzeug.security import generate_password_hash, check_password_hash
 from typing import Optional, Type, TypeVar, Any, Iterator, List, Tuple
 from app.db import get_db, close_db
-from app.models import User, Facility, Disease, Encounter, DiseaseCategory, Role, InsuranceScheme
+from app.models import User, Facility, Disease, Encounter, DiseaseCategory, Role, InsuranceScheme, FacilityView, UserView
 from app.exceptions import MissingError, InvalidReferenceError, DuplicateError
 from collections import defaultdict
 from app.exceptions import ValidationError, AuthenticationError
@@ -244,7 +244,6 @@ class UserServices(BaseServices):
             group_by: Optional[List[str]] = None
             ) -> Iterator:
 
-        from app.models import UserView, FacilityView
         db = get_db()
         query = '''
             SELECT 
@@ -348,8 +347,8 @@ class FacilityServices(BaseServices):
             new_id = cursor.lastrowid
             scheme_list = list(set((new_id, x) for x in insurance_scheme))
             cls.add_scheme(scheme_list)
-            return cls.get_by_id(new_id)
             if commit: db.commit()
+            return cls.get_by_id(new_id)
         except sqlite3.IntegrityError:
             db.rollback()
             raise DuplicateError(f"Facility {name} already exist in database")
@@ -357,9 +356,15 @@ class FacilityServices(BaseServices):
     
     @classmethod
     def add_scheme(cls, scheme_list:List[Tuple[int, int]]):
+        db = get_db()
         db.executemany('INSERT INTO facility_scheme (facility_id, scheme_id) VALUES (? ?)',
                         scheme_list)
 
+    @classmethod
+    def get_current_scheme(cls, facility_id: int):
+        db = get_db()
+        cur = db.execute('SELECT scheme_id from facility_scheme WHERE facility_id = ?', [ facility_id ])
+        return [row['scheme_id'] for row in cur]
 
     @classmethod
     def get_facility_by_name(cls, name: str) -> Facility:
@@ -376,18 +381,15 @@ class FacilityServices(BaseServices):
         db.commit()
 
     @classmethod
-    def update_facility(cls, facility: Facility):
+    def update_facility(cls, facility: Facility, scheme: List[int]):
         if facility.local_government.lower() not in FacilityServices.LOCAL_GOVERNMENT:
             raise ValidationError("Local Government does not exist in Akure")
         db = get_db()
         try:
-            current_scheme = set(db.execute(
-                'SELECT scheme_id from facility_scheme where facility_id = ?',
-                (facility.id,)
-            ))
-            new_scheme = list(set((facility.id, sc)
-                                   for sc in facility.scheme if sc not in current_scheme))
-            cls.add_scheme(new_scheme)
+            db.execute('DELETE FROM facility_scheme WHERE facility_id = ?', (facility.id, ))
+            if new_scheme:
+                scheme_list = [(facility.id, sc) for sc in scheme]
+                cls.add_scheme(scheme_list)
 
             #update data does commit
             FacilityServices.update_data(facility)
@@ -406,7 +408,6 @@ class FacilityServices(BaseServices):
             order_by: Optional[List[Tuple[str, str]]] = None,
             group_by: Optional[List[str]] = None
             ) -> Iterator:
-        from app.models import FacilityView
         query = f'''
         SELECT 
             fc.id,
@@ -448,7 +449,6 @@ class FacilityServices(BaseServices):
             scheme_map[row['id']].append(row['scheme_name'])
 
         for row in facility_rows:
-            from app.models import FacilityView
             facility = FacilityView(
                 id = row['id'],
                 name = row['facility_name'],
@@ -457,6 +457,10 @@ class FacilityServices(BaseServices):
                 scheme =  scheme_map[row['id']]
             )
             yield facility
+
+    @classmethod
+    def get_view_by_id(cls, facility_id: int) -> FacilityView:
+        return next(cls.get_all(and_filter=[ ('fc.id', facility_id, '=')]))
 
 
 class InsuranceSchemeServices(BaseServices):
@@ -469,7 +473,7 @@ class InsuranceSchemeServices(BaseServices):
     def create_scheme(cls, name: str, commit=True):
         db = get_db()
         try:
-            cursor = db.execute('INSERT INTO {cls.table_name} (scheme_name) VALUES (?)',
+            cursor = db.execute(f'INSERT INTO {cls.table_name} (scheme_name) VALUES (?)',
                                 (name, ))
             if commit: db.commit()
             new_id = cursor.lastrowid

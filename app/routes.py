@@ -110,11 +110,11 @@ def add_encounter() -> Any:
 @admin_required
 def facilities() -> Any:
     facility_form = AddFacilityForm()
-    facility_form.scheme.choices = [('0', 'Select Insurance Scheme')] 
     others = [(sc.id, sc.scheme_name) for sc in InsuranceSchemeServices.get_all()]
-    facility_form.scheme.choices += others
+    facility_form.scheme.choices = others
     if facility_form.validate_on_submit():
         res = form_to_dict(facility_form, Facility)
+        res['scheme'] = facility_form.scheme.data
         try:
             FacilityServices.create_facility(**res)
             flash("You have successfuly created a new facility", 'success')
@@ -150,14 +150,14 @@ def edit_facilities(pid: int) ->Any:
         # abort(500)
 
     form: FlaskForm = EditFacilityForm(obj=facility)
-    form.scheme.choices = [('0', 'Select Insurance Scheme')] 
     others = [(sc.id, sc.scheme_name) for sc in InsuranceSchemeServices.get_all()]
-    form.scheme.choices += others
-
+    form.scheme.choices = others
+    current_scheme = FacilityServices.get_current_scheme(pid)
+    form.scheme.data = current_scheme
     if form.validate_on_submit():
         try:
             form.populate_obj(facility)
-            FacilityServices.update_facility(facility)
+            FacilityServices.update_facility(facility, form.scheme.data)
             flash("You have successfully added a new facility", 'success')
             return redirect(url_for('facilities'))
         except (DuplicateError, ValidationError) as e:
@@ -176,7 +176,7 @@ def edit_facilities(pid: int) ->Any:
 def view_facilities(pid: int) -> Any:
     # print("In view_facilities")
     try:
-        facility = FacilityServices.get_by_id(pid)
+        facility = FacilityServices.get_view_by_id(pid)
     except MissingError as e:
         flash(str(e), 'error')
         return redirect(url_for('facilities'))
