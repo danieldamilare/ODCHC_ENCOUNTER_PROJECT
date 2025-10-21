@@ -15,33 +15,33 @@
                 <div>
                     {{ form.name.label(class="block text-sm font-medium text-gray-700") }}
                     {{ form.name(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
-                    {% for error in form.name.errors %}
-                        <span class="text-red-500 text-xs mt-1">{{ error }}</span>
-                    {% endfor %}
+                    {% for error in form.name.errors %}<span class="text-red-500 text-xs mt-1">{{ error }}</span>{% endfor %}
                 </div>
                 
                 <div>
                     {{ form.local_government.label(class="block text-sm font-medium text-gray-700") }}
                     {{ form.local_government(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
-                    {% for error in form.local_government.errors %}
-                        <span class="text-red-500 text-xs mt-1">{{ error }}</span>
-                    {% endfor %}
+                    {% for error in form.local_government.errors %}<span class="text-red-500 text-xs mt-1">{{ error }}</span>{% endfor %}
                 </div>
 
                 <div>
                     {{ form.facility_type.label(class="block text-sm font-medium text-gray-700") }}
                     {{ form.facility_type(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
-                    {% for error in form.facility_type.errors %}
-                        <span class="text-red-500 text-xs mt-1">{{ error }}</span>
-                    {% endfor %}
+                    {% for error in form.facility_type.errors %}<span class="text-red-500 text-xs mt-1">{{ error }}</span>{% endfor %}
                 </div>
-
+                
+                <!-- STYLED CHECKBOXES for Insurance Schemes -->
                 <div>
-                    {{form.scheme.label(class ="block text-sm font-medium text-gray-700")}}
-                    <ul>
+                    {{ form.scheme.label(class="block text-sm font-medium text-gray-700") }}
+                    <div class="mt-2 p-4 border rounded-md bg-gray-50 space-y-2">
                         {% for subfield in form.scheme %}
-                        <li> {{subfield()}} {{subfield.label}}</li>
-                    </ul>
+                        <div class="flex items-center">
+                            {{ subfield(class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500") }}
+                            {{ subfield.label(class="ml-3 block text-sm text-gray-900") }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                     {% for error in form.scheme.errors %}<span class="text-red-500 text-xs mt-1">{{ error }}</span>{% endfor %}
                 </div>
 
                 <div class="pt-2">
