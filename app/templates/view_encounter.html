@@ -1,82 +1,93 @@
-          {% extends "admin_base.html" %}
+{% extends "admin_base.html" if current_user.role.name == 'admin' else "base.html" %}
 
 {% block content %}
 <div class="max-w-4xl mx-auto">
     <div class="bg-white rounded-lg shadow-lg">
-        <div class="p-6 border-b">
-            <div class="flex items-center justify-between">
+        <!-- Header Section -->
+        <div class="p-6 border-b border-gray-200" style="--scheme-color: {{ encounter.insurance_scheme.color_scheme if encounter.insurance_scheme else '#6b7280' }};">
+            <div class="flex items-center justify-between mb-4">
+                <a href="{{ url_for('encounters') }}" class="text-sm font-medium text-indigo-600 hover:text-indigo-800">&larr; Back to Encounters List</a>
+            </div>
+            <div class="flex items-start justify-between">
                 <div>
-                    <a href="{{ url_for('encounters') }}" class="text-sm text-indigo-600 hover:text-indigo-800 mb-2 inline-block">&larr; Back to Encounters List</a>
-                    <h1 class="text-2xl font-bold text-gray-800">{{ encounter.client_name }}</h1>
-                    <p class="text-sm text-gray-500">Policy #: {{ encounter.policy_number }}</p>
+                    <h1 class="text-3xl font-bold text-gray-900">{{ encounter.client_name }}</h1>
+                    <p class="text-sm text-gray-500 mt-1">Policy #: {{ encounter.policy_number }}</p>
                 </div>
+                {% if encounter.insurance_scheme %}
+                <div class="mt-1">
+                    <span class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full text-white" style="background-color: var(--scheme-color);">
+                        {{ encounter.insurance_scheme.scheme_name }}
+                    </span>
+                </div>
+                {% endif %}
             </div>
         </div>
         
+        <!-- Details Section -->
         <div class="p-6">
             <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-8">
+                <!-- Key Info -->
                 <div class="sm:col-span-1">
                     <dt class="text-sm font-medium text-gray-500">Facility</dt>
                     <dd class="mt-1 text-sm text-gray-900">{{ encounter.facility.name if encounter.facility else 'N/A' }}</dd>
                 </div>
-
-                <!-- FIX: Display a list of diseases -->
                 <div class="sm:col-span-1">
-                    <dt class="text-sm font-medium text-gray-500">Diseases</dt>
-                    <dd class="mt-1 text-sm text-gray-900">
-                        <ul class="space-y-1">
-                            {% for disease in encounter.diseases %}
-                                <li>
-                                    <span class="font-medium">{{ disease.name }}</span>
-                                    <span class="text-xs text-gray-500">({{ disease.category.category_name }})</span>
-                                </li>
-                            {% else %}
-                                <li>N/A</li>
-                            {% endfor %}
-                        </ul>
-                    </dd>
+                    <dt class="text-sm font-medium text-gray-500">Date of Visit</dt>
+                    <dd class="mt-1 text-sm text-gray-900">{{ encounter.date.strftime('%B %d, %Y') if encounter.date else 'N/A'}}</dd>
                 </div>
-
                 <div class="sm:col-span-1">
                     <dt class="text-sm font-medium text-gray-500">Gender</dt>
                     <dd class="mt-1 text-sm text-gray-900">{{ 'Male' if encounter.gender == 'M' else 'Female' }}</dd>
                 </div>
                 <div class="sm:col-span-1">
                     <dt class="text-sm font-medium text-gray-500">Age</dt>
-                    <dd class="mt-1 text-sm text-gray-900">{{ encounter.age }}</dd>
+                    <dd class="mt-1 text-sm text-gray-900">{{ encounter.age }} </dd>
                 </div>
-                <div class="sm:col-span-1">
-                    <dt class="text-sm font-medium text-gray-500">Date of Visit</dt>
-                    <dd class="mt-1 text-sm text-gray-900">{{ encounter.date.strftime('%B %d, %Y') }}</dd>
+
+                <!-- Clinical Info -->
+                <div class="sm:col-span-1 >
+                    <dt class="text-sm font-medium text-gray-500">Diseases / Services</dt>
+                    <dd class="mt-2 text-sm text-gray-900">
+                        <ul class="space-y-2 list-disc list-inside">
+                            {% for disease in encounter.diseases %}
+                                <li>
+                                    <span class="font-medium">{{ disease.name }}</span>
+                                    <span class="text-xs text-gray-500">({{ disease.category.category_name if disease.category else 'N/A' }})</span>
+                                </li>
+                            {% else %}
+                                <li class="list-none">N/A</li>
+                            {% endfor %}
+                        </ul>
+                    </dd>
                 </div>
+
                 <div class="sm:col-span-1">
+                    <dt class="text-sm font-medium text-gray-500">Treatment Outcome</dt>
+                    <dd class="mt-1 text-sm font-semibold text-gray-900">{{ encounter.treatment_outcome|title if encounter.treatment_outcome else 'N/A' }}</dd>
+                </div>
+                           <!-- Meta Info -->
+                <div class="sm:col-span-1 border-t pt-8">
                     <dt class="text-sm font-medium text-gray-500">Doctor's Name</dt>
                     <dd class="mt-1 text-sm text-gray-900">{{ encounter.doctor_name or 'N/A' }}</dd>
                 </div>
-                <div class="sm:col-span-1">
-                    <dt class="text-sm font-medium text-gray-500">Referral</dt>
+                 <div class="sm:col-span-1 border-t pt-8">
+                    <dt class="text-sm font-medium text-gray-500">Referral Status</dt>
                     <dd class="mt-1 text-sm text-gray-900">
                         {% if encounter.referral %}
-                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Yes</span>
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Referred</span>
                         {% else %}
-                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">No</span>
+                            <span>Not Referred</span>
                         {% endif %}
                     </dd>
                 </div>
-                <div class="sm:col-span-1">
-                    <dt class="text-sm font-medium text-gray-500">Recorded By</dt>
-                    <dd class="mt-1 text-sm text-gray-900">{{ encounter.created_by if encounter.created_by else 'N/A' }}</dd>
-                </div>
+ 
                 <div class="sm:col-span-2">
-                    <dt class="text-sm font-medium text-gray-500">Treatment</dt>
+                    <dt class="text-sm font-medium text-gray-500">Treatment Provided</dt>
                     <dd class="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{{ encounter.treatment or 'No treatment specified.' }}</dd>
                 </div>
-                <div class="sm:col-span-2">
-                    <dt class="text-sm font-medium text-gray-500">Professional Service</dt>
-                    <dd class="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{{ encounter.professional_service or 'No professional service specified.' }}</dd>
-                </div>
-                <div class="sm:col-span-2 text-xs text-gray-400 text-right">
-                    Record created on {{ encounter.created_at.strftime('%Y-%m-%d at %H:%M:%S') }}
+
+                <div class="sm:col-span-2 text-xs text-gray-400 text-right pt-6">
+                    Record created by <span class="font-medium">{{ encounter.created_by if encounter.created_by else 'N/A' }}</span> on {{ encounter.created_at.strftime('%Y-%m-%d at %H:%M') if encounter.created_at else 'N/A' }}
                 </div>
             </dl>
         </div>

@@ -22,7 +22,7 @@
         <div class="mt-2 flex flex-wrap gap-2">
             {% for scheme_name in facility.scheme %}
                 <span class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                    {{ scheme_name }}
+                    {{ scheme_name.scheme_name }}
                 </span>
             {% else %}
                 <p class="text-sm text-gray-500">No insurance schemes are currently assigned to this facility.</p>

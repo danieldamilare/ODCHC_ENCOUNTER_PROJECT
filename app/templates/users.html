@@ -1,68 +1,29 @@
 {% extends "admin_base.html" %}
 
 {% block content %}
-<div class="container mx-auto p-4 md:p-8">
-    <!-- Add New User Accordion -->
-    <div class="bg-white rounded-lg shadow-lg mb-8">
-        <!-- Accordion Header/Button -->
-        <button id="add-user-accordion-btn" class="w-full flex justify-between items-center p-6 text-left">
-            <h2 class="text-2xl font-bold text-gray-800">Add New User</h2>
-            <!-- Chevron Icon -->
-            <svg id="accordion-chevron" class="w-6 h-6 text-gray-500 transform transition-transform duration-200 {% if user_form.errors %}rotate-180{% endif %}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-            </svg>
-        </button>
+<div class="space-y-8">
 
-        <!-- Accordion Content (The Form) -->
-        <!-- The form is hidden by default unless there are errors -->
-        <div id="add-user-form-container" class="px-6 pb-6 border-t border-gray-200 {% if not user_form.errors %}hidden{% endif %}">
-            <form action="{{ url_for('users') }}" method="post" novalidate class="mt-6">
-                {{ user_form.hidden_tag() }}
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
-                    <div>
-                        {{ user_form.username.label(class="block text-sm font-medium text-gray-700") }}
-                        {{ user_form.username(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
-                        {% for error in user_form.username.errors %}
-                            <span class="text-red-500 text-xs mt-1">{{ error }}</span>
-                        {% endfor %}
-                    </div>
-                    
-                    <div>
-                        {{ user_form.facility_id.label(class="block text-sm font-medium text-gray-700") }}
-                        {{ user_form.facility_id(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
-                        {% for error in user_form.facility_id.errors %}
-                            <span class="text-red-500 text-xs mt-1">{{ error }}</span>
-                        {% endfor %}
-                    </div>
+    <div class="bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+
+        <div class="px-6 py-5 border-b border-gray-200 bg-gray-50/75">
+            <div class="flex items-center justify-between flex-wrap gap-4">
+                <div>
+                    <h2 class="text-xl sm:text-2xl font-bold text-gray-900">Manage Users</h2>
+                    <p class="text-sm text-gray-600 mt-1">
+                        Showing {{ user_list|length }} user(s).
+                    </p>
                 </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                    <div>
-                        {{ user_form.password.label(class="block text-sm font-medium text-gray-700") }}
-                        {{ user_form.password(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
-                        {% for error in user_form.password.errors %}
-                            <span class="text-red-500 text-xs mt-1">{{ error }}</span>
-                        {% endfor %}
-                    </div>
-                    
-                    <div>
-                        {{ user_form.password2.label(class="block text-sm font-medium text-gray-700") }}
-                        {{ user_form.password2(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
-                        {% for error in user_form.password2.errors %}
-                            <span class="text-red-500 text-xs mt-1">{{ error }}</span>
-                        {% endfor %}
-                    </div>
-                </div>
-                
-                {{ user_form.submit(class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500") }}
-            </form>
+                <button id="open-add-user-modal-btn" type="button"
+                        class="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-600 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors">
+                    <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M11 5a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V5z" />
+                      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-.001-8.915a3.982 3.982 0 00-2.484.773 4.01 4.01 0 00-1.28 1.258C5.02 12.77 4 14.89 4 17h12c0-2.11-.983-4.156-2.15-5.698a4.01 4.01 0 00-1.28-1.258 3.982 3.982 0 00-2.484-.773zM10 4a2 2 0 100 4 2 2 0 000-4z" clip-rule="evenodd" />
+                    </svg>
+                    Add New User
+                </button>
+            </div>
         </div>
-    </div>
 
-    <!-- User List -->
-    <div class="bg-white rounded-lg shadow-lg p-6">
-        <h2 class="text-2xl font-bold mb-4 text-gray-800">Manage Users</h2>
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
@@ -71,76 +32,197 @@
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Facility</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
                         <th scope="col" class="relative px-6 py-3">
-                            <span class="sr-only">Edit</span>
+                            <span class="sr-only">Actions</span>
                         </th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     {% for user in user_list %}
-                    <tr>
+                    <tr class="hover:bg-gray-50 transition-colors">
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ user.username }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {{ user.facility.name if user.facility else 'N/A' }}
+                            {{ user.facility.name if user.facility else 'N/A (Admin)' }}
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ user.role.name|title }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            {% if user.role.name == 'admin' %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
+                                Admin
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                Facility User
+                            </span>
+                            {% endif %}
+                        </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <a href="{{ url_for('edit_user', user_id=user.id) }}" class="text-indigo-600 hover:text-indigo-900">Edit</a>
-                        </td>
+                            <a href="{{ url_for('edit_user', user_id=user.id) }}" class="text-indigo-600 hover:text-indigo-900 transition-colors" title="Edit User">
+                                Edit
+                            </a>
+                            </td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="4" class="px-6 py-4 text-center text-sm text-gray-500">No users found.</td>
+                        <td colspan="4" class="px-6 py-10 text-center text-sm text-gray-500 italic">No users found. Add the first user!</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-        
-        <!-- Pagination Controls -->
-        <nav class="mt-6 flex items-center justify-between" aria-label="Pagination">
-            <div>
+
+        {% if prev_url or next_url %}
+        <nav class="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-gray-50/75" aria-label="Pagination">
+            <div class="flex-1 flex justify-between sm:justify-end gap-3">
                 {% if prev_url %}
-                    <a href="{{ prev_url }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                    <a href="{{ prev_url }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors">
                         Previous
                     </a>
                 {% else %}
-                    <span class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-400 bg-gray-50 cursor-not-allowed">
+                    <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-400 bg-gray-100 cursor-not-allowed">
                         Previous
                     </span>
                 {% endif %}
-            </div>
-            <div>
                 {% if next_url %}
-                    <a href="{{ next_url }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                    <a href="{{ next_url }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors">
                         Next
                     </a>
                 {% else %}
-                    <span class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-400 bg-gray-50 cursor-not-allowed">
+                     <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-400 bg-gray-100 cursor-not-allowed">
                         Next
                     </span>
                 {% endif %}
             </div>
         </nav>
+        {% endif %}
+    </div> </div> <div id="add-user-modal" class="fixed inset-0 z-50 overflow-y-auto hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div id="modal-backdrop" class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <form action="{{ url_for('users') }}" method="post" novalidate>
+                {{ user_form.hidden_tag() }}
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start">
+                        <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-primary-100 sm:mx-0 sm:h-10 sm:w-10">
+                            <svg class="h-6 w-6 text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                            </svg>
+                        </div>
+                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">
+                                Add New User
+                            </h3>
+                            <div class="mt-4 space-y-4">
+                                <div>
+                                    <label for="{{ user_form.username.id }}" class="block text-sm font-medium text-gray-700">{{ user_form.username.label.text }} <span class="text-red-500">*</span></label>
+                                    <div class="relative mt-1">
+                                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                        </div>
+                                        {{ user_form.username(class="block w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all") }}
+                                    </div>
+                                    {% for error in user_form.username.errors %}<span class="text-red-500 text-xs mt-1">{{ error }}</span>{% endfor %}
+                                </div>
+                                <div>
+                                    <label for="{{ user_form.facility_id.id }}" class="block text-sm font-medium text-gray-700">{{ user_form.facility_id.label.text }}</label>
+                                    <p class="text-xs text-gray-500 mb-1">Leave blank if creating an Admin user.</p>
+                                    <div class="relative mt-1">
+                                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                                        </div>
+                                        {{ user_form.facility_id(class="block w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all appearance-none") }}
+                                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                        </div>
+                                    </div>
+                                    {% for error in user_form.facility_id.errors %}<span class="text-red-500 text-xs mt-1">{{ error }}</span>{% endfor %}
+                                </div>
+                                <div>
+                                    <label for="{{ user_form.password.id }}" class="block text-sm font-medium text-gray-700">{{ user_form.password.label.text }} <span class="text-red-500">*</span></label>
+                                     <div class="relative mt-1">
+                                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                                        </div>
+                                        {{ user_form.password(class="block w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all") }}
+                                    </div>
+                                    {% for error in user_form.password.errors %}<span class="text-red-500 text-xs mt-1">{{ error }}</span>{% endfor %}
+                                </div>
+                                <div>
+                                    <label for="{{ user_form.password2.id }}" class="block text-sm font-medium text-gray-700">{{ user_form.password2.label.text }} <span class="text-red-500">*</span></label>
+                                    <div class="relative mt-1">
+                                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                                        </div>
+                                        {{ user_form.password2(class="block w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all") }}
+                                    </div>
+                                    {% for error in user_form.password2.errors %}<span class="text-red-500 text-xs mt-1">{{ error }}</span>{% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse gap-3">
+                    {{ user_form.submit(class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary-600 text-base font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:w-auto sm:text-sm transition-colors") }}
+                    <button id="close-add-user-modal-btn" type="button" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm transition-colors">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const accordionBtn = document.getElementById('add-user-accordion-btn');
-        const formContainer = document.getElementById('add-user-form-container');
-        const chevron = document.getElementById('accordion-chevron');
+        const modal = document.getElementById('add-user-modal');
+        const openBtn = document.getElementById('open-add-user-modal-btn');
+        const closeBtn = document.getElementById('close-add-user-modal-btn');
+        const backdrop = document.getElementById('modal-backdrop');
 
-        accordionBtn.addEventListener('click', function() {
-            const isHidden = formContainer.classList.contains('hidden');
-            if (isHidden) {
-                formContainer.classList.remove('hidden');
-                chevron.classList.add('rotate-180');
-            } else {
-                formContainer.classList.add('hidden');
-                chevron.classList.remove('rotate-180');
+        function openModal() {
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            // Animate backdrop
+            if (backdrop) {
+                 backdrop.classList.remove('opacity-0');
+                 backdrop.classList.add('opacity-100');
+            }
+        }
+
+        function closeModal() {
+            if (!modal) return;
+            // Animate backdrop
+             if (backdrop) {
+                backdrop.classList.remove('opacity-100');
+                backdrop.classList.add('opacity-0');
+            }
+            // Add slight delay to allow animation before hiding
+            setTimeout(() => {
+                 modal.classList.add('hidden');
+            }, 150); // Adjust timing based on CSS transition if added
+        }
+
+        if (openBtn) {
+            openBtn.addEventListener('click', openModal);
+        }
+        if (closeBtn) {
+            closeBtn.addEventListener('click', closeModal);
+        }
+        if (backdrop) {
+            backdrop.addEventListener('click', closeModal);
+        }
+
+        // Close modal on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && modal && !modal.classList.contains('hidden')) {
+                closeModal();
             }
         });
+
+        // If form had errors on page load, open the modal automatically
+        {% if user_form.errors %}
+            openModal();
+        {% endif %}
     });
 </script>
-
 {% endblock %}
