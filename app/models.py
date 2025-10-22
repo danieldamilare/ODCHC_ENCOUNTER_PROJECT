@@ -137,7 +137,7 @@ class UserView:
     id: int
     username: str
     role: Role
-    facility: FacilityView
+    facility: Optional[FacilityView]
 
 
 class AuthUser(UserMixin, UserView):
@@ -150,10 +150,13 @@ class AuthUser(UserMixin, UserView):
 def load_user(id:str) -> Optional[AuthUser]:
 
     from app.services import User, UserServices
+    print("In here")
     try:
         user:UserView = UserServices.get_view_by_id(int(id))
+        print(user)
     except MissingError:
         return None
+    print("In load user")
     return AuthUser(user)
 
 def is_logged_in() -> bool:

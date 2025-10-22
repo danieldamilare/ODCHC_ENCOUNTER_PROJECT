@@ -74,18 +74,36 @@ def logout():
 @app.route('/add_encounter', methods  = ['GET'])
 @login_required
 def add_encounter():
-    schemes = InsuranceSchemeServices.get_all()
+    user = get_current_user()
+    if user.role.name == 'admin':
+        schemes = InsuranceSchemeServices.get_all()
+    else:
+        print("In add encounter", get_current_user().facility)
+        schemes = get_current_user().facility.scheme
 
+    return render_template('add_encounter.html',
+                           title = 'Select Insurance Scheme',   
+                           schemes = schemes)
 
-@app.route('/add_encounter/<insurance_scheme>', methods = ['GET', 'POST'])
+@app.route('/add_encounter/<int:scheme_id>', methods = ['GET', 'POST'])
 @login_required
-def add_scheme_encounter(insurance_scheme) -> Any:
+def add_scheme_encounter(scheme_id) -> Any:
     try:
-        insurance = InsuranceSchemeServices.get_by_id(insurance_scheme)
+        insurance_scheme= InsuranceSchemeServices.get_by_id(scheme_id) #check if scheme exist
+        user = get_current_user()
+        if user.role.name != 'admin':
+            schemes = get_current_user().facility.scheme
+            if scheme_id not in (sc.id for sc in schemes):
+                raise ValidationError(f"Your facility is not under the insurance scheme: {insurance_scheme.scheme_name}")
     except MissingError as e:
+        flash("Invalid Insurance Scheme Selected", "error")
+        return redirect(url_for('add_encounter'))
+    except ValidationError as e:
         flash(str(e), "error")
         return redirect(url_for('add_encounter'))
+
     form:AddEncounterForm  = AddEncounterForm()
+    form.facility.choices = [('0', 'Select Facility')] + [(f.id, f.name) for f in FacilityServices.get_all()]
     disease_choices = [('0', 'Select a disease')] + sorted([(dis.id, str(dis.name).title()) for dis in DiseaseServices.get_all()], key=lambda x: x[1])
     for subfield in form.diseases:
         subfield.choices =  disease_choices
@@ -102,16 +120,18 @@ def add_scheme_encounter(insurance_scheme) -> Any:
     if form.validate_on_submit():
         # print('validated on submit')
         res = form_to_dict(form, Encounter)
-        if form.outcome.data == -1:
-            res['outcome'] = form.death_type.data
+        final_outcome = form.death_type.data if form.outcome.data == -1 else form.outcome.data
+        res['outcome'] = final_outcome
         #for the purpose of the demo deadline use the first disease and ignore others
         diseases = [disease.data for disease in form.diseases]
         # print("disease id", diseases)
         res['diseases_id']  = diseases
         user = get_current_user()
-        res['created_by'] =user
-        res['facility_id'] = user.facility_id
-        res['scheme'] = insurance_scheme
+        res['created_by'] =user.id
+        res['facility_id'] = form.facility.data
+        if user.role.name != 'admin':
+            res['facility_id'] = user.facility.id
+        res['scheme'] = scheme_id
         print(res)
         try:
             EncounterServices.create_encounter(**res)
@@ -127,6 +147,7 @@ def add_scheme_encounter(insurance_scheme) -> Any:
 
     return render_template('add_scheme_encounter.html', 
                            disease_choices = disease_choices[1:],
+                           insurance_scheme= insurance_scheme,
                            form = form, 
                            title = 'Add Encounter')
 
@@ -178,7 +199,8 @@ def edit_facilities(pid: int) ->Any:
     others = [(sc.id, sc.scheme_name) for sc in InsuranceSchemeServices.get_all()]
     form.scheme.choices = others
     current_scheme = FacilityServices.get_current_scheme(pid)
-    form.scheme.data = current_scheme
+    form.scheme.data = [c.id for c in current_scheme]
+
     if form.validate_on_submit():
         try:
             form.populate_obj(facility)
@@ -356,7 +378,7 @@ def users():
         res['password'] = user_form.password.data
         try: 
             user =UserServices.create_user(**res)
-            facility:Facility = FacilityServices.get_by_id(user.facility_id)
+            facility:Facility = FacilityServices.get_by_id(user.facility.id)
             flash(f'{user.username} added to {facility.name} facility',
                   'success')
             return redirect(url_for('users'))
@@ -445,7 +467,7 @@ def encounters():
         and_filter.append(('date', end_date, '<='))
 
     if user.role == Role.user:
-        and_filter.append(('ec.facility_id', user.facility_id, '=' ))
+        and_filter.append(('ec.facility_id', user.facility.id, '=' ))
     else:
         lga = filter_form.local_government.data
         facility_id = filter_form.facility_id.data
@@ -473,12 +495,17 @@ def encounters():
                            )
 
 @app.route('/encounters/view/<int:pid>')
-@admin_required
+@login_required
 def view_encounter(pid: int):
     try:
-        EncounterServices.get_by_id(pid)
+        encounter_view = EncounterServices.get_view_by_id(pid)
+        user = get_current_user()
+        if user.role.name != 'admin' and user.facility.id != encounter_view.facility.id:
+            raise ValidationError("Encounter not registered to your facility")
     except MissingError as e:
         flash(str(e), "error")
+    except ValidationError as e:
+        flash(str(e), "erro")
     encounter_view = list(EncounterServices.get_all(and_filter=[
         ("ec.id", pid, '=')]))[0]
     return render_template('view_encounter.html', 
@@ -487,6 +514,7 @@ def view_encounter(pid: int):
 
 
 @app.route('/dashboard')
+@admin_required
 def admin():
     # --- 1. GET FILTERS FROM URL ---
     period = request.args.get('period', 'this_month')
@@ -497,7 +525,7 @@ def admin():
         if facility_id != 'all':
             flash("You cannot access another facility", 'error')
             return redirect(url_for('admin'))
-        facility_id = user.facility_id
+        facility_id = user.facility.id
 
     # --- 2. CALCULATE DATE RANGE ---
     today = date.today()
