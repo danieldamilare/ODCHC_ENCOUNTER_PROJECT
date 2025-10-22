@@ -65,6 +65,7 @@ class Encounter:
     gender: str
     age: int
     age_group: str
+    scheme: int
     treatment: Optional[str]
     outcome: str
     doctor_name: Optional[str]
@@ -79,6 +80,7 @@ class Encounter:
 class InsuranceScheme:
     id: int
     scheme_name: str
+    color_scheme: str
 
     @property
     def get_name(self) -> str:
@@ -98,7 +100,7 @@ class FacilityView:
     id: int
     name: str
     lga: str
-    scheme: List[str]
+    scheme: List[InsuranceScheme]
     facility_type: str
 
 @dataclass
@@ -111,20 +113,19 @@ class DiseaseView:
 @dataclass
 class EncounterView:
     id: int
-    facility: str
-    diseases: List[DiseaseView]
     policy_number: str
     client_name: str
     gender: str
     date: date
     age: int
-    scheme: str
     treatment: Optional[str]
-    referral: bool
     doctor_name: Optional[str]
-    treatment_outcome: str
+    treatment_outcome: TreatmentOutcome
     created_by: str
     created_at: datetime
+    insurance_scheme: InsuranceScheme
+    facility: FacilityView
+    diseases: List[DiseaseView]
 
     @property
     def diseases_name(self):
@@ -135,12 +136,12 @@ class EncounterView:
 class UserView:
     id: int
     username: str
-    facility: str
     role: Role
+    facility: FacilityView
 
 
-class AuthUser(UserMixin, User):
-    def __init__(self, user: User):
+class AuthUser(UserMixin, UserView):
+    def __init__(self, user: UserView):
         super().__init__(**user.__dict__)
     def  get_id(self) -> str:
         return str(self.id)
@@ -150,7 +151,7 @@ def load_user(id:str) -> Optional[AuthUser]:
 
     from app.services import User, UserServices
     try:
-        user:User = UserServices.get_by_id(int(id))
+        user:UserView = UserServices.get_view_by_id(int(id))
     except MissingError:
         return None
     return AuthUser(user)
