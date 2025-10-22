@@ -4,6 +4,7 @@ from wtforms import IntegerField, SelectField, HiddenField, FieldList, DateField
 from wtforms.validators import DataRequired, Length, NumberRange, EqualTo, Optional, ValidationError 
 from wtforms import widgets
 from app.config import LOCAL_GOVERNMENT
+from app.models import get_current_user
 from app.services import FacilityServices, DiseaseCategoryServices, DiseaseServices
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileAllowed, FileRequired
@@ -23,6 +24,7 @@ class AddEncounterForm(FlaskForm):
     date = DateField('Date', format="%Y-%m-%d", validators = [DataRequired()])
     gender = SelectField('Gender', choices= [('M', 'Male'), ('F','Female')], validators=[DataRequired()])
     diseases  = FieldList(SelectField('Disease/Diagnosis/Services', validators=[DataRequired()], coerce=int), min_entries=1)
+    facility = SelectField("Select Facility", coerce=int)
     outcome = SelectField('Treatment Outcome',  validators = [Optional()], coerce=int, render_kw={'id': 'outcome-select'})
     death_type = SelectField("Death Type", validators=[Optional()], coerce = int, render_kw={'id': 'death-type-select'})
     submit = SubmitField('submit')
@@ -31,6 +33,11 @@ class AddEncounterForm(FlaskForm):
         for disease in diseases:
             if not disease.data or int(disease.data) == 0:
                 raise ValidationError("Please select a valid disease from the list")
+
+    def validate_facility(self, facility):
+        user = get_current_user()
+        if user.role.name == 'admin' and not facility.data:
+            raise ValidationError("Admin User have to select a facility for encounter")
 
     def validate(self, extra_validators=None):
         # First, run all the standard validators
