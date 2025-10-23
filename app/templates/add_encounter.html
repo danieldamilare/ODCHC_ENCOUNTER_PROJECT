@@ -5,83 +5,198 @@
 {% endif %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto">
-    <div class="bg-white shadow-xl rounded-lg overflow-hidden divide-y divide-gray-200">
-        
-        <div class="p-6">
-            <nav class="text-sm font-medium text-gray-500 mb-3" aria-label="Breadcrumb">
-                <ol class="list-none p-0 inline-flex space-x-2">
-                    {% if current_user.role.name == 'admin' %}
-                    <li class="flex items-center">
-                        <a href="{{ url_for('admin') }}" class="hover:text-gray-700">Admin</a>
-                        <svg class="h-5 w-5 text-gray-400 mx-1" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-                        </svg>
-                    </li>
-                    {% endif %}
-                    <li class="flex items-center">
-                        <a href="{{ url_for('encounters') if current_user.role.name != 'admin' else '#' }}" class="hover:text-gray-700">Encounters</a>
-                        <svg class="h-5 w-5 text-gray-400 mx-1" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-                        </svg>
-                    </li>
-                    <li class="flex items-center">
-                        <span class="text-gray-700" aria-current="page">Select Scheme</span>
-                    </li>
-                </ol>
-            </nav>
-            
-            <h1 class="text-2xl font-bold text-gray-900">
-                Please select Insurance Scheme to add Encounter
-            </h1>
-        </div>
-        
-        <div class="p-6">
-            {% if schemes %}
-                <div class="flex flex-col space-y-4">
-                    {% for scheme in schemes %}
-                        <a href="{{ url_for('add_scheme_encounter', scheme_id=scheme.id) }}" 
-                           style="--scheme-color: {{ scheme.color_scheme | default('#6366f1') }};"
-                           class="group flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg
-                                  transition-all duration-150 hover:shadow-lg hover:border-gray-300 hover:bg-gray-50">
-                            
-                            <div class="flex items-center space-x-4">
-                                
-                                <div class="flex-shrink-0 h-12 w-12 rounded-lg flex items-center justify-center
-                                            border border-gray-100 overflow-hidden">
-                                    {% if scheme.logo_url %}
-                                        <img src="{{ scheme.logo_url }}" alt="{{ scheme.scheme_name }} Logo" class="h-full w-full object-contain">
-                                    {% else %}
-                                        <div class="h-full w-full flex items-center justify-center bg-[var(--scheme-color)]">
-                                            <svg class="h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                            </svg>
-                                        </div>
-                                    {% endif %}
-                                </div>
-                                <div>
-                                    <h2 class="text-base font-bold text-gray-900">
-                                        {{ scheme.scheme_name }}
-                                    </h2>
-                                    <p class="text-sm text-gray-500 group-hover:text-gray-700">
-                                        Click to start a new encounter
-                                    </p>
-                                </div>
-                            </div>
-                            
-                            <div class="flex-shrink-0 ml-4">
-                                <svg class="h-5 w-5 text-gray-400 group-hover:text-gray-600" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-                                </svg>
-                            </div>
-                        </a>
-                    {% endfor %}
-                </div>
-            {% else %}
-                <div class...
-                    ...</div>
+<style>
+    .scheme-card {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .scheme-card:hover {
+        transform: translateY(-4px) scale(1.02);
+    }
+    .scheme-card:active {
+        transform: translateY(-2px) scale(1.01);
+    }
+    .scheme-glow {
+        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
+        animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    @keyframes pulse-ring {
+        0%, 100% {
+            box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
+        }
+        50% {
+            box-shadow: 0 0 0 8px rgba(59, 130, 246, 0);
+        }
+    }
+    .kbd-key {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 1.5rem;
+        padding: 0.125rem 0.375rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        line-height: 1;
+        color: #475569;
+        background: linear-gradient(to bottom, #f8fafc, #e2e8f0);
+        border: 1px solid #cbd5e1;
+        border-radius: 0.25rem;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+</style>
+
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    
+    <!-- Compact Breadcrumb -->
+    <nav class="text-sm font-medium text-slate-500 mb-4" aria-label="Breadcrumb">
+        <ol class="list-none p-0 flex items-center gap-1.5">
+            {% if current_user.role.name == 'admin' %}
+            <li><a href="{{ url_for('admin') }}" class="hover:text-blue-600 transition-colors">Admin</a></li>
+            <li><svg class="h-4 w-4 text-slate-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg></li>
             {% endif %}
+            <li><a href="{{ url_for('encounters') }}" class="hover:text-blue-600 transition-colors">Encounters</a></li>
+            <li><svg class="h-4 w-4 text-slate-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg></li>
+            <li class="text-slate-900 font-semibold" aria-current="page">Select Scheme</li>
+        </ol>
+    </nav>
+
+    <!-- Header Section -->
+    <div class="text-center mb-8">
+        <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl shadow-lg mb-4">
+            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
         </div>
+        <h1 class="text-3xl font-bold text-slate-900 mb-2">Select Insurance Scheme</h1>
+        <p class="text-slate-600 max-w-2xl mx-auto">
+            Choose the insurance coverage for this patient encounter. Each scheme has different benefits and reporting requirements.
+        </p>
     </div>
+
+    {% if schemes %}
+        <!-- Scheme Cards Grid -->
+        <div class="grid grid-cols-1 {% if schemes|length > 1 %}md:grid-cols-2{% if schemes|length > 2 %} lg:grid-cols-3{% endif %}{% endif %} gap-6 mb-6">
+            {% for scheme in schemes %}
+            <a href="{{ url_for('add_scheme_encounter', scheme_id=scheme.id) }}" 
+               data-scheme-key="{{ loop.index }}"
+               style="--scheme-color: {{ scheme.color_scheme | default('#3b82f6') }};"
+               class="scheme-card group relative bg-white rounded-2xl border-2 border-slate-200 hover:border-transparent overflow-hidden shadow-lg hover:shadow-2xl">
+                
+                <!-- Scheme Color Accent Bar -->
+                <div class="absolute top-0 left-0 right-0 h-1.5" style="background: linear-gradient(90deg, var(--scheme-color), color-mix(in srgb, var(--scheme-color) 70%, white));"></div>
+                
+                <!-- Card Content -->
+                <div class="p-6">
+                    <!-- Logo & Title Section -->
+                    <div class="flex items-start gap-4 mb-4">
+                        <div class="flex-shrink-0 w-16 h-16 rounded-xl flex items-center justify-center border-2 overflow-hidden scheme-glow"
+                             style="border-color: var(--scheme-color); background: color-mix(in srgb, var(--scheme-color) 10%, white);">
+                            {% if scheme.logo_url %}
+                                <img src="{{ scheme.logo_url }}" alt="{{ scheme.scheme_name }}" class="w-full h-full object-contain p-2">
+                            {% else %}
+                                <div class="w-full h-full flex items-center justify-center" style="background-color: var(--scheme-color);">
+                                    <svg class="h-8 w-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="flex-1 min-w-0">
+                            <h2 class="text-lg font-bold text-slate-900 group-hover:text-blue-600 transition-colors mb-1 line-clamp-2">
+                                {{ scheme.scheme_name }}
+                            </h2>
+                            <p class="text-sm text-slate-500">Insurance Coverage</p>
+                        </div>
+                    </div>
+
+                    <!-- Action Indicator -->
+                    <div class="flex items-center justify-between pt-4 border-t border-slate-100">
+                        <span class="text-sm font-semibold text-slate-600 group-hover:text-blue-600 transition-colors">
+                            Start New Encounter
+                        </span>
+                        <div class="flex items-center gap-2">
+                            <!-- Keyboard Shortcut Hint -->
+                            <span class="kbd-key hidden sm:inline-flex">{{ loop.index }}</span>
+                            <svg class="w-5 h-5 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hover Effect Overlay -->
+                <div class="absolute inset-0 bg-gradient-to-br from-transparent to-blue-50 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+            </a>
+            {% endfor %}
+        </div>
+
+
+        <!-- Help Card -->
+        <div class="bg-gradient-to-r from-blue-50 to-cyan-50 border-2 border-blue-200 rounded-xl p-6">
+            <div class="flex items-start gap-4">
+                <div class="flex-shrink-0 w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+                <div class="flex-1">
+                    <h3 class="text-base font-bold text-slate-900 mb-2">Need Help?</h3>
+                    <ul class="space-y-1.5 text-sm text-slate-700">
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>
+                            <span><strong>Not sure which scheme?</strong> Check the patient's insurance card or policy documents</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>
+                            <span><strong>Patient has no insurance?</strong> Select the appropriate scheme or contact administration</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+    {% else %}
+        <!-- Empty State - No Schemes Assigned -->
+        <div class="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+            <div class="text-center py-16 px-6">
+                <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-slate-100 to-slate-200 rounded-full mb-6">
+                    <svg class="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                </div>
+                <h2 class="text-2xl font-bold text-slate-900 mb-3">No Insurance Schemes Available</h2>
+                <p class="text-slate-600 max-w-md mx-auto mb-8">
+                    Your facility doesn't have any insurance schemes assigned yet. Contact your administrator to set up insurance coverage options.
+                </p>
+                
+                <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
+                    <a href="{{ url_for('encounters') }}" 
+                       class="inline-flex items-center px-6 py-3 bg-slate-600 hover:bg-slate-700 text-white font-semibold rounded-lg shadow-md transition-all">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                        </svg>
+                        Back to Encounters
+                    </a>
+                    
+                    {% if current_user.role.name == 'admin' %}
+                    <a href="{{ url_for('admin') }}" 
+                       class="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition-all">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                        </svg>
+                        Go to Admin Settings
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    {% endif %}
 </div>
+
+</script>
 {% endblock %}

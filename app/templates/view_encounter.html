@@ -1,98 +1,286 @@
 {% extends "admin_base.html" if current_user.role.name == 'admin' else "base.html" %}
 
+{% block page_header %}
+<div class="mb-6">
+    <!-- Compact Breadcrumb -->
+    <nav class="text-sm font-medium text-slate-500 mb-4" aria-label="Breadcrumb">
+        <ol class="list-none p-0 flex flex-wrap items-center gap-1.5">
+            {% if current_user.role.name == 'admin' %}
+            <li class="flex items-center">
+                <a href="{{ url_for('admin') }}" class="hover:text-blue-600 transition-colors">Admin</a>
+            </li>
+            <li><svg class="h-4 w-4 text-slate-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg></li>
+            {% endif %}
+            <li class="flex items-center">
+                {% if current_user.role.name != 'admin' %}
+                <a href="{{ url_for('encounters') }}" class="hover:text-blue-600 transition-colors">My Encounters</a>
+                {% else %}
+                <a href="{{ url_for('encounters') }}" class="hover:text-blue-600 transition-colors">All Encounters</a>
+                {% endif %}
+            </li>
+            <li><svg class="h-4 w-4 text-slate-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg></li>
+            <li class="text-slate-900 font-semibold" aria-current="page">View Record</li>
+        </ol>
+    </nav>
+</div>
+{% endblock %}
+
 {% block content %}
-<div class="max-w-4xl mx-auto">
-    <div class="bg-white rounded-lg shadow-lg">
-        <!-- Header Section -->
-        <div class="p-6 border-b border-gray-200" style="--scheme-color: {{ encounter.insurance_scheme.color_scheme if encounter.insurance_scheme else '#6b7280' }};">
-            <div class="flex items-center justify-between mb-4">
-                <a href="{{ url_for('encounters') }}" class="text-sm font-medium text-indigo-600 hover:text-indigo-800">&larr; Back to Encounters List</a>
-            </div>
-            <div class="flex items-start justify-between">
-                <div>
-                    <h1 class="text-3xl font-bold text-gray-900">{{ encounter.client_name }}</h1>
-                    <p class="text-sm text-gray-500 mt-1">Policy #: {{ encounter.policy_number }}</p>
+<style>
+    :root {
+        --scheme-color: {{ encounter.insurance_scheme.color_scheme | default('#6b7280') }};
+    }
+    
+    .scheme-accent {
+        background: linear-gradient(135deg, var(--scheme-color) 0%, color-mix(in srgb, var(--scheme-color) 80%, black) 100%);
+    }
+    
+    .scheme-border {
+        border-color: var(--scheme-color);
+    }
+    
+    .scheme-bg-light {
+        background-color: color-mix(in srgb, var(--scheme-color) 8%, white);
+    }
+    
+    @media print {
+        .no-print { display: none !important; }
+        body { background: white; }
+        .print-break { page-break-inside: avoid; }
+    }
+</style>
+
+<!-- Hero Summary Card -->
+<div class="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden mb-6">
+    <!-- Scheme-colored header bar -->
+    <div class="scheme-accent h-2"></div>
+    
+    <div class="p-6 sm:p-8">
+        <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+            <!-- Patient Info -->
+            <div class="flex-1">
+                <div class="flex items-start gap-4 mb-4">
+                    <div class="flex-shrink-0 w-16 h-16 rounded-2xl scheme-accent flex items-center justify-center text-white text-2xl font-bold shadow-lg">
+                        {{ encounter.client_name[0] if encounter.client_name else 'P' }}
+                    </div>
+                    <div class="flex-1">
+                        <h1 class="text-3xl font-bold text-slate-900 mb-1">{{ encounter.client_name }}</h1>
+                        <div class="flex flex-wrap items-center gap-3 text-sm">
+                            <span class="inline-flex items-center px-3 py-1 rounded-full bg-slate-100 text-slate-700 font-medium">
+                                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"/>
+                                </svg>
+                                Policy: {{ encounter.policy_number }}
+                            </span>
+                            <span class="text-slate-500">•</span>
+                            <span class="text-slate-600 font-medium">
+                                {{ encounter.facility.name if encounter.facility else 'N/A' }}
+                            </span>
+                        </div>
+                    </div>
                 </div>
-                {% if encounter.insurance_scheme %}
-                <div class="mt-1">
-                    <span class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full text-white" style="background-color: var(--scheme-color);">
-                        {{ encounter.insurance_scheme.scheme_name }}
-                    </span>
+
+                <!-- Quick Stats -->
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-4 border border-blue-100">
+                        <p class="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-1">Gender</p>
+                        <p class="text-2xl font-bold text-slate-900">
+                            {{ 'Male' if encounter.gender == 'M' else ('Female' if encounter.gender == 'F' else 'N/A') }}
+                        </p>
+                    </div>
+                    <div class="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-100">
+                        <p class="text-xs font-semibold text-purple-600 uppercase tracking-wide mb-1">Age</p>
+                        <p class="text-2xl font-bold text-slate-900">{{ encounter.age }}</p>
+                    </div>
+                    <div class="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-4 border border-emerald-100">
+                        <p class="text-xs font-semibold text-emerald-600 uppercase tracking-wide mb-1">Visit Date</p>
+                        <p class="text-lg font-bold text-slate-900">
+                            {{ encounter.date.strftime('%b %d') if encounter.date else 'N/A'}}
+                        </p>
+                        <p class="text-xs text-slate-600">{{ encounter.date.strftime('%Y') if encounter.date else '' }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Insurance Scheme Card -->
+            <div class="lg:w-80">
+                <div class="scheme-bg-light rounded-xl p-5 border-2 scheme-border">
+                    <p class="text-xs font-bold uppercase tracking-wide text-slate-600 mb-2">Insurance Coverage</p>
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="w-12 h-12 rounded-lg scheme-accent flex items-center justify-center shadow-md">
+                            <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                        </div>
+                        <div class="flex-1">
+                            <p class="font-bold text-slate-900 text-lg leading-tight">
+                                {{ encounter.insurance_scheme.scheme_name if encounter.insurance_scheme else 'N/A' }}
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="flex gap-2 mt-4 no-print">
+                        <button onclick="window.print()" class="flex-1 inline-flex items-center justify-center px-4 py-2.5 bg-white border-2 border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-all shadow-sm">
+                            <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                            </svg>
+                            Print
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Content Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    
+    <!-- Left Column: Clinical Info -->
+    <div class="lg:col-span-2 space-y-6">
+        
+        <!-- Diagnosis Section -->
+        <div class="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden print-break">
+            <div class="px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-blue-50">
+                <h2 class="text-lg font-bold text-slate-900 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                    Diagnosis & Services
+                </h2>
+            </div>
+            <div class="p-6">
+                {% if encounter.diseases %}
+                <div class="space-y-3">
+                    {% for disease in encounter.diseases %}
+                    <div class="group flex items-start gap-3 p-4 bg-gradient-to-r from-slate-50 to-white rounded-lg border border-slate-200 hover:border-blue-300 hover:shadow-md transition-all">
+                        <div class="flex-shrink-0 mt-0.5">
+                            <span class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide shadow-sm {{ 'bg-blue-600 text-white' if disease.category else 'bg-slate-200 text-slate-700' }}">
+                                {{ disease.category.category_name if disease.category else 'General' }}
+                            </span>
+                        </div>
+                        <p class="flex-1 text-slate-900 font-semibold text-base leading-relaxed">{{ disease.name }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-8">
+                    <svg class="w-12 h-12 text-slate-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    <p class="text-slate-500 italic">No specific diagnosis or service recorded.</p>
                 </div>
                 {% endif %}
             </div>
         </div>
+
+        <!-- Treatment Section -->
+        <div class="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden print-break">
+            <div class="px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-emerald-50">
+                <h2 class="text-lg font-bold text-slate-900 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/>
+                    </svg>
+                    Treatment Provided
+                </h2>
+            </div>
+            <div class="p-6">
+                <div class="bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg p-5 border border-slate-200">
+                    <p class="text-slate-800 leading-relaxed whitespace-pre-wrap">{{ encounter.treatment if encounter.treatment else 'No specific treatment details provided.' }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Outcome & Details -->
+    <div class="space-y-6">
         
-        <!-- Details Section -->
-        <div class="p-6">
-            <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-8">
-                <!-- Key Info -->
-                <div class="sm:col-span-1">
-                    <dt class="text-sm font-medium text-gray-500">Facility</dt>
-                    <dd class="mt-1 text-sm text-gray-900">{{ encounter.facility.name if encounter.facility else 'N/A' }}</dd>
+        <!-- Treatment Outcome - Prominent -->
+        <div class="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden print-break">
+            <div class="px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-purple-50">
+                <h2 class="text-lg font-bold text-slate-900">Treatment Outcome</h2>
+            </div>
+            <div class="p-6">
+                {% set outcome_lower = encounter.treatment_outcome|lower if encounter.treatment_outcome else 'n/a' %}
+                {% if outcome_lower == 'resolved' or outcome_lower == 'treated' %}
+                <div class="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-6 border-2 border-emerald-200">
+                    <div class="flex items-center gap-3 mb-2">
+                        <div class="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg">
+                            <svg class="h-7 w-7 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-2xl font-bold text-emerald-700">{{ encounter.treatment_outcome|title }}</p>
+                            <p class="text-sm text-emerald-600">Successful treatment</p>
+                        </div>
+                    </div>
                 </div>
-                <div class="sm:col-span-1">
-                    <dt class="text-sm font-medium text-gray-500">Date of Visit</dt>
-                    <dd class="mt-1 text-sm text-gray-900">{{ encounter.date.strftime('%B %d, %Y') if encounter.date else 'N/A'}}</dd>
+                {% elif outcome_lower == 'referred' %}
+                <div class="bg-gradient-to-br from-amber-50 to-yellow-50 rounded-xl p-6 border-2 border-amber-200">
+                    <div class="flex items-center gap-3 mb-2">
+                        <div class="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center shadow-lg">
+                            <svg class="h-7 w-7 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.21 3.03-1.742 3.03H4.42c-1.532 0-2.493-1.696-1.743-3.03l5.58-9.92zM10 5a1 1 0 011 1v3a1 1 0 01-2 0V6a1 1 0 011-1zm1 5a1 1 0 10-2 0v2a1 1 0 102 0v-2z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-2xl font-bold text-amber-700">{{ encounter.treatment_outcome|title }}</p>
+                            <p class="text-sm text-amber-600">Requires specialist care</p>
+                        </div>
+                    </div>
                 </div>
-                <div class="sm:col-span-1">
-                    <dt class="text-sm font-medium text-gray-500">Gender</dt>
-                    <dd class="mt-1 text-sm text-gray-900">{{ 'Male' if encounter.gender == 'M' else 'Female' }}</dd>
+                {% elif outcome_lower == 'death' %}
+                <div class="bg-gradient-to-br from-red-50 to-rose-50 rounded-xl p-6 border-2 border-red-200">
+                    <div class="flex items-center gap-3 mb-2">
+                        <div class="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center shadow-lg">
+                            <svg class="h-7 w-7 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-2xl font-bold text-red-700">{{ encounter.treatment_outcome|title }}</p>
+                            <p class="text-sm text-red-600">Patient deceased</p>
+                        </div>
+                    </div>
                 </div>
-                <div class="sm:col-span-1">
-                    <dt class="text-sm font-medium text-gray-500">Age</dt>
-                    <dd class="mt-1 text-sm text-gray-900">{{ encounter.age }} </dd>
+                {% else %}
+                <div class="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-6 border-2 border-slate-200">
+                    <div class="flex items-center gap-3 mb-2">
+                        <div class="w-12 h-12 bg-slate-400 rounded-full flex items-center justify-center shadow-lg">
+                            <svg class="h-7 w-7 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-2xl font-bold text-slate-700">{{ encounter.treatment_outcome|title if encounter.treatment_outcome else 'N/A' }}</p>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Administrative Details -->
+        <div class="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden print-break">
+            <div class="px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-indigo-50">
+                <h2 class="text-lg font-bold text-slate-900">Administrative</h2>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Attending Physician</p>
+                    <p class="text-base font-semibold text-slate-900">{{ encounter.doctor_name or 'Not specified' }}</p>
                 </div>
 
-                <!-- Clinical Info -->
-                <div class="sm:col-span-1 >
-                    <dt class="text-sm font-medium text-gray-500">Diseases / Services</dt>
-                    <dd class="mt-2 text-sm text-gray-900">
-                        <ul class="space-y-2 list-disc list-inside">
-                            {% for disease in encounter.diseases %}
-                                <li>
-                                    <span class="font-medium">{{ disease.name }}</span>
-                                    <span class="text-xs text-gray-500">({{ disease.category.category_name if disease.category else 'N/A' }})</span>
-                                </li>
-                            {% else %}
-                                <li class="list-none">N/A</li>
-                            {% endfor %}
-                        </ul>
-                    </dd>
+                <div class="pt-4 border-t border-slate-200">
+                    <p class="text-xs text-slate-500 leading-relaxed">
+                        <span class="font-semibold text-slate-700">Created by:</span> {{ encounter.created_by if encounter.created_by else 'System' }}<br>
+                        <span class="font-semibold text-slate-700">Date:</span> {{ encounter.created_at.strftime('%b %d, %Y at %I:%M %p') if encounter.created_at else 'N/A' }}
+                    </p>
                 </div>
-
-                <div class="sm:col-span-1">
-                    <dt class="text-sm font-medium text-gray-500">Treatment Outcome</dt>
-                    <dd class="mt-1 text-sm font-semibold text-gray-900">{{ encounter.treatment_outcome|title if encounter.treatment_outcome else 'N/A' }}</dd>
-                </div>
-                           <!-- Meta Info -->
-                <div class="sm:col-span-1 border-t pt-8">
-                    <dt class="text-sm font-medium text-gray-500">Doctor's Name</dt>
-                    <dd class="mt-1 text-sm text-gray-900">{{ encounter.doctor_name or 'N/A' }}</dd>
-                </div>
-                 <div class="sm:col-span-1 border-t pt-8">
-                    <dt class="text-sm font-medium text-gray-500">Referral Status</dt>
-                    <dd class="mt-1 text-sm text-gray-900">
-                        {% if encounter.referral %}
-                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Referred</span>
-                        {% else %}
-                            <span>Not Referred</span>
-                        {% endif %}
-                    </dd>
-                </div>
- 
-                <div class="sm:col-span-2">
-                    <dt class="text-sm font-medium text-gray-500">Treatment Provided</dt>
-                    <dd class="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{{ encounter.treatment or 'No treatment specified.' }}</dd>
-                </div>
-
-                <div class="sm:col-span-2 text-xs text-gray-400 text-right pt-6">
-                    Record created by <span class="font-medium">{{ encounter.created_by if encounter.created_by else 'N/A' }}</span> on {{ encounter.created_at.strftime('%Y-%m-%d at %H:%M') if encounter.created_at else 'N/A' }}
-                </div>
-            </dl>
+            </div>
         </div>
     </div>
 </div>
 {% endblock %}
-
- 

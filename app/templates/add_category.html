@@ -1,33 +1,195 @@
 {% extends "admin_base.html" %}
-
 {% block content %}
-<div class="max-w-2xl mx-auto">
-    <div class="bg-white rounded-lg shadow-lg p-6">
-        <div class="mb-6">
-             <a href="{{ url_for('diseases') }}" class="text-sm text-indigo-600 hover:text-indigo-800 mb-2 inline-block">&larr; Back to Diseases List</a>
-            <h1 class="text-2xl font-bold text-gray-800">{{ title }}</h1>
-            <p class="text-sm text-gray-500">Create a new category to group diseases.</p>
-        </div>
+<style>
+    .form-field {
+        transition: all 0.2s ease;
+    }
+    
+    .form-field input:focus {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.15);
+    }
+    
+    .form-field.error input {
+        border-color: #ef4444;
+        background-color: #fef2f2;
+    }
+    
+    .submit-btn {
+        transition: all 0.2s ease;
+    }
+    
+    .submit-btn:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px rgba(139, 92, 246, 0.3);
+    }
+    
+    .submit-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    
+    .char-counter {
+        transition: color 0.2s ease;
+    }
+    
+    .char-counter.warning {
+        color: #f59e0b;
+    }
+    
+    .char-counter.danger {
+        color: #ef4444;
+    }
+</style>
+
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    
+    <!-- Breadcrumb -->
+    <nav class="flex items-center text-sm text-slate-600 mb-6">
+        <a href="{{ url_for('admin') }}" class="hover:text-primary-600 transition-colors">Dashboard</a>
+        <svg class="w-4 h-4 mx-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+        <a href="{{ url_for('diseases') }}" class="hover:text-primary-600 transition-colors">Disease Management</a>
+        <svg class="w-4 h-4 mx-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+        <span class="text-slate-900 font-medium">{{ title }}</span>
+    </nav>
+
+    <!-- Form Card -->
+    <div class="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
         
-        <form action="{{ url_for('add_category') }}" method="post" novalidate>
-            {{ form.hidden_tag() }}
-            <div class="space-y-6">
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-blue-600 to-cyan-600 px-8 py-6 text-white">
+            <div class="flex items-center gap-4">
+                <div class="w-14 h-14 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                    </svg>
+                </div>
                 <div>
-                    {{ form.category_name.label(class="block text-sm font-medium text-gray-700") }}
-                    {{ form.category_name(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
-                    {% for error in form.category_name.errors %}
-                        <span class="text-red-500 text-xs mt-1">{{ error }}</span>
-                    {% endfor %}
+                    <h1 class="text-2xl font-bold">{{ title }}</h1>
+                    <p class="text-purple-100 text-sm mt-1">Create a new category to organize and group diseases</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Form -->
+        <form action="{{ url_for('add_category') }}" method="post" novalidate id="categoryForm" class="p-8">
+            {{ form.hidden_tag() }}
+            
+            <div class="space-y-6">
+                <!-- Category Name Field -->
+                <div class="form-field {% if form.category_name.errors %}error{% endif %}">
+                    <label for="{{ form.category_name.id }}" class="block text-sm font-semibold text-slate-700 mb-2">
+                        {{ form.category_name.label.text }}
+                        <span class="text-red-500">*</span>
+                    </label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                            </svg>
+                        </div>
+                        {{ form.category_name(
+                            class="block w-full pl-10 pr-4 py-3 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-purple-500 transition-all text-slate-900",
+                            placeholder="e.g., Infectious Diseases, Chronic Conditions",
+                            maxlength="100",
+                            **{'aria-invalid': 'true' if form.category_name.errors else 'false'}
+                        ) }}
+                    </div>
+                    <div class="mt-2 flex items-center justify-between">
+                        {% if form.category_name.errors %}
+                            <div class="flex items-center gap-2 text-red-600">
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                <span class="text-sm font-medium">{{ form.category_name.errors[0] }}</span>
+                            </div>
+                        {% else %}
+                            <p class="text-sm text-slate-500">Choose a clear, descriptive name for the category</p>
+                        {% endif %}
+                        <span id="charCounter" class="char-counter text-sm text-slate-400 font-medium">0/100</span>
+                    </div>
+                </div>
+                <!-- Info Box -->
+                <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
+                    <div class="flex gap-3">
+                        <svg class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <div class="text-sm text-blue-800">
+                            <p class="font-semibold mb-1">What happens next?</p>
+                            <p class="text-blue-700">After creating this category, you'll be able to assign diseases to it. Categories help organize diseases for reporting and make it easier to find specific conditions during encounters.</p>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="pt-2">
-                    {{ form.submit(class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500") }}
-                    <a href="{{ url_for('diseases') }}" class="ml-4 inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                <!-- Form Actions -->
+                <div class="flex items-center gap-3 pt-4 border-t border-slate-200">
+                    <button type="submit" 
+                            class="submit-btn flex-1 sm:flex-none inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold rounded-xl shadow-lg">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        <span id="submitText">{{ form.submit.label.text }}</span>
+                        <span id="loadingText" class="hidden">Creating...</span>
+                    </button>
+                    <a href="{{ url_for('diseases') }}" 
+                       id="cancelBtn"
+                       class="flex-1 sm:flex-none inline-flex items-center justify-center px-6 py-3 bg-white border-2 border-slate-300 text-slate-700 font-semibold rounded-xl hover:bg-slate-50 hover:border-slate-400 transition-all">
                         Cancel
                     </a>
                 </div>
             </div>
         </form>
     </div>
+
+    <!-- Help Text -->
+    <div class="mt-6 text-center">
+        <p class="text-sm text-slate-500">
+            After creating a category, you can <a href="{{ url_for('add_disease') }}" class="text-primary-600 hover:text-primary-700 font-medium">add diseases to it</a>
+        </p>
+    </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('categoryForm');
+    const categoryInput = document.querySelector('input[name="category_name"]');
+    const charCounter = document.getElementById('charCounter');
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const submitText = document.getElementById('submitText');
+    const loadingText = document.getElementById('loadingText');
+
+    // Character counter
+    if (categoryInput && charCounter) {
+        categoryInput.addEventListener('input', function() {
+            const length = this.value.length;
+            const maxLength = 100;
+            charCounter.textContent = `${length}/${maxLength}`;
+            charCounter.classList.remove('warning', 'danger');
+            if (length >= maxLength) {
+                charCounter.classList.add('danger');
+            } else if (length >= maxLength * 0.8) {
+                charCounter.classList.add('warning');
+            }
+        });
+
+        // Initialize counter
+        if (categoryInput.value) {
+            categoryInput.dispatchEvent(new Event('input'));
+        }
+    }
+
+    // Handle form submission (minimal)
+    form.addEventListener('submit', function() {
+        submitBtn.disabled = true;
+        submitText.classList.add('hidden');
+        loadingText.classList.remove('hidden');
+    });
+});
+</script>
+
 {% endblock %}

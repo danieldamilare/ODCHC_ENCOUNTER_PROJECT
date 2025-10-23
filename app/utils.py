@@ -1,6 +1,8 @@
 from flask_wtf import FlaskForm
 import functools
 from flask import request, url_for, redirect, flash
+from app import app
+import arrow
 from typing import Any, TypeVar, Type
 from dataclasses import fields as datafield
 from app.models import get_current_user, Role
@@ -38,3 +40,19 @@ def admin_required(func):
 #             return redirect(request.referrer or url_for('index'))
 #         return func(*args, **kwargs)
 #     return wrapper
+
+
+def humanize_datetime_filter(dt):
+    """Converts a datetime object or ISO string to a human-readable string."""
+    if not dt:
+        return "N/A"
+    try:
+        # Arrow can parse various formats, including ISO strings from databases
+        arrow_dt = arrow.get(dt) 
+        return arrow_dt.humanize()
+    except Exception:
+        # Fallback if parsing fails
+        return str(dt) 
+
+# Register the filter with Jinja
+app.jinja_env.filters['humanize_datetime'] = humanize_datetime_filter
