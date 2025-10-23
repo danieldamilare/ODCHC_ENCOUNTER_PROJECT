@@ -1,57 +1,107 @@
 {% extends "admin_base.html" %}
 
-{% block content %}
-<div class="max-w-2xl mx-auto">
-    <div class="bg-white rounded-lg shadow-lg p-6">
-        <div class="mb-6">
-             <a href="{{ url_for('facilities') }}" class="text-sm text-indigo-600 hover:text-indigo-800 mb-2 inline-block">&larr; Back to Facilities List</a>
-            <h1 class="text-2xl font-bold text-gray-800">{{ title }}</h1>
-            <p class="text-sm text-gray-500">Update the details for this facility.</p>
-        </div>
-
-        <form action="{{ url_for('edit_facilities', pid=facility.id) }}" method="post" novalidate>
-            {{ form.hidden_tag() }}
-            <div class="space-y-6">
-                <div>
-                    {{ form.name.label(class="block text-sm font-medium text-gray-700") }}
-                    {{ form.name(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
-                    {% for error in form.name.errors %}<span class="text-red-500 text-xs mt-1">{{ error }}</span>{% endfor %}
-                </div>
-                
-                <div>
-                    {{ form.local_government.label(class="block text-sm font-medium text-gray-700") }}
-                    {{ form.local_government(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
-                    {% for error in form.local_government.errors %}<span class="text-red-500 text-xs mt-1">{{ error }}</span>{% endfor %}
-                </div>
-
-                <div>
-                    {{ form.facility_type.label(class="block text-sm font-medium text-gray-700") }}
-                    {{ form.facility_type(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
-                    {% for error in form.facility_type.errors %}<span class="text-red-500 text-xs mt-1">{{ error }}</span>{% endfor %}
-                </div>
-                
-                <!-- STYLED CHECKBOXES for Insurance Schemes -->
-                <div>
-                    {{ form.scheme.label(class="block text-sm font-medium text-gray-700") }}
-                    <div class="mt-2 p-4 border rounded-md bg-gray-50 space-y-2">
-                        {% for subfield in form.scheme %}
-                        <div class="flex items-center">
-                            {{ subfield(class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500") }}
-                            {{ subfield.label(class="ml-3 block text-sm text-gray-900") }}
-                        </div>
-                        {% endfor %}
-                    </div>
-                     {% for error in form.scheme.errors %}<span class="text-red-500 text-xs mt-1">{{ error }}</span>{% endfor %}
-                </div>
-
-                <div class="pt-2">
-                    {{ form.submit(class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500") }}
-                    <a href="{{ url_for('facilities') }}" class="ml-4 inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                        Cancel
-                    </a>
-                </div>
-            </div>
-        </form>
-    </div>
+{% block page_header %}
+<div class="mb-6 sm:mb-8">
+    <nav class="text-sm sm:text-base font-medium text-gray-600 mb-4" aria-label="Breadcrumb">
+        <ol class="list-none p-0 flex flex-wrap items-center gap-2">
+            <li class="flex items-center">
+                <a href="{{ url_for('admin') }}" class="hover:text-indigo-600 transition-colors">Admin</a>
+            </li>
+            <li class="flex items-center">
+                <svg class="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg>
+                <a href="{{ url_for('facilities') }}" class="hover:text-indigo-600 transition-colors">Facilities</a>
+            </li>
+            <li class="flex items-center">
+                <svg class="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg>
+                <span class="text-gray-900 font-semibold" aria-current="page">Edit: {{ facility.name }}</span>
+            </li>
+        </ol>
+    </nav>
+    <h1 class="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900">{{ title }}</h1>
+    <p class="text-sm sm:text-base text-gray-600 mt-2">Update the details for this facility.</p>
 </div>
 {% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+
+    <form action="{{ url_for('edit_facilities', pid=facility.id) }}" method="post" novalidate>
+        {{ form.hidden_tag() }}
+
+        <div class="px-6 sm:px-8 py-8 space-y-8">
+
+            <fieldset>
+                 <legend class="sr-only">Facility Details</legend> <div class="space-y-6">
+                    <div>
+                        <label for="{{ form.name.id }}" class="block text-base font-semibold text-gray-900 mb-2">
+                            {{ form.name.label.text }} <span class="text-red-500">*</span>
+                        </label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                            </div>
+                            {{ form.name(class="block w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg shadow-sm text-base focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all", placeholder="Enter facility name") }}
+                        </div>
+                        {% for error in form.name.errors %}<span class="text-red-600 text-sm font-medium mt-2 flex items-center"><svg class="h-4 w-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>{{ error }}</span>{% endfor %}
+                    </div>
+
+                    <div>
+                        <label for="{{ form.local_government.id }}" class="block text-base font-semibold text-gray-900 mb-2">
+                            {{ form.local_government.label.text }} <span class="text-red-500">*</span>
+                        </label>
+                        <div class="relative">
+                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                            </div>
+                            {{ form.local_government(class="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg shadow-sm text-base focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all appearance-none") }}
+                             <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                            </div>
+                        </div>
+                        {% for error in form.local_government.errors %}<span class="text-red-600 text-sm font-medium mt-2 flex items-center"><svg class="h-4 w-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>{{ error }}</span>{% endfor %}
+                    </div>
+
+                    <div>
+                        <label for="{{ form.facility_type.id }}" class="block text-base font-semibold text-gray-900 mb-2">
+                            {{ form.facility_type.label.text }} <span class="text-red-500">*</span>
+                        </label>
+                        <div class="relative">
+                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z"/></svg>
+                            </div>
+                            {{ form.facility_type(class="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg shadow-sm text-base focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all appearance-none") }}
+                             <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                            </div>
+                        </div>
+                        {% for error in form.facility_type.errors %}<span class="text-red-600 text-sm font-medium mt-2 flex items-center"><svg class="h-4 w-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>{{ error }}</span>{% endfor %}
+                    </div>
+                 </div>
+            </fieldset>
+
+            <fieldset>
+                 <legend class="block text-base font-semibold text-gray-900 mb-2">{{ form.scheme.label.text }}</legend>
+                 <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 border border-gray-200 rounded-lg p-4">
+                     {% for subfield in form.scheme %}
+                     <div class="relative flex items-start">
+                         <div class="flex items-center h-5">
+                             {{ subfield(class="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500") }}
+                         </div>
+                         <div class="ml-3 text-sm">
+                             {{ subfield.label(class="font-medium text-gray-700") }}
+                         </div>
+                     </div>
+                     {% endfor %}
+                 </div>
+                 {% for error in form.scheme.errors %}<span class="text-red-600 text-sm font-medium mt-2 flex items-center"><svg class="h-4 w-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>{{ error }}</span>{% endfor %}
+            </fieldset>
+
+        </div> <div class="px-6 sm:px-8 py-4 bg-gray-50/75 border-t border-gray-200 flex justify-end gap-3">
+            <a href="{{ url_for('facilities') }}" class="inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                Cancel
+            </a>
+            {{ form.submit(class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors") }}
+        </div>
+    </form>
+
+</div> {% endblock %}

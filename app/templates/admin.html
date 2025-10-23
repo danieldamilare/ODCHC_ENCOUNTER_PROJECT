@@ -1,217 +1,637 @@
 {% extends "admin_base.html" %}
 
 {% block content %}
-<div class="space-y-8">
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+<style>
+    /* Print Styles */
+    @media print {
+        body { background: white; }
+        .no-print { display: none !important; }
+        .print-full-width { width: 100% !important; max-width: 100% !important; }
+        .shadow-lg, .shadow-md, .shadow-sm { box-shadow: none !important; }
+        .border { border: 1px solid #e5e7eb !important; }
+        .chart-container { page-break-inside: avoid; }
+        h1, h2, h3 { page-break-after: avoid; }
+    }
+
+    /* Chart Container Responsive Adjustments */
+    .chart-wrapper {
+        position: relative;
+        height: 280px;
+    }
+    
+    @media (max-width: 768px) {
+        .chart-wrapper {
+            height: 240px;
+        }
+    }
+
+    /* Coming Soon Badge Styles */
+    .coming-soon-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        color: #92400e;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border: 1px solid #fcd34d;
+    }
+</style>
+
+<div class="space-y-6 sm:space-y-8">
+
+    <!-- Page Header with Period Display -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 no-print">
         <div>
-            <h1 class="text-3xl font-bold text-gray-800">Dashboard</h1>
-            <p class="text-md text-gray-500">Analytics overview of encounter data.</p>
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard Overview</h1>
+            <p class="text-sm sm:text-base text-gray-600 mt-1">
+                Viewing data for 
+                <span class="font-semibold text-indigo-600">
+                    {% if current_period == 'this_month' %}This Month
+                    {% elif current_period == 'last_3_months' %}Last 3 Months
+                    {% elif current_period == 'last_year' %}Last Year
+                    {% else %}Selected Period{% endif %}
+                </span>
+            </p>
+        </div>
+        <button onclick="window.print()" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm">
+            <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+            </svg>
+            Print Report
+        </button>
+    </div>
+
+    <!-- Enhanced Filter Section -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden no-print">
+        <div class="bg-gradient-to-r from-gray-50 to-white px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-bold text-gray-900">Filter Data</h2>
+            <p class="text-sm text-gray-600 mt-1">Customize the dashboard view by selecting filters below</p>
         </div>
         
-        <form id="filter-form" method="GET" action="{{ url_for('admin') }}" class="flex items-center gap-4">
-            <div class="flex-1">
-                <label for="period" class="sr-only">Date Range</label>
-                <select id="period" name="period" class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md shadow-sm">
-                    <option value="this_month" {% if current_period == 'this_month' %}selected{% endif %}>This Month</option>
-                    <option value="last_3_months" {% if current_period == 'last_3_months' %}selected{% endif %}>Last 3 Months</option>
-                    <option value="last_year" {% if current_period == 'last_year' %}selected{% endif %}>Last Year</option>
-                </select>
+        <form id="filter-form" method="GET" action="{{ url_for('admin') }}" class="p-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Date Range Filter -->
+                <div>
+                    <label for="period" class="block text-base font-semibold text-gray-900 mb-2">
+                        Date Range
+                        <span class="text-red-500 ml-1">*</span>
+                    </label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                        </div>
+                        <select id="period" name="period" class="block w-full pl-10 pr-10 py-3 text-base border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg shadow-sm transition-all appearance-none bg-white">
+                            <option value="this_month" {% if current_period == 'this_month' %}selected{% endif %}>This Month</option>
+                            <option value="last_3_months" {% if current_period == 'last_3_months' %}selected{% endif %}>Last 3 Months</option>
+                            <option value="last_year" {% if current_period == 'last_year' %}selected{% endif %}>Last Year</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Facility Filter -->
+                <div>
+                    <label for="facility_id" class="block text-base font-semibold text-gray-900 mb-2">
+                        Facility
+                    </label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                            </svg>
+                        </div>
+                        <select id="facility_id" name="facility_id" class="block w-full pl-10 pr-10 py-3 text-base border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg shadow-sm transition-all appearance-none bg-white">
+                            <option value="all" {% if not current_facility_id or current_facility_id == 'all' %}selected{% endif %}>All Facilities</option>
+                            {% for facility in all_facilities %}
+                                <option value="{{ facility.id }}" {% if current_facility_id|int == facility.id %}selected{% endif %}>{{ facility.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+                
             </div>
-            <div class="flex-1">
-                <label for="facility_id" class="sr-only">Facility</label>
-                <select id="facility_id" name="facility_id" class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md shadow-sm">
-                    <option value="all">All Facilities</option>
-                    {% for facility in all_facilities %}
-                        <option value="{{ facility.id }}" {% if current_facility_id|int == facility.id %}selected{% endif %}>{{ facility.name }}</option>
-                    {% endfor %}
-                </select>
+
+            <!-- Loading Indicator -->
+            <div id="loading-indicator" class="hidden mt-4 flex items-center justify-center gap-2 text-indigo-600">
+                <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span class="text-sm font-medium">Loading data...</span>
             </div>
         </form>
     </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-indigo-500">
-            <div class="text-sm font-medium text-gray-500">Total Encounters</div>
-            <div class="mt-1 text-3xl font-bold text-gray-800">{{ total_encounters }}</div>
+    <!-- Key Metrics Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Total Encounters Card -->
+        <div class="bg-white border-2 border-indigo-100 rounded-xl p-6 hover:border-indigo-200 transition-colors">
+            <div class="flex items-start justify-between">
+                <div class="flex-1">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="flex-shrink-0 h-12 w-12 rounded-xl bg-indigo-50 flex items-center justify-center border border-indigo-100">
+                            <svg class="h-6 w-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Total Encounters</p>
+                            <h3 class="text-3xl font-bold text-gray-900 mt-1">{{ "{:,}".format(total_encounters) }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-green-500">
-            <div class="text-sm font-medium text-gray-500">Active Facilities</div>
-            <div class="mt-1 text-3xl font-bold text-gray-800">{{ active_facilities }}</div>
+
+        <!-- Active Facilities Card -->
+        <div class="bg-white border-2 border-green-100 rounded-xl p-6 hover:border-green-200 transition-colors">
+            <div class="flex items-start justify-between">
+                <div class="flex-1">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="flex-shrink-0 h-12 w-12 rounded-xl bg-green-50 flex items-center justify-center border border-green-100">
+                            <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Active Facilities</p>
+                            <h3 class="text-3xl font-bold text-gray-900 mt-1">{{ active_facilities }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-yellow-500">
-            <div class="text-sm font-medium text-gray-500">Most Common Disease</div>
-            <div class="mt-1 text-2xl font-bold text-gray-800 truncate">{{ top_disease.disease_name if top_disease else 'N/A' }}</div>
-            <p class="text-sm text-gray-500">{{ top_disease.disease_count if top_disease else 0 }} cases</p>
-        </div>
-        <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-red-500">
-            <div class="text-sm font-medium text-gray-500">Male / Female Ratio</div>
-            <div class="mt-1 text-2xl font-bold text-gray-800">{{ male_perc }}% / {{ female_perc }}%</div>
-            <p class="text-sm text-gray-500">Male vs Female</p>
+
+        <!-- Top Diagnosis Card -->
+        <div class="bg-white border-2 border-amber-100 rounded-xl p-6 hover:border-amber-200 transition-colors">
+            <div class="flex items-start justify-between">
+                <div class="flex-1">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="flex-shrink-0 h-12 w-12 rounded-xl bg-amber-50 flex items-center justify-center border border-amber-100">
+                            <svg class="h-6 w-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 00-2-2m0 0h2a2 2 0 012-2v-2a2 2 0 00-2-2h-2a2 2 0 00-2 2v2a2 2 0 002 2z"/>
+                            </svg>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm font-medium text-gray-600">Top Diagnosis</p>
+                            <h3 class="text-lg sm:text-xl font-bold text-gray-900 mt-1 truncate" title="{{ top_disease.disease_name if top_disease else 'N/A' }}">
+                                {{ top_disease.disease_name if top_disease else 'N/A' }}
+                            </h3>
+                            <p class="text-sm text-gray-600 mt-1">
+                                <span class="font-semibold text-amber-600">{{ "{:,}".format(top_disease.disease_count) if top_disease else 0 }}</span> cases
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-        <div class="bg-white p-6 rounded-xl shadow-lg">
-            <h2 class="text-lg font-semibold text-gray-700 mb-4">Daily Encounter Trend (Last 7 Days)</h2>
-            <canvas id="dailyTrendChart"></canvas>
+    <!-- Charts Section -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+        <!-- Gender Distribution Chart -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden chart-container">
+            <div class="bg-gray-50 px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-bold text-gray-900">Gender Distribution</h3>
+                <p class="text-sm text-gray-600 mt-1">Male vs Female encounters</p>
+            </div>
+            <div class="p-6">
+                <div class="chart-wrapper">
+                    <canvas id="genderDistributionChart"></canvas>
+                </div>
+            </div>
         </div>
-        <div class="bg-white p-6 rounded-xl shadow-lg">
-            <h2 class="text-lg font-semibold text-gray-700 mb-4">Age Group Distribution</h2>
-            <canvas id="ageDistributionChart"></canvas>
+
+        <!-- Age Distribution Chart -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden chart-container">
+            <div class="bg-gray-50 px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-bold text-gray-900">Age Distribution</h3>
+                <p class="text-sm text-gray-600 mt-1">Encounters by age group</p>
+            </div>
+            <div class="p-6">
+                <div class="chart-wrapper">
+                    <canvas id="ageDistributionChart"></canvas>
+                </div>
+            </div>
         </div>
-        <div class="bg-white p-6 rounded-xl shadow-lg">
-            <h2 class="text-lg font-semibold text-gray-700 mb-4">Top 5 Most Common Diseases</h2>
-            <canvas id="topDiseasesChart"></canvas>
-        </div>
-        <div class="bg-white p-6 rounded-xl shadow-lg">
-            <h2 class="text-lg font-semibold text-gray-700 mb-4">Top 5 Visited Facilities</h2>
-            <canvas id="topFacilitiesChart"></canvas>
+
+        <!-- Top Diseases Chart -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden chart-container lg:col-span-2 xl:col-span-1">
+            <div class="bg-gray-50 px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-bold text-gray-900">Top 5 Diagnoses</h3>
+                <p class="text-sm text-gray-600 mt-1">Most frequent diagnoses</p>
+            </div>
+            <div class="p-6">
+                <div class="chart-wrapper">
+                    <canvas id="topDiseasesChart"></canvas>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div class="bg-white rounded-xl shadow-lg">
-        <h2 class="text-xl font-bold text-gray-800 p-6">Recent Encounters</h2>
+    <!-- Weekly Trend Chart -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden chart-container">
+        <div class="bg-gray-50 px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-bold text-gray-900">Weekly Encounter Trend</h3>
+            <p class="text-sm text-gray-600 mt-1">Number of encounters submitted per week</p>
+        </div>
+        <div class="p-6">
+            <div style="height: 320px; position: relative;">
+                <canvas id="weeklyTrendChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Facilities Table -->
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+        <div class="bg-gray-50 px-6 py-5 border-b border-gray-200">
+            <h3 class="text-lg font-bold text-gray-900">Top Facilities by Encounters</h3>
+            <p class="text-sm text-gray-600 mt-1">Top 5 performing facilities for the selected period</p>
+        </div>
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Policy #</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Facility</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Disease</th>
+                        <th scope="col" class="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Rank</th>
+                        <th scope="col" class="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Facility Name</th>
+                        <th scope="col" class="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Encounters</th>
+                        <th scope="col" class="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Top Disease</th>
+                        <th scope="col" class="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Last Submission</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
-                    {% for encounter in recent_encounters %}
-                    <tr>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ encounter.policy_number }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ encounter.client_name }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ encounter.facility.name }}</td>
-
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {% for dis in encounter.diseases %}
-                                {% if loop.index0 > 0 %}, {% endif %}
-                                {{ dis.name }}
-                            {% endfor %}
-
+                    {% for facility_data in top_facilities_raw %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="inline-flex items-center justify-center h-8 w-8 rounded-full 
+                                {% if loop.index == 1 %}bg-amber-100 text-amber-700 font-bold border-2 border-amber-300
+                                {% elif loop.index == 2 %}bg-gray-100 text-gray-700 font-bold border-2 border-gray-300
+                                {% elif loop.index == 3 %}bg-orange-100 text-orange-700 font-bold border-2 border-orange-300
+                                {% else %}bg-gray-50 text-gray-600 font-semibold border border-gray-200{% endif %}">
+                                #{{ loop.index }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-base font-semibold text-gray-900">{{ facility_data.facility_name }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                {{ facility_data.encounter_count }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-700">{{ facility_data.top_disease if facility_data.top_disease else 'N/A' }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {{ facility_data.last_submission|humanize_datetime if facility_data.last_submission else 'N/A' }}
                         </td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="4" class="px-6 py-4 text-center text-sm text-gray-500">No recent encounters found for this period.</td>
+                        <td colspan="5" class="px-6 py-12 text-center">
+                            <div class="flex flex-col items-center justify-center gap-3">
+                                <svg class="h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
+                                </svg>
+                                <p class="text-base font-medium text-gray-500">No facility data available for this period</p>
+                                <p class="text-sm text-gray-400">Try adjusting your filters to see results</p>
+                            </div>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
+
 </div>
 
+<!-- Chart.js Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 
 <script>
     document.addEventListener('DOMContentLoaded', () => {
-        // --- AUTO-SUBMIT FORM ON CHANGE ---
+        // --- AUTO-SUBMIT FORM ON CHANGE WITH LOADING INDICATOR ---
         const form = document.getElementById('filter-form');
-        const periodSelect = document.getElementById('period');
-        const facilitySelect = document.getElementById('facility_id');
-
-        periodSelect.addEventListener('change', () => form.submit());
-        facilitySelect.addEventListener('change', () => form.submit());
-
-        // --- CHART DATA ---
-        const dailyTrendData = {{ daily_trend_raw|tojson }};
-        const ageDistributionData = {{ age_distribution|tojson }};
-        const topDiseasesData = {{ top_diseases|tojson }};
-        const topFacilitiesData = {{ top_facilities_raw|tojson }};
+        const selects = form.querySelectorAll('select:not([disabled])');
+        const loadingIndicator = document.getElementById('loading-indicator');
         
-        // --- 1. DAILY ENCOUNTER TREND CHART ---
-        if (dailyTrendData && dailyTrendData.length > 0) {
-            const ctxDaily = document.getElementById('dailyTrendChart').getContext('2d');
-            new Chart(ctxDaily, {
-                type: 'line',
-                data: {
-                    labels: dailyTrendData.map(d => d.day),
-                    datasets: [{
-                        label: 'Encounters',
-                        data: dailyTrendData.map(d => d.date_count),
-                        borderColor: '#fbbf24',
-                        backgroundColor: 'rgba(251, 191, 36, 0.1)',
-                        tension: 0.3,
-                        fill: true
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    scales: { y: { beginAtZero: true } },
-                    plugins: { legend: { display: false } },
-                },
+        selects.forEach(select => {
+            select.addEventListener('change', () => {
+                loadingIndicator.classList.remove('hidden');
+                form.submit();
             });
+        });
+
+        // --- CHART DATA (from Flask template) ---
+        const weeklyTrendData = {{ weekly_trend_raw|default('[]')|tojson }};
+        const ageDistributionData = {{ age_distribution|default('[]')|tojson }};
+        const topDiseasesData = {{ top_diseases|default('[]')|tojson }};
+        const malePercentage = {{ male_perc|default(0) }};
+        const femalePercentage = {{ female_perc|default(0) }};
+
+        // --- CHART COLORS & OPTIONS ---
+        const primaryColor = '#4f46e5'; // Indigo-600
+        const primaryColorLight = '#c7d2fe'; // Indigo-200
+        const secondaryColor = '#10b981'; // Emerald-500
+        const blueColor = '#3b82f6'; // Blue-500
+        const pinkColor = '#ec4899'; // Pink-500
+        const grayColor = '#6b7280'; // Gray-500
+
+        const chartOptionsBase = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleFont: { weight: 'bold', size: 14 },
+                    bodyFont: { size: 13 },
+                    padding: 12,
+                    cornerRadius: 8,
+                    boxPadding: 6,
+                }
+            },
+            scales: {
+                x: { 
+                    grid: { display: false }, 
+                    ticks: { color: grayColor, font: { size: 12, family: 'Inter, sans-serif' } } 
+                },
+                y: { 
+                    grid: { color: '#e5e7eb' }, 
+                    ticks: { color: grayColor, font: { size: 12, family: 'Inter, sans-serif' } }, 
+                    beginAtZero: true 
+                }
+            },
+            font: { family: 'Inter, sans-serif' }
+        };
+
+        // --- Helper Function to Display Fallback ---
+        function displayFallback(ctx, message) {
+            if (!ctx) return;
+            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+            ctx.font = "14px Inter, sans-serif";
+            ctx.fillStyle = grayColor;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(message, ctx.canvas.width / 2, ctx.canvas.height / 2 - 10);
+            ctx.font = "12px Inter, sans-serif";
+            ctx.fillStyle = '#9ca3af';
+            ctx.fillText("Try adjusting your filters", ctx.canvas.width / 2, ctx.canvas.height / 2 + 15);
         }
 
-        // --- 2. AGE DISTRIBUTION CHART ---
-        if (ageDistributionData && ageDistributionData.length > 0) {
-            const ctxAge = document.getElementById('ageDistributionChart').getContext('2d');
-            new Chart(ctxAge, {
-                type: 'bar',
-                data: {
-                    labels: ageDistributionData.map(d => d.age_group),
-                    datasets: [{
-                        label: 'Total Patients',
-                        data: ageDistributionData.map(d => d.age_group_count),
-                        backgroundColor: '#60a5fa',
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: { legend: { display: false } },
-                },
-            });
-        }
-        
-        // --- 3. TOP DISEASES CHART ---
-        if (topDiseasesData && topDiseasesData.length > 0) {
-            const ctxTopDiseases = document.getElementById('topDiseasesChart').getContext('2d');
-            new Chart(ctxTopDiseases, {
-                type: 'bar',
-                data: {
-                    labels: topDiseasesData.map(d => d.disease_name),
-                    datasets: [{
-                        label: 'Cases',
-                        data: topDiseasesData.map(d => d.disease_count),
-                        backgroundColor: '#818cf8',
-                    }]
-                },
-                options: {
-                    indexAxis: 'y',
-                    responsive: true,
-                    plugins: { legend: { display: false } },
-                },
-            });
+        // --- 1. GENDER DISTRIBUTION CHART (Donut) ---
+        const ctxGender = document.getElementById('genderDistributionChart')?.getContext('2d');
+        if (ctxGender && (malePercentage > 0.01 || femalePercentage > 0.01)) {
+            try {
+                new Chart(ctxGender, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Male', 'Female'],
+                        datasets: [{
+                            data: [malePercentage, femalePercentage],
+                            backgroundColor: [blueColor, pinkColor],
+                            borderColor: ['#fff', '#fff'],
+                            borderWidth: 3,
+                            hoverOffset: 10,
+                            hoverBorderColor: '#fff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '65%',
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                display: true,
+                                labels: {
+                                    padding: 20,
+                                    color: grayColor,
+                                    font: { size: 13, family: 'Inter, sans-serif', weight: '600' },
+                                    usePointStyle: true,
+                                    pointStyle: 'circle',
+                                    boxWidth: 8,
+                                    boxHeight: 8
+                                }
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                titleFont: { weight: 'bold', size: 14 },
+                                bodyFont: { size: 13 },
+                                padding: 12,
+                                cornerRadius: 8,
+                                callbacks: {
+                                    label: (context) => {
+                                        let label = context.label || '';
+                                        let value = context.raw || 0;
+                                        return `${label}: ${value.toFixed(1)}%`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (e) { 
+                console.error("Error rendering Gender Chart:", e); 
+                displayFallback(ctxGender, "Could not render chart");
+            }
+        } else if (ctxGender) { 
+            displayFallback(ctxGender, "No gender data available");
         }
 
-        // --- 4. TOP FACILITIES CHART ---
-        if (topFacilitiesData && topFacilitiesData.length > 0) {
-            const ctxTopFacilities = document.getElementById('topFacilitiesChart').getContext('2d');
-            new Chart(ctxTopFacilities, {
-                type: 'bar',
-                data: {
-                    labels: topFacilitiesData.map(d => d.facility_name),
-                    datasets: [{
-                        label: 'Encounters',
-                        data: topFacilitiesData.map(d => d.encounter_count),
-                        backgroundColor: '#34d399',
-                    }]
-                },
-                options: {
-                    indexAxis: 'y',
-                    responsive: true,
-                    plugins: { legend: { display: false } },
-                },
-            });
+        // --- 2. AGE DISTRIBUTION CHART (Bar) ---
+        const ctxAge = document.getElementById('ageDistributionChart')?.getContext('2d');
+        if (ctxAge && Array.isArray(ageDistributionData) && ageDistributionData.length > 0) {
+            try {
+                new Chart(ctxAge, {
+                    type: 'bar',
+                    data: {
+                        labels: ageDistributionData.map(d => d.age_group),
+                        datasets: [{
+                            label: 'Patients',
+                            data: ageDistributionData.map(d => d.age_group_count),
+                            backgroundColor: primaryColorLight,
+                            borderColor: primaryColor,
+                            borderWidth: 2,
+                            borderRadius: 6,
+                            hoverBackgroundColor: primaryColor,
+                        }]
+                    },
+                    options: {
+                        ...chartOptionsBase,
+                        scales: {
+                            ...chartOptionsBase.scales,
+                            y: {
+                                ...chartOptionsBase.scales.y,
+                                ticks: {
+                                    ...chartOptionsBase.scales.y.ticks,
+                                    stepSize: 1
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (e) { 
+                console.error("Error rendering Age Chart:", e); 
+                displayFallback(ctxAge, "Could not render chart");
+            }
+        } else if (ctxAge) { 
+            displayFallback(ctxAge, "No age data available");
         }
+
+        // --- 3. TOP DISEASES CHART (Horizontal Bar) ---
+        const ctxTopDiseases = document.getElementById('topDiseasesChart')?.getContext('2d');
+        if (ctxTopDiseases && Array.isArray(topDiseasesData) && topDiseasesData.length > 0) {
+            try {
+                new Chart(ctxTopDiseases, {
+                    type: 'bar',
+                    data: {
+                        labels: topDiseasesData.map(d => d.disease_name),
+                        datasets: [{
+                            label: 'Cases',
+                            data: topDiseasesData.map(d => d.disease_count),
+                            backgroundColor: secondaryColor,
+                            borderColor: '#059669',
+                            borderWidth: 2,
+                            borderRadius: 6,
+                            hoverBackgroundColor: '#059669',
+                        }]
+                    },
+                    options: {
+                        ...chartOptionsBase,
+                        indexAxis: 'y',
+                        scales: {
+                            x: {
+                                beginAtZero: true,
+                                grid: { color: '#e5e7eb' },
+                                ticks: { 
+                                    color: grayColor, 
+                                    font: { size: 12, family: 'Inter, sans-serif' },
+                                    stepSize: 1
+                                }
+                            },
+                            y: {
+                                grid: { display: false },
+                                ticks: { 
+                                    color: grayColor, 
+                                    font: { size: 11, family: 'Inter, sans-serif' },
+                                    callback: function(value) {
+                                        const label = this.getLabelForValue(value);
+                                        return label.length > 25 ? label.substr(0, 25) + '...' : label;
+                                    }
+                                }
+                            }
+                        },
+                        plugins: {
+                            ...chartOptionsBase.plugins,
+                            tooltip: {
+                                ...chartOptionsBase.plugins.tooltip,
+                                callbacks: {
+                                    title: (items) => {
+                                        return items[0].label;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (e) {
+                console.error("Error rendering Diseases Chart:", e);
+                displayFallback(ctxTopDiseases, "Could not render chart");
+            }
+        } else if (ctxTopDiseases) {
+            displayFallback(ctxTopDiseases, "No disease data available");
+        }
+
+        // --- 4. WEEKLY ENCOUNTER TREND CHART (Line with Area) ---
+        const ctxWeekly = document.getElementById('weeklyTrendChart')?.getContext('2d');
+        if (ctxWeekly && Array.isArray(weeklyTrendData) && weeklyTrendData.length > 0) {
+            try {
+                const weeklyGradient = ctxWeekly.createLinearGradient(0, 0, 0, 320);
+                weeklyGradient.addColorStop(0, primaryColor + '40');
+                weeklyGradient.addColorStop(1, primaryColor + '00');
+
+                const weeklyPoints = weeklyTrendData.map(d => {
+                    if (typeof d.date !== 'string' || !d.date.includes('/')) { return null; }
+                    const startDateString = d.date.split('/')[0];
+                    const count = Number(d.date_count);
+                    if (isNaN(count)) { return null; }
+                    return { x: new Date(startDateString), y: count };
+                }).filter(p => p !== null);
+
+                if (weeklyPoints.length > 0) {
+                    new Chart(ctxWeekly, {
+                        type: 'line',
+                        data: {
+                            datasets: [{
+                                label: 'Encounters per Week',
+                                data: weeklyPoints,
+                                borderColor: primaryColor,
+                                backgroundColor: weeklyGradient,
+                                tension: 0.4,
+                                fill: true,
+                                pointBackgroundColor: primaryColor,
+                                pointBorderColor: '#fff',
+                                pointBorderWidth: 2,
+                                pointHoverBackgroundColor: '#fff',
+                                pointHoverBorderColor: primaryColor,
+                                pointHoverBorderWidth: 3,
+                                pointRadius: 4,
+                                pointHoverRadius: 7,
+                                borderWidth: 3
+                            }]
+                        },
+                        options: {
+                            ...chartOptionsBase,
+                            scales: {
+                                x: {
+                                    type: 'time',
+                                    time: {
+                                        unit: 'week',
+                                        tooltipFormat: "'Week of' MMM d, yyyy",
+                                        displayFormats: { week: 'MMM d' }
+                                    },
+                                    grid: { display: false },
+                                    ticks: {
+                                        color: grayColor,
+                                        font: { size: 12, family: 'Inter, sans-serif' },
+                                        maxRotation: 0,
+                                        autoSkipPadding: 20
+                                    }
+                                },
+                                y: {
+                                    ...chartOptionsBase.scales.y,
+                                    ticks: {
+                                        ...chartOptionsBase.scales.y.ticks,
+                                        stepSize: 1
+                                    }
+                                }
+                            }
+                        }
+                    });
+                } else {
+                    displayFallback(ctxWeekly, "Invalid trend data format");
+                }
+            } catch (e) {
+                console.error("Error rendering Weekly Trend Chart:", e);
+                displayFallback(ctxWeekly, "Could not render chart");
+            }
+        } else if (ctxWeekly) {
+            displayFallback(ctxWeekly, "No weekly trend data available");
+        }
+
     });
 </script>
-
 {% endblock %}

@@ -19,7 +19,7 @@ class User:
     password_hash: str
 
     @property
-    def get_name():
+    def get_name(self):
         return f"User"
 
 
@@ -31,7 +31,7 @@ class Facility:
     facility_type: str #(health center -> primary, hospital -> secondary, private)
 
     @property
-    def get_name() -> str:
+    def get_name(self) -> str:
         return f"Facility"
 
 @dataclass
@@ -41,7 +41,7 @@ class Disease:
     category_id:  int
 
     @property
-    def get_name() -> str:
+    def get_name(self) -> str:
         return f"Disease"
 
 
@@ -51,7 +51,7 @@ class DiseaseCategory:
     category_name: str
 
     @property
-    def get_name() -> str:
+    def get_name(self) -> str:
         return f"Disease Category"
 
 
@@ -65,32 +65,42 @@ class Encounter:
     gender: str
     age: int
     age_group: str
+    scheme: int
     treatment: Optional[str]
-    referral: bool
+    outcome: str
     doctor_name: Optional[str]
-    professional_service: Optional[str]
     created_by: int
     created_at: datetime
 
     @property
-    def get_name() -> str:
+    def get_name(self) -> str:
         return "Encounter"
 
 @dataclass
 class InsuranceScheme:
     id: int
     scheme_name: str
+    color_scheme: str
 
     @property
-    def get_name() -> str:
+    def get_name(self) -> str:
         return "Insurance Scheme"
+
+@dataclass
+class TreatmentOutcome:
+    id: int
+    name: str
+    type: str
+
+@dataclass
+
 
 @dataclass
 class FacilityView:
     id: int
     name: str
     lga: str
-    scheme: List[str]
+    scheme: List[InsuranceScheme]
     facility_type: str
 
 @dataclass
@@ -103,19 +113,19 @@ class DiseaseView:
 @dataclass
 class EncounterView:
     id: int
-    facility: str
-    diseases: List[DiseaseView]
     policy_number: str
     client_name: str
     gender: str
     date: date
     age: int
     treatment: Optional[str]
-    referral: bool
     doctor_name: Optional[str]
-    professional_service: Optional[str]
+    treatment_outcome: TreatmentOutcome
     created_by: str
     created_at: datetime
+    insurance_scheme: InsuranceScheme
+    facility: FacilityView
+    diseases: List[DiseaseView]
 
     @property
     def diseases_name(self):
@@ -126,12 +136,12 @@ class EncounterView:
 class UserView:
     id: int
     username: str
-    facility: str
     role: Role
+    facility: Optional[FacilityView]
 
 
-class AuthUser(UserMixin, User):
-    def __init__(self, user: User):
+class AuthUser(UserMixin, UserView):
+    def __init__(self, user: UserView):
         super().__init__(**user.__dict__)
     def  get_id(self) -> str:
         return str(self.id)
@@ -140,10 +150,13 @@ class AuthUser(UserMixin, User):
 def load_user(id:str) -> Optional[AuthUser]:
 
     from app.services import User, UserServices
+    # print("In here")
     try:
-        user:User = UserServices.get_by_id(int(id))
+        user:UserView = UserServices.get_view_by_id(int(id))
+        # print(user)
     except MissingError:
         return None
+    # print("In load user")
     return AuthUser(user)
 
 def is_logged_in() -> bool:

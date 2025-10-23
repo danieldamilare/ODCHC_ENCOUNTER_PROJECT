@@ -1,60 +1,190 @@
 {% extends "admin_base.html" %}
 
-{% block content %}
-<div class="container mx-auto p-4 md:p-8">
-    <div class="max-w-2xl mx-auto">
-        <!-- Edit User Form -->
-        <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
-            <h2 class="text-2xl font-bold mb-2 text-gray-800">Edit User: {{ user.username }}</h2>
-            <p class="text-sm text-gray-500 mb-6">Change username or update password. Leave password fields blank to keep the current password.</p>
-            
-            <form action="{{ url_for('edit_user', user_id=user.id) }}" method="post" novalidate>
-                {{ edit_form.hidden_tag() }}
-                
-                <div class="space-y-6">
-                    <div>
-                        {{ edit_form.username.label(class="block text-sm font-medium text-gray-700") }}
-                        {{ edit_form.username(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
-                        {% for error in edit_form.username.errors %}
-                            <span class="text-red-500 text-xs mt-1">{{ error }}</span>
-                        {% endfor %}
-                    </div>
-                    
-                    <div>
-                        {{ edit_form.password.label(class="block text-sm font-medium text-gray-700") }}
-                        {{ edit_form.password(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
-                        {% for error in edit_form.password.errors %}
-                            <span class="text-red-500 text-xs mt-1">{{ error }}</span>
-                        {% endfor %}
-                    </div>
-                    
-                    <div>
-                        {{ edit_form.password2.label(class="block text-sm font-medium text-gray-700") }}
-                        {{ edit_form.password2(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
-                        {% for error in edit_form.password2.errors %}
-                            <span class="text-red-500 text-xs mt-1">{{ error }}</span>
-                        {% endfor %}
-                    </div>
-                </div>
-                
-                <div class="mt-8">
-                    {{ edit_form.submit(class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500") }}
-                    <a href="{{ url_for('users') }}" class="ml-4 inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                        Cancel
-                    </a>
-                </div>
-            </form>
-        </div>
+{% block page_header %}
+<div class="mb-6 sm:mb-8">
+    <nav class="text-sm sm:text-base font-medium text-gray-600 mb-4" aria-label="Breadcrumb">
+        <ol class="list-none p-0 flex flex-wrap items-center gap-2">
+            <li class="flex items-center">
+                <a href="{{ url_for('admin') }}" class="hover:text-indigo-600 transition-colors">Admin</a>
+            </li>
+            <li class="flex items-center">
+                <svg class="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg>
+                <a href="{{ url_for('users') }}" class="hover:text-indigo-600 transition-colors">Users</a>
+            </li>
+            <li class="flex items-center">
+                <svg class="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg>
+                <span class="text-gray-900 font-semibold" aria-current="page">Edit User</span>
+            </li>
+        </ol>
+    </nav>
+    <h1 class="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900">Edit User: {{ user.username }}</h1>
+    <p class="text-sm sm:text-base text-gray-600 mt-2">Update the user's details or password.</p>
+</div>
+{% endblock %}
 
-        <!-- Delete User Form -->
-        <div class="bg-red-50 border border-red-200 rounded-lg shadow-lg p-6">
-            <h3 class="text-lg font-bold text-red-800">Delete User</h3>
-            <p class="text-sm text-red-600 mt-2">This action is irreversible. Once you delete the user, all associated data may be lost.</p>
-            <form action="{{ url_for('delete_user', user_id=user.id) }}" method="post" onsubmit="return confirm('Are you sure you want to delete this user? This cannot be undone.');">
+
+{% block content %}
+<div class="max-w-3xl mx-auto bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+    
+    <form action="{{ url_for('edit_user', user_id=user.id) }}" method="post" novalidate>
+        {{ edit_form.hidden_tag() }}
+        
+        <div class="px-6 sm:px-8 py-8 space-y-8">
+        
+            <fieldset>
+                 <legend class="text-xl font-bold text-gray-900 mb-1">User Details</legend>
+                 <p class="text-sm text-gray-600 mb-6">Leave password fields blank to keep the current password.</p>
+                
+                 <div class="space-y-6">
+                    <div>
+                        <label for="{{ edit_form.username.id }}" class="block text-base font-semibold text-gray-900 mb-2">
+                            {{ edit_form.username.label.text }}
+                            <span class="text-red-500 ml-1">*</span>
+                        </label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                            </div>
+                            {{ edit_form.username(class="block w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg shadow-sm text-base focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all") }}
+                        </div>
+                        {% for error in edit_form.username.errors %}<span class="text-red-600 text-sm font-medium mt-2 flex items-center"><svg class="h-4 w-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>{{ error }}</span>{% endfor %}
+                    </div>
+                    
+                    <div>
+                        <label for="{{ edit_form.password.id }}" class="block text-base font-semibold text-gray-900 mb-2">
+                            {{ edit_form.password.label.text }}
+                        </label>
+                         <div class="relative">
+                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                            </div>
+                            {{ edit_form.password(class="block w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg shadow-sm text-base focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all") }}
+                        </div>
+                        {% for error in edit_form.password.errors %}<span class="text-red-600 text-sm font-medium mt-2 flex items-center"><svg class="h-4 w-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>{{ error }}</span>{% endfor %}
+                    </div>
+                    
+                    <div>
+                        <label for="{{ edit_form.password2.id }}" class="block text-base font-semibold text-gray-900 mb-2">
+                            {{ edit_form.password2.label.text }}
+                        </label>
+                         <div class="relative">
+                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                            </div>
+                            {{ edit_form.password2(class="block w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg shadow-sm text-base focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all") }}
+                        </div>
+                        {% for error in edit_form.password2.errors %}<span class="text-red-600 text-sm font-medium mt-2 flex items-center"><svg class="h-4 w-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>{{ error }}</span>{% endfor %}
+                    </div>
+                 </div>
+            </fieldset>
+
+        </div> <div class="px-6 sm:px-8 py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-3">
+            <a href="{{ url_for('users') }}" class="inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                Cancel
+            </a>
+            {{ edit_form.submit(class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors") }}
+        </div>
+    </form>
+    
+    <div class="border-t border-red-300 bg-red-50/50 px-6 sm:px-8 py-6">
+        <h3 class="text-lg font-semibold text-red-800">Danger Zone</h3>
+        <p class="text-sm text-red-700 mt-1 mb-4">Deleting this user is irreversible and cannot be undone.</p>
+        <button id="open-delete-modal-btn" type="button" class="inline-flex items-center gap-2 px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+             <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+            </svg>
+            Delete User
+        </button>
+    </div>
+
+</div> <div id="delete-user-modal" class="fixed inset-0 z-50 overflow-y-auto hidden" aria-labelledby="delete-modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div id="delete-modal-backdrop" class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity opacity-0" aria-hidden="true"></div>
+
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <form id="delete-user-form" action="{{ url_for('delete_user', user_id=user.id) }}" method="post">
                 {{ delete_form.hidden_tag() }}
-                {{ delete_form.submit(class="mt-4 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500") }}
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start">
+                        <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                            <svg class="h-6 w-6 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                        </div>
+                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900" id="delete-modal-title">
+                                Delete User: {{ user.username }}
+                            </h3>
+                            <div class="mt-2">
+                                <p class="text-sm text-gray-500">
+                                    Are you absolutely sure you want to delete this user? This action cannot be undone. All associated data might be permanently lost.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse gap-3">
+                    {{ delete_form.submit(class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:w-auto sm:text-sm transition-colors") }}
+                    <button id="close-delete-modal-btn" type="button" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm transition-colors">
+                        Cancel
+                    </button>
+                </div>
             </form>
         </div>
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const deleteModal = document.getElementById('delete-user-modal');
+        const openDeleteBtn = document.getElementById('open-delete-modal-btn');
+        const closeDeleteBtn = document.getElementById('close-delete-modal-btn');
+        const deleteBackdrop = document.getElementById('delete-modal-backdrop');
+
+        function openDeleteModal() {
+            if (!deleteModal) return;
+            deleteModal.classList.remove('hidden');
+            if (deleteBackdrop) {
+                 deleteBackdrop.classList.remove('opacity-0');
+                 deleteBackdrop.classList.add('opacity-100');
+            }
+        }
+
+        function closeDeleteModal() {
+            if (!deleteModal) return;
+             if (deleteBackdrop) {
+                deleteBackdrop.classList.remove('opacity-100');
+                deleteBackdrop.classList.add('opacity-0');
+            }
+            setTimeout(() => {
+                 deleteModal.classList.add('hidden');
+            }, 150); 
+        }
+
+        if (openDeleteBtn) {
+            openDeleteBtn.addEventListener('click', openDeleteModal);
+        }
+        if (closeDeleteBtn) {
+            closeDeleteBtn.addEventListener('click', closeDeleteModal);
+        }
+        if (deleteBackdrop) {
+            deleteBackdrop.addEventListener('click', closeDeleteModal);
+        }
+
+        // Close delete modal on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && deleteModal && !deleteModal.classList.contains('hidden')) {
+                closeDeleteModal();
+            }
+        });
+
+        // --- Remove the old JS confirm ---
+        // Find the delete form and remove the onsubmit attribute if it exists
+        const deleteForm = document.getElementById('delete-user-form');
+        if (deleteForm) {
+            deleteForm.removeAttribute('onsubmit'); 
+        }
+    });
+</script>
 {% endblock %}

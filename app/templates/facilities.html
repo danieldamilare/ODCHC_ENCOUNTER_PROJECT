@@ -1,105 +1,443 @@
 {% extends "admin_base.html" %}
 
-{% block content %}
-<div class="space-y-8">
-    <h1 class="text-3xl font-bold text-gray-800">Manage Facilities</h1>
-
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        <!-- Left Column: Add New Facility Form -->
-        <div class="lg:col-span-1">
-            <div class="bg-white rounded-lg shadow-lg p-6">
-                <h2 class="text-xl font-bold mb-6 text-gray-800">Add New Facility</h2>
-                <form action="{{ url_for('facilities') }}" method="post" novalidate>
-                    {{ facility_form.hidden_tag() }}
-                    <div class="space-y-6">
-                        <div>
-                            {{ facility_form.name.label(class="block text-sm font-medium text-gray-700") }}
-                            {{ facility_form.name(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
-                            {% for error in facility_form.name.errors %}<span class="text-red-500 text-xs mt-1">{{ error }}</span>{% endfor %}
-                        </div>
-                        
-                        <div>
-                            {{ facility_form.local_government.label(class="block text-sm font-medium text-gray-700") }}
-                            {{ facility_form.local_government(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
-                            {% for error in facility_form.local_government.errors %}<span class="text-red-500 text-xs mt-1">{{ error }}</span>{% endfor %}
-                        </div>
-
-                        <div>
-                            {{ facility_form.facility_type.label(class="block text-sm font-medium text-gray-700") }}
-                            {{ facility_form.facility_type(class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm") }}
-                            {% for error in facility_form.facility_type.errors %}<span class="text-red-500 text-xs mt-1">{{ error }}</span>{% endfor %}
-                        </div>
-
-                        <!-- STYLED CHECKBOXES for Insurance Schemes -->
-                        <div>
-                            {{ facility_form.scheme.label(class="block text-sm font-medium text-gray-700") }}
-                            <div class="mt-2 space-y-2">
-                                {% for subfield in facility_form.scheme %}
-                                <div class="flex items-center">
-                                    {{ subfield(class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500") }}
-                                    {{ subfield.label(class="ml-2 block text-sm text-gray-900") }}
-                                </div>
-                                {% endfor %}
-                            </div>
-                             {% for error in facility_form.scheme.errors %}<span class="text-red-500 text-xs mt-1">{{ error }}</span>{% endfor %}
-                        </div>
-
-                        <div>
-                            {{ facility_form.submit(class="w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500") }}
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <!-- Right Column: Facility List -->
-        <div class="lg:col-span-2">
-            <div class="bg-white rounded-lg shadow-lg p-6">
-                <h2 class="text-xl font-bold mb-4 text-gray-800">All Facilities ({{ facility_total }})</h2>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Local Government</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                                <th scope="col" class="relative px-6 py-3"><span class="sr-only">Actions</span></th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            {% for facility in facility_list %}
-                            <tr>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ facility.name }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ facility.lga|title }}</td>
-
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ facility.facility_type}}</td>
-                                
-                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-4">
-                                    <a href="{{ url_for('view_facilities', pid=facility.id) }}" class="text-green-600 hover:text-green-900">View</a>
-                                    <a href="{{ url_for('edit_facilities', pid=facility.id) }}" class="text-indigo-600 hover:text-indigo-900">Edit</a>
-                                </td>
-                            </tr>
-                            {% else %}
-                            <tr>
-                                <td colspan="4" class="px-6 py-4 text-center text-sm text-gray-500">No facilities found.</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                <!-- Pagination -->
-                <nav class="mt-6 flex items-center justify-between" aria-label="Pagination">
-                    <div>
-                        {% if prev_url %}<a href="{{ prev_url }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Previous</a>{% else %}<span class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-400 bg-gray-50 cursor-not-allowed">Previous</span>{% endif %}
-                    </div>
-                    <div>
-                        {% if next_url %}<a href="{{ next_url }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Next</a>{% else %}<span class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-400 bg-gray-50 cursor-not-allowed">Next</span>{% endif %}
-                    </div>
-                </nav>
-            </div>
-        </div>
-    </div>
+{% block page_header %}
+<div class="mb-6">
+    <nav class="text-sm font-medium text-slate-500 mb-3" aria-label="Breadcrumb">
+        <ol class="list-none p-0 flex items-center gap-1.5">
+            <li><a href="{{ url_for('admin') }}" class="hover:text-blue-600 transition-colors">Admin</a></li>
+            <li><svg class="h-4 w-4 text-slate-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg></li>
+            <li class="text-slate-900 font-semibold" aria-current="page">Facilities</li>
+        </ol>
+    </nav>
 </div>
 {% endblock %}
 
+{% block content %}
+<style>
+    .facility-card {
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .facility-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.15);
+    }
+    .table-row {
+        transition: all 0.15s ease;
+    }
+    .table-row:hover {
+        background: linear-gradient(to right, #f8fafc, #f1f5f9);
+        transform: translateX(3px);
+        box-shadow: -3px 0 0 #3b82f6; /* Blue accent on hover */
+    }
+    .action-btn {
+        transition: all 0.15s ease;
+    }
+    .action-btn:hover {
+        transform: scale(1.1);
+    }
+    .modal-content {
+        animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    /* Print Styles */
+    @media print {
+         body { background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .no-print { display: none !important; }
+        .shadow-xl, .shadow-lg, .shadow-md, .shadow-sm { box-shadow: none !important; }
+        .border { border-width: 1px !important; border-color: #e5e7eb !important; }
+        .bg-gradient-to-br, .bg-gradient-to-r, .bg-slate-50, .bg-blue-50, .bg-emerald-50, .bg-purple-50, .bg-amber-50 { background: white !important; }
+        .table-row:hover { background: white !important; transform: none !important; box-shadow: none !important; }
+    }
+</style>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <div class="mb-8">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 no-print">
+            <div>
+                <h1 class="text-3xl font-bold text-slate-900 flex items-center gap-3">
+                    <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                    </svg>
+                    Healthcare Facilities
+                </h1>
+                <p class="text-slate-600 mt-1">Comprehensive facility registry and management</p>
+            </div>
+            <button id="open-add-facility-modal-btn" type="button"
+                    class="inline-flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                </svg>
+                Add New Facility
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="facility-card bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-5 border-2 border-blue-200">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-semibold text-blue-600 uppercase tracking-wide">Total Facilities</p>
+                        <p class="text-3xl font-bold text-slate-900 mt-1">{{ facility_total }}</p>
+                    </div>
+                    <div class="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                    </div>
+                </div>
+            </div>
+            <div class="facility-card bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-5 border-2 border-emerald-200">
+                 <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-semibold text-emerald-600 uppercase tracking-wide">Primary Care</p>
+                        <p class="text-3xl font-bold text-slate-900 mt-1">
+                            {# Calculate count directly if facility_list contains all items #}
+                            {{ facility_list | selectattr('facility_type', 'equalto', 'Primary') | list | length }}
+                        </p>
+                    </div>
+                    <div class="w-12 h-12 bg-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    </div>
+                </div>
+            </div>
+             <div class="facility-card bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-5 border-2 border-purple-200">
+                 <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-semibold text-purple-600 uppercase tracking-wide">Secondary</p>
+                        <p class="text-3xl font-bold text-slate-900 mt-1">
+                             {{ facility_list | selectattr('facility_type', 'equalto', 'Secondary') | list | length }}
+                        </p>
+                    </div>
+                    <div class="w-12 h-12 bg-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z"/></svg>
+                    </div>
+                </div>
+            </div>
+             <div class="facility-card bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-5 border-2 border-amber-200">
+                 <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-semibold text-amber-600 uppercase tracking-wide">Private</p>
+                        <p class="text-3xl font-bold text-slate-900 mt-1">
+                             {{ facility_list | selectattr('facility_type', 'equalto', 'Private') | list | length }}
+                        </p>
+                    </div>
+                    <div class="w-12 h-12 bg-amber-600 rounded-xl flex items-center justify-center shadow-lg">
+                       <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+
+        <div class="px-6 py-5 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-blue-50">
+            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-900">All Facilities</h2>
+                    <p class="text-sm text-slate-600 mt-1">
+                        Showing <span class="font-semibold text-slate-900">{{ facility_list|length }}</span> facility entries
+                    </p>
+                </div>
+                <div class="flex-1 max-w-2xl">
+                    <p class="text-sm text-slate-500 italic text-right lg:text-left">
+                        Full search and filtering coming soon.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            {% if facility_list %}
+            <table class="min-w-full divide-y divide-slate-200">
+                <thead class="bg-slate-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">
+                            Facility Name
+                        </th>
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">
+                            Local Government
+                        </th>
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">
+                            Type
+                        </th>
+                        <th scope="col" class="px-6 py-4 text-right text-xs font-bold text-slate-700 uppercase tracking-wider">
+                            Actions
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-slate-100">
+                    {% for facility in facility_list %}
+                    <tr class="table-row">
+                        <td class="px-6 py-4">
+                            <div class="flex items-center">
+                                <div class="ml-4">
+                                    <p class="text-sm font-bold text-slate-900">{{ facility.name }}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex items-center text-sm text-slate-600">
+                                <svg class="w-4 h-4 mr-2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                <span class="font-medium">{{ facility.lga|title }}</span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            {% if type_lower == 'primary' %}
+                                <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                    <span class="w-2 h-2 bg-emerald-500 rounded-full mr-2"></span>
+                                    Primary Care
+                                </span>
+                            {% elif type_lower == 'secondary' %}
+                                <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                                    <span class="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
+                                    Secondary
+                                </span>
+                            {% elif type_lower == 'private' %}
+                                <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                                    <span class="w-2 h-2 bg-amber-500 rounded-full mr-2"></span>
+                                    Private
+                                </span>
+                            {% else %}
+                                <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-800 border border-slate-200">
+                                    {{ facility.facility_type|title }}
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex items-center justify-end gap-2">
+                                <a href="{{ url_for('view_facilities', pid=facility.id) }}"
+                                    class="action-btn p-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors"
+                                   title="View Details">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                </a>
+                                <a href="{{ url_for('edit_facilities', pid=facility.id) }}"
+                                    class="action-btn p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition-colors"
+                                   title="Edit">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                </a>
+                                </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="text-center py-16">
+                 <svg class="w-20 h-20 text-slate-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                <p class="text-slate-500 text-xl font-semibold">No facilities found</p>
+                <p class="text-slate-400 mt-2">Add your first healthcare facility to get started</p>
+                <button onclick="document.getElementById('open-add-facility-modal-btn').click()"
+                         class="inline-flex items-center mt-6 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold shadow-lg">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                    Add First Facility
+                </button>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if prev_url or next_url %}
+        <div class="px-6 py-5 border-t border-slate-200 bg-slate-50">
+            <div class="flex items-center justify-between">
+                <div class="text-sm text-slate-600">
+                    {# Add page info here if available, e.g., Showing 1-10 of 25 #}
+                    Page navigation
+                </div>
+                <nav class="flex items-center gap-2" aria-label="Pagination">
+                    {% if prev_url %}
+                    <a href="{{ prev_url }}"
+                        class="inline-flex items-center px-4 py-2 bg-white border-2 border-slate-300 text-sm font-semibold rounded-lg text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-all">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                        Previous
+                    </a>
+                    {% else %}
+                    <span class="inline-flex items-center px-4 py-2 bg-slate-100 border-2 border-slate-200 text-sm font-semibold rounded-lg text-slate-400 cursor-not-allowed">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                        Previous
+                    </span>
+                    {% endif %}
+                    {% if next_url %}
+                    <a href="{{ next_url }}"
+                        class="inline-flex items-center px-4 py-2 bg-white border-2 border-slate-300 text-sm font-semibold rounded-lg text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-all">
+                        Next
+                        <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    </a>
+                    {% else %}
+                    <span class="inline-flex items-center px-4 py-2 bg-slate-100 border-2 border-slate-200 text-sm font-semibold rounded-lg text-slate-400 cursor-not-allowed">
+                        Next
+                        <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    </span>
+                    {% endif %}
+                </nav>
+            </div>
+        </div>
+        {% endif %}
+    </div> </div><div id="add-facility-modal" class="fixed inset-0 z-50 overflow-y-auto hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div id="modal-backdrop" class="fixed inset-0 bg-slate-900 bg-opacity-60 backdrop-blur-sm transition-opacity opacity-0" aria-hidden="true"></div>
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+        <div class="modal-content inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full border border-slate-200">
+            <form action="{{ url_for('facilities') }}" method="post" novalidate>
+                {{ facility_form.hidden_tag() }}
+
+                <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-5">
+                    <div class="flex items-center gap-3">
+                        <div class="flex-shrink-0 w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                            <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="text-xl font-bold text-white" id="modal-title">Add New Facility</h3>
+                            <p class="text-blue-100 text-sm mt-0.5">Register a new healthcare facility</p>
+                        </div>
+                        <button type="button" id="close-add-facility-modal-btn" class="text-white/80 hover:text-white hover:bg-white/10 rounded-lg p-2 transition-colors">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="px-6 py-6">
+                    <div class="space-y-5">
+                        <div>
+                            <label for="{{ facility_form.name.id }}" class="block text-sm font-semibold text-slate-900 mb-2">
+                                {{ facility_form.name.label.text }}
+                                <span class="text-red-500">*</span>
+                            </label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                                </div>
+                                {{ facility_form.name(class="block w-full pl-10 pr-4 py-3 border-2 border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all placeholder-slate-400", placeholder="e.g., General Hospital Akure") }}
+                            </div>
+                            {% for error in facility_form.name.errors %}<p class="text-red-600 text-sm font-medium mt-2 flex items-center"><svg class="h-4 w-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>{{ error }}</p>{% endfor %}
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            <div>
+                                <label for="{{ facility_form.local_government.id }}" class="block text-sm font-semibold text-slate-900 mb-2">
+                                    {{ facility_form.local_government.label.text }}
+                                    <span class="text-red-500">*</span>
+                                </label>
+                                <div class="relative">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                    </div>
+                                    {{ facility_form.local_government(class="block w-full pl-10 pr-10 py-3 border-2 border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none bg-white") }}
+                                    <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                        <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                    </div>
+                                </div>
+                                {% for error in facility_form.local_government.errors %}<p class="text-red-600 text-sm font-medium mt-2 flex items-center"><svg class="h-4 w-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>{{ error }}</p>{% endfor %}
+                            </div>
+                            <div>
+                                <label for="{{ facility_form.facility_type.id }}" class="block text-sm font-semibold text-slate-900 mb-2">
+                                    {{ facility_form.facility_type.label.text }}
+                                    <span class="text-red-500">*</span>
+                                </label>
+                                <div class="relative">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z"/></svg>
+                                    </div>
+                                    {{ facility_form.facility_type(class="block w-full pl-10 pr-10 py-3 border-2 border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none bg-white") }}
+                                    <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                        <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                    </div>
+                                </div>
+                                {% for error in facility_form.facility_type.errors %}<p class="text-red-600 text-sm font-medium mt-2 flex items-center"><svg class="h-4 w-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>{{ error }}</p>{% endfor %}
+                            </div>
+                        </div>
+
+                        <fieldset class="border-2 border-slate-200 rounded-xl p-5 bg-slate-50">
+                            <legend class="block text-sm font-semibold text-slate-900 px-2 -ml-2">
+                                {{ facility_form.scheme.label.text }}
+                            </legend>
+                            <p class="text-xs text-slate-600 mb-4">Select all insurance schemes accepted at this facility</p>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {% for subfield in facility_form.scheme %}
+                                <label class="relative flex items-start p-3 bg-white border-2 border-slate-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 cursor-pointer transition-all group">
+                                    <div class="flex items-center h-5">
+                                        {{ subfield(class="h-4 w-4 text-blue-600 border-slate-300 rounded focus:ring-2 focus:ring-blue-500 cursor-pointer") }}
+                                    </div>
+                                    <div class="ml-3">
+                                        {{ subfield.label(class="font-medium text-slate-900 text-sm cursor-pointer group-hover:text-blue-700") }}
+                                    </div>
+                                </label>
+                                {% endfor %}
+                            </div>
+                             {% for error in facility_form.scheme.errors %}<p class="text-red-600 text-sm font-medium mt-3 flex items-center"><svg class="h-4 w-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>{{ error }}</p>{% endfor %}
+                        </fieldset>
+                    </div>
+                </div>
+
+                <div class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+                    <button type="button" id="close-add-facility-modal-btn-2"
+                             class="w-full sm:w-auto inline-flex justify-center items-center px-5 py-2.5 bg-white border-2 border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-all">
+                        Cancel
+                    </button>
+                    {{ facility_form.submit(class="w-full sm:w-auto inline-flex justify-center items-center px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5") }}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Modal functionality
+        const modal = document.getElementById('add-facility-modal');
+        const openBtn = document.getElementById('open-add-facility-modal-btn');
+        // Corrected selector for close buttons
+        const closeBtns = document.querySelectorAll('#close-add-facility-modal-btn, #close-add-facility-modal-btn-2');
+        const backdrop = document.getElementById('modal-backdrop');
+
+        function openModal() {
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                if (backdrop) backdrop.classList.replace('opacity-0', 'opacity-100');
+            }, 10); // Short delay for transition start
+        }
+
+        function closeModal() {
+             if (!modal) return;
+            if (backdrop) backdrop.classList.replace('opacity-100', 'opacity-0');
+            // Wait for opacity transition before hiding
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300); // Should match transition duration
+        }
+
+        if (openBtn) openBtn.addEventListener('click', openModal);
+        closeBtns.forEach(btn => {
+             if (btn) btn.addEventListener('click', closeModal);
+        });
+        if (backdrop) backdrop.addEventListener('click', closeModal);
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && modal && !modal.classList.contains('hidden')) {
+                closeModal();
+            }
+        });
+
+        // Auto-open modal if form has errors
+        {% if facility_form.errors %}
+            openModal();
+        {% endif %}
+
+        // Remove Search/Filter JS
+        // const searchInput = document.getElementById('facilitySearch');
+        // const typeFilter = document.getElementById('typeFilter');
+        // const rows = document.querySelectorAll('.table-row');
+        // function filterTable() { ... }
+        // if (searchInput) searchInput.addEventListener('input', filterTable);
+        // if (typeFilter) typeFilter.addEventListener('change', filterTable);
+    });
+</script>
+{% endblock %}

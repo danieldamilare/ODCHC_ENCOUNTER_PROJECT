@@ -1,7 +1,7 @@
 from werkzeug.security import generate_password_hash, check_password_hash
 from typing import Optional, Type, TypeVar, Any, Iterator, List, Tuple
 from app.db import get_db, close_db
-from app.models import User, Facility, Disease, Encounter, DiseaseCategory, Role, InsuranceScheme, FacilityView, UserView
+from app.models import User, Facility, Disease, Encounter, TreatmentOutcome, DiseaseCategory, Role, InsuranceScheme, FacilityView, UserView, EncounterView
 from app.exceptions import MissingError, InvalidReferenceError, DuplicateError
 from collections import defaultdict
 from app.exceptions import ValidationError, AuthenticationError
@@ -245,14 +245,17 @@ class UserServices(BaseServices):
             ) -> Iterator:
 
         db = get_db()
+
         query = '''
             SELECT 
                 u.id AS user_id,
+                u.facility_id,
+                f.name,
+                f.local_government,
+                f.facility_type,
                 u.username,
                 u.password_hash,
-                u.role AS role,
-                f.name AS facility_name,
-                f.local_government AS lga
+                u.role AS role
             FROM users AS u
             LEFT JOIN facility AS f ON u.facility_id = f.id
         '''
@@ -266,16 +269,35 @@ class UserServices(BaseServices):
             order_by=  order_by,
             group_by=  group_by
         )
-        rows = db.execute(query, args)
+
+        rows = db.execute(query, args).fetchall()
+        facility_ids = [row['facility_id'] for  row in rows]
+        scheme_map = {}
+        if facility_ids:
+            scheme_map = FacilityServices.get_insurance_list(facility_ids)
 
         for row in rows:
-            facility = row['facility_name'] if row['facility_name'] else None
+            facility_view = None
+            if row['facility_id'] is not None:
+                facility_view= FacilityView(
+                    id= row['facility_id'],
+                    name = row['name'],
+                    lga = row['local_government'],
+                    facility_type= row['facility_type'],
+                    scheme = scheme_map[row['facility_id']]
+                )
             yield UserView(
                 id=row['user_id'],
+                facility= facility_view,
                 username=row['username'],
-                facility=facility,
-                role=Role[row['role']],
+               role=Role[row['role']],
             )
+
+    @classmethod
+    def get_view_by_id(cls, id: int):
+        and_filter = [('u.id', id, '=')]
+        return next(cls.get_all(and_filter=and_filter))
+        
                 
     @staticmethod
     def get_verified_user(username: str, password: str):
@@ -287,7 +309,7 @@ class UserServices(BaseServices):
 
         if not check_password_hash(user.password_hash, password):
             raise AuthenticationError("Invalid Username or Password")
-        return user
+        return UserServices.get_view_by_id(user.id)
 
     @classmethod
     def update_data(cls, model: User)->User:
@@ -398,6 +420,32 @@ class FacilityServices(BaseServices):
             raise DuplicateError(f'Facility with name {facility.name} already exists')
         return facility
 
+    @classmethod #facility service
+    def get_insurance_list(cls, row_ids: List[int]):
+        db = get_db()
+        placeholders = ','.join(('?' * len(row_ids)))
+        query = f'''
+        SELECT  
+            fc.id,
+            isc.id as scheme_id,
+            isc.scheme_name,
+            isc.color_scheme
+        FROM {cls.table_name} as fc
+        JOIN facility_scheme as fsc 
+        ON fc.id = fsc.facility_id
+        JOIN insurance_scheme as isc
+        ON isc.id = fsc.scheme_id
+        WHERE fc.id IN ({placeholders})
+        '''
+
+        scheme_rows = db.execute(query, row_ids).fetchall()
+        scheme_map = defaultdict(list)
+        for row in scheme_rows:
+            scheme_map[row['id']].append(InsuranceScheme(id = row['scheme_id'], 
+                                                         scheme_name = row['scheme_name'],
+                                                         color_scheme=row['color_scheme']))
+        return scheme_map
+
 
     @classmethod
     def get_all(cls, 
@@ -429,32 +477,15 @@ class FacilityServices(BaseServices):
         print(query)
         facility_rows = list(db.execute(query, args).fetchall())
         row_ids = [row['id'] for row in facility_rows]
-        placeholders = ','.join(('?' * len(row_ids)))
-
-        query = f'''
-        SELECT  
-            fc.id,
-            isc.scheme_name
-        FROM {cls.table_name} as fc
-        JOIN facility_scheme as fsc 
-        ON fc.id = fsc.facility_id
-        JOIN insurance_scheme as isc
-        ON isc.id = fsc.scheme_id
-        WHERE fc.id IN ({placeholders})
-        '''
-
-        scheme_rows = db.execute(query, row_ids).fetchall()
-        scheme_map = defaultdict(list)
-        for row in scheme_rows:
-            scheme_map[row['id']].append(row['scheme_name'])
+        scheme_map = cls.get_insurance_list(row_ids)
 
         for row in facility_rows:
             facility = FacilityView(
                 id = row['id'],
-                name = row['facility_name'],
                 lga = row['local_government'],
-                facility_type = row['facility_type'],
-                scheme =  scheme_map[row['id']]
+                scheme=scheme_map[row['id']],
+                name =  row['facility_name'],
+                facility_type = row['facility_type']
             )
             yield facility
 
@@ -470,11 +501,11 @@ class InsuranceSchemeServices(BaseServices):
     columns = {'id', 'scheme_name'}
 
     @classmethod
-    def create_scheme(cls, name: str, commit=True):
+    def create_scheme(cls, name: str, color_scheme: str, commit=True):
         db = get_db()
         try:
-            cursor = db.execute(f'INSERT INTO {cls.table_name} (scheme_name) VALUES (?)',
-                                (name, ))
+            cursor = db.execute(f'INSERT INTO {cls.table_name} (scheme_name, color_scheme) VALUES (?)',
+                                (name, color_scheme))
             if commit: db.commit()
             new_id = cursor.lastrowid
             return cls.get_by_id(new_id)
@@ -604,12 +635,8 @@ class EncounterServices(BaseServices):
     model = Encounter
     columns = {'id', 'facility_id', 'date', 'policy_number', 'client_name',
                'gender', 'age', 'age_group', 'treatment', 'referral', 'doctor_name', 
-               'professional_service', 'created_by', 'created_at', "ec.facility_id", 
+               'created_by', 'created_at', "scheme", "outcome"
                }
-
-    columns_to_update = {'facility_id', 'disease_id', 'date', 'policy_number', 'client_name',
-               'gender', 'age', 'age_group', 'treatment', 'referral', 'doctor_name', 
-               'professional_service'}
 
     @classmethod
     def create_encounter(cls, facility_id: int,
@@ -622,8 +649,9 @@ class EncounterServices(BaseServices):
                          treatment: Optional[str], 
                          referral: bool,
                          doctor_name: Optional[str], 
-                         professional_service: Optional[str],
-                         created_by: User,
+                         scheme: int,
+                         outcome: int,
+                         created_by: int,
                          commit=True) -> Encounter:
         db = get_db()
         gender = gender.upper()
@@ -646,10 +674,10 @@ class EncounterServices(BaseServices):
         
             cur = db.execute(f'''INSERT INTO {cls.table_name} (facility_id, date, policy_number
                    , client_name, gender, age, treatment, referral, doctor_name,
-                   professional_service, created_by, created_at) VALUES( ?, ?, ?, ?, ?, ?, ?,
-                   ?, ?, ?, ?, ?)''', (facility_id, date, policy_number, client_name,
-                                   gender, age, treatment, int(referral), doctor_name,
-                                   professional_service, created_by.id, created_at))
+                   scheme, outcome, created_by, created_at) VALUES( ?, ?, ?, ?, ?, ?, ?,
+                   ?, ?, ?, ?, ?, ?)''', (facility_id, date, policy_number, client_name,
+                                   gender, age, treatment, int(referral), doctor_name, 
+                                   scheme, outcome, created_by.id, created_at))
             new_id = cur.lastrowid
 
             diseases_list = list(set((new_id, x) for x in diseases_id))
@@ -689,17 +717,23 @@ class EncounterServices(BaseServices):
                 ec.gender,
                 ec.age,
                 ec.policy_number,
-                ec.referral ,
                 ec.date,
+                ec.facility_id ,
+                isc.id as scheme_id,
+                isc.scheme_name,
+                isc.color_scheme,
                 ec.doctor_name,
-                ec.professional_service,
+                tc.name as treatment_outcome,
                 ec.created_at,
                 ec.treatment,
-                fc.name AS facility_name,
-                fc.local_government AS lga,
+                fc.name as facility_name,
+                fc.facility_type,
+                fc.local_government as lga,
                 u.username AS created_by
             FROM encounters AS ec
-            JOIN facility AS fc ON ec.facility_id = fc.id
+            JOIN insurance_scheme as isc on isc.id = ec.scheme
+            JOIN facility as fc on ec.facility_id = fc.id
+            JOIN treatment_outcome as tc on ec.outcome = tc.id
             LEFT JOIN users AS u ON ec.created_by = u.id
         '''
         
@@ -713,17 +747,18 @@ class EncounterServices(BaseServices):
             group_by= group_by,
             order_by=order_by
         )
+
+        print('encounter get_all query', query)
+        print('args', args)
         
         db = get_db()
         encounters_rows = db.execute(query, args).fetchall()
         
-        # Get all encounter IDs
         encounter_ids = [row['id'] for row in encounters_rows]
         
         if not encounter_ids:
             return
         
-        # Fetch all diseases for these encounters in ONE query
         placeholders = ','.join('?' * len(encounter_ids))
         diseases_query = f'''
             SELECT 
@@ -742,7 +777,7 @@ class EncounterServices(BaseServices):
         diseases_rows = db.execute(diseases_query, encounter_ids).fetchall()
         
         diseases_by_encounter = defaultdict(list)
-        from app.models import EncounterView, DiseaseView, FacilityView
+        from app.models import EncounterView, DiseaseView
         
         for row in diseases_rows:
             encounter_id = row['encounter_id']
@@ -757,37 +792,71 @@ class EncounterServices(BaseServices):
             )
             diseases_by_encounter[encounter_id].append(disease)
         
+
+        facility_ids = [row['facility_id'] for row in encounters_rows]
+
+        scheme_map = FacilityServices.get_insurance_list(facility_ids)
+       
         for row in encounters_rows:
-            
             encounter = EncounterView(
                 id=row['id'],
-                facility= row['facility_name'],
+                facility=  FacilityView(
+                    id = row['facility_id'],
+                    name =  row['facility_name'],
+                    lga =  row['lga'],
+                    scheme =  scheme_map[row['facility_id']],
+                    facility_type = row['facility_type']
+                ),
+                insurance_scheme= InsuranceScheme(id = row['scheme_id'], 
+                                                  scheme_name= row['scheme_name'],
+                                                  color_scheme = row['color_scheme']),
                 diseases=diseases_by_encounter[row['id']],  
                 policy_number=row['policy_number'],
                 client_name=row['client_name'],
-                referral=bool(row['referral']),
                 gender=row['gender'],
                 date=row['date'],
+                treatment_outcome = row['treatment_outcome'],
                 age=row['age'],
                 treatment=row['treatment'],
                 doctor_name=row['doctor_name'],
-                professional_service=row['professional_service'],
                 created_by=row['created_by'],
                 created_at=row['created_at']
             )
-            
             yield encounter
 
     @classmethod
     def get_encounter_by_facility(cls, facility_id: int) -> Iterator:
         return cls.get_all(and_filter=[('ec.facility_id', facility_id, '=')])
 
+    @classmethod
+    def get_view_by_id(cls, id: int) -> EncounterView:
+        and_filter = [('ec.id', id, '=')]
+        return next(cls.get_all(and_filter = and_filter))
 
     @classmethod
     def update_data(cls, model):
         # do not allow update of encounter
         raise NotImplementedError("Encounter are immutable and cannot be updated")
 
+
+class TreatmentOutcomeServices(BaseServices):
+    table_name = 'treatment_outcome'
+    columns = {'id', 'name', 'type'}
+    model = TreatmentOutcome
+
+    @classmethod
+    def create_treatment_outcome(cls, name: str, treatment_type: str, commit: bool = True) -> TreatmentOutcome:
+        db = get_db()
+        try:
+            cur = db.execute(f'INSERT INTO {cls.table_name} (name, type) VALUES (?, ?)', (name, treatment_type))
+            if commit: db.commit()
+            new_id  = cur.lastrowid
+            return cls.get_by_id(new_id)
+            
+        except sqlite3.IntegrityError:
+            db.rollback()
+            raise ValidationError("Treatment Outcome already exist in the database")
+        
 
 class DashboardServices(BaseServices):
     model = None
@@ -1056,8 +1125,8 @@ class ReportServices(BaseServices):
 
         rows = db.execute(query, args)
         df = pd.DataFrame([dict(row) for row in rows])
-        print("In generate Service utilization report")
-        print('df', df)
+        # print("In generate Service utilization report")
+        # print('df', df)
 
         if df.empty:
             raise MissingError("No report available for this timeframe!")
@@ -1086,7 +1155,7 @@ class ReportServices(BaseServices):
         table.index.name = ''
         table.columns.name = ''
         table.rename(columns={'disease_name': 'Diseases'}, inplace=True)
-        print(table)
+        # print(table)
 
         return facility_name, start_date, table
 
@@ -1122,9 +1191,9 @@ class ReportServices(BaseServices):
         age_groups = ['<1', '1-5', '6-14', '15-19', '20-44', '45-64', '65&AB']
         gender = ['M', 'F']
 
-        print('In generate_encounter_report')
+        # print('In generate_encounter_report')
 
-        print('df', df)
+        # print('df', df)
 
         table = df.pivot_table(
             index = 'facility_name',

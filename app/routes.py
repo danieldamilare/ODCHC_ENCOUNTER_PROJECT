@@ -3,12 +3,13 @@ from flask import redirect, flash, url_for, request, render_template, abort, Res
 from flask_login import login_required, login_user, logout_user
 from app.models import Role, is_logged_in, get_current_user, AuthUser, Facility, Encounter
 from app.models import DiseaseCategory, Disease, User, InsuranceScheme, get_current_user
-from app.services import UserServices, EncounterServices, FacilityServices, DiseaseServices
+from app.services import UserServices, EncounterServices, FacilityServices, DiseaseServices, TreatmentOutcomeServices
 from app.services import DiseaseCategoryServices, InsuranceSchemeServices
 from app.exceptions import AuthenticationError, MissingError, ValidationError
 from app.exceptions import InvalidReferenceError, DuplicateError
 from urllib.parse import urlparse
-from app.utils import form_to_dict, admin_required
+from app.config import Config
+from app.utils import form_to_dict, admin_required, humanize_datetime_filter
 from app.forms import LoginForm, AddEncounterForm, AddFacilityForm, EditFacilityForm, AddDiseaseForm, ExcelUploadForm
 from app.forms import AddUserForm, AddCategoryForm, DeleteUserForm, EditUserForm, EditDiseaseForm, EncounterFilterForm
 from flask_wtf import FlaskForm
@@ -70,24 +71,71 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-@app.route('/add_encounter', methods = ['GET', 'POST'])
+
+@app.route('/add_encounter', methods  = ['GET'])
 @login_required
-def add_encounter() -> Any:
+def add_encounter():
+    user = get_current_user()
+    if user.role.name == 'admin':
+        schemes = list(InsuranceSchemeServices.get_all())
+    else:
+        # print("In add encounter", get_current_user().facility)
+        schemes = get_current_user().facility.scheme
+        if (len(schemes) == 1):
+            return redirect(url_for(add_scheme_encounter), scheme_id =schemes[0].id)
+
+    return render_template('add_encounter.html',
+                           title = 'Select Insurance Scheme',   
+                           schemes = schemes)
+
+@app.route('/add_encounter/<int:scheme_id>', methods = ['GET', 'POST'])
+@login_required
+def add_scheme_encounter(scheme_id) -> Any:
+    try:
+        insurance_scheme= InsuranceSchemeServices.get_by_id(scheme_id) #check if scheme exist
+        user = get_current_user()
+        if user.role.name != 'admin':
+            schemes = get_current_user().facility.scheme
+            if scheme_id not in (sc.id for sc in schemes):
+                raise ValidationError(f"Your facility is not under the insurance scheme: {insurance_scheme.scheme_name}")
+    except MissingError as e:
+        flash("Invalid Insurance Scheme Selected", "error")
+        return redirect(url_for('add_encounter'))
+    except ValidationError as e:
+        flash(str(e), "error")
+        return redirect(url_for('add_encounter'))
+
     form:AddEncounterForm  = AddEncounterForm()
+    form.facility.choices = [('0', 'Select Facility')] + [(f.id, f.name) for f in FacilityServices.get_all()]
     disease_choices = [('0', 'Select a disease')] + sorted([(dis.id, str(dis.name).title()) for dis in DiseaseServices.get_all()], key=lambda x: x[1])
     for subfield in form.diseases:
         subfield.choices =  disease_choices
+    treatment_outcomes = list(TreatmentOutcomeServices.get_all())
+    form.outcome.choices = ([('0', 'Select treatment outcome')] + 
+                            [(t.id, t.name) for t in treatment_outcomes if t.type.lower() != 'death'] +
+                            [('-1', 'Death')])
+
+    form.death_type.choices = ([('0', 'Select death type')] + 
+                               [(t.id, t.name) for t in treatment_outcomes if t.type.lower() == 'death'])
+    # print(form.death_type.choices)
+
     # print("In add Encounter")
     if form.validate_on_submit():
         # print('validated on submit')
         res = form_to_dict(form, Encounter)
+        final_outcome = form.death_type.data if form.outcome.data == -1 else form.outcome.data
+        res['outcome'] = final_outcome
         #for the purpose of the demo deadline use the first disease and ignore others
         diseases = [disease.data for disease in form.diseases]
         # print("disease id", diseases)
         res['diseases_id']  = diseases
         user = get_current_user()
-        res['created_by'] =user
-        res['facility_id'] = user.facility_id
+        res['created_by'] =user.id
+        res['facility_id'] = form.facility.data
+        if user.role.name != 'admin':
+            res['facility_id'] = user.facility.id
+        res['scheme'] = scheme_id
+        # print(res)
         try:
             EncounterServices.create_encounter(**res)
             flash('Encounter has successfully been added', 'success')
@@ -100,8 +148,9 @@ def add_encounter() -> Any:
     if request.method == 'GET':
         form.date.data = date.today()
 
-    return render_template('add_encounter.html', 
+    return render_template('add_scheme_encounter.html', 
                            disease_choices = disease_choices[1:],
+                           insurance_scheme= insurance_scheme,
                            form = form, 
                            title = 'Add Encounter')
 
@@ -124,7 +173,7 @@ def facilities() -> Any:
 
     facility_total = FacilityServices.get_total()
     page:int = int(request.args.get('page', 1))
-    facility_list = FacilityServices.list_row_by_page(page)
+    facility_list = list(FacilityServices.list_row_by_page(page))
     next_url: Optional[str] = (url_for('facilities', page=page+1)
                 if FacilityServices.has_next_page(page) else None)
     prev_url = (url_for('facilities', page=page-1) if page > 1 else None)
@@ -154,6 +203,7 @@ def edit_facilities(pid: int) ->Any:
     form.scheme.choices = others
     current_scheme = FacilityServices.get_current_scheme(pid)
     form.scheme.data = current_scheme
+
     if form.validate_on_submit():
         try:
             form.populate_obj(facility)
@@ -243,17 +293,40 @@ def view_facilities(pid: int) -> Any:
 @admin_required
 def diseases():
     page = int(request.args.get('page', 1))
-    disease_list = DiseaseServices.list_row_by_page(page)
+    and_filter = None
+    other_and_filter = None
+    if category:= request.args.get('category'):
+        and_filter = [('d.category_id', category, '=')]
+        other_and_filter = [('category_id', category, '=')]
+    print('category', category)
+    disease_list = list(DiseaseServices.list_row_by_page(page,
+                                                         and_filter= and_filter))
+    total_diseases = DiseaseServices.get_total(and_filter = other_and_filter)
 
-    category_list = DiseaseCategoryServices.get_all()
-    
-    next_url = url_for('diseases', page=page + 1) if DiseaseServices.has_next_page(page) else None
-    prev_url = url_for('diseases', page=page - 1) if page > 1 else None
+    category_list = list(DiseaseCategoryServices.get_all())
+    total_categories = DiseaseCategoryServices.get_total()
+
+    res = {** request.args}
+    print('after res', category)
+    if category: res['category'] = category
+    res['page'] = page+1
+    next_url = url_for('diseases', **res) if DiseaseServices.has_next_page(page, and_filter = other_and_filter) else None
+    print('next url', next_url)
+    res['page'] = page - 1
+    print('res',res)
+    prev_url = url_for('diseases', **res) if page > 1 else None
+    print('prev url', prev_url)
 
     return render_template('diseases.html', 
                            title='Manage Diseases', 
                            disease_list=disease_list,
+                           total_diseases = total_diseases,
+                           total_categories = total_categories,
+                           current_page =page,
+                           total_pages = 20,
+                           per_page = Config.ADMIN_PAGE_PAGINATION,  
                            category_list=category_list,
+                           active_category = 0,
                            next_url=next_url,
                            prev_url=prev_url)
 
@@ -331,7 +404,7 @@ def users():
         res['password'] = user_form.password.data
         try: 
             user =UserServices.create_user(**res)
-            facility:Facility = FacilityServices.get_by_id(user.facility_id)
+            facility:Facility = FacilityServices.get_by_id(user.facility.id)
             flash(f'{user.username} added to {facility.name} facility',
                   'success')
             return redirect(url_for('users'))
@@ -339,6 +412,8 @@ def users():
             flash(str(e), 'error')
 
     user_list = list(UserServices.list_row_by_page(page))
+    total_user =  UserServices.get_total()
+    print('total_user', total_user)
     next_url = (url_for('users', page=page + 1) 
                 if UserServices.has_next_page(page) else None)
     prev_url = None if page == 1 else url_for('users', page =page - 1)
@@ -347,6 +422,7 @@ def users():
                     title = "Manage User",
                     user_form = user_form,
                     user_list = user_list,
+                    total_user = total_user,
                     next_url = next_url,
                     prev_url = prev_url)
 
@@ -420,18 +496,18 @@ def encounters():
         and_filter.append(('date', end_date, '<='))
 
     if user.role == Role.user:
-        and_filter.append(('ec.facility_id', user.facility_id, '=' ))
+        and_filter.append(('ec.facility_id', user.facility.id, '=' ))
     else:
         lga = filter_form.local_government.data
         facility_id = filter_form.facility_id.data
         if lga:
             and_filter.append(('fc.local_government', lga, '='))
-        if facility_id:
+        if facility_id :
             and_filter.append(('ec.facility_id', facility_id, '='))
         
 
-    encounter_list = EncounterServices.list_row_by_page(page,
-                                                        and_filter=and_filter)
+    encounter_list = list(EncounterServices.list_row_by_page(page,
+                                                        and_filter=and_filter))
 
     pagination_args = {**request.args, "page": page +1}
     next_url = (url_for('encounters', **pagination_args) 
@@ -448,20 +524,25 @@ def encounters():
                            )
 
 @app.route('/encounters/view/<int:pid>')
-@admin_required
+@login_required
 def view_encounter(pid: int):
     try:
-        EncounterServices.get_by_id(pid)
+        encounter_view = EncounterServices.get_view_by_id(pid)
+        user = get_current_user()
+        if user.role.name != 'admin' and user.facility.id != encounter_view.facility.id:
+            raise ValidationError("Encounter not registered to your facility")
     except MissingError as e:
         flash(str(e), "error")
+    except ValidationError as e:
+        flash(str(e), "erro")
     encounter_view = list(EncounterServices.get_all(and_filter=[
         ("ec.id", pid, '=')]))[0]
     return render_template('view_encounter.html', 
                            title = f"Encounter Details: {encounter_view.client_name}", 
                            encounter=encounter_view)
 
-
 @app.route('/dashboard')
+@admin_required
 def admin():
     # --- 1. GET FILTERS FROM URL ---
     period = request.args.get('period', 'this_month')
@@ -472,7 +553,7 @@ def admin():
         if facility_id != 'all':
             flash("You cannot access another facility", 'error')
             return redirect(url_for('admin'))
-        facility_id = user.facility_id
+        facility_id = user.facility.id
 
     # --- 2. CALCULATE DATE RANGE ---
     today = date.today()
@@ -508,8 +589,6 @@ def admin():
             pass
 
     # --- 4. FETCH DATA FROM SERVICES ---
-    print('other_encounter_filter', other_encounter_filter)
-    print('encounter_and_filter', encounter_and_filters)
     total_encounters = EncounterServices.get_total(and_filter=other_encounter_filter)
     # print(encounter_and_filters)
     active_facilities = len(list(EncounterServices.get_all(and_filter=encounter_and_filters, group_by=['ec.facility_id'])))
@@ -529,11 +608,26 @@ def admin():
     female_perc = (female_count / total_gender * 100) if total_gender > 0 else 0
 
     # For charts
-    monthly_trend_raw = json.loads(DashboardServices.trend_last_n_weeks(facility_id=facility_id)) # 6 months
+    weekly_trend_raw = json.loads(DashboardServices.trend_last_n_weeks(facility_id=facility_id)) # 6 months
     daily_trend_raw = json.loads(DashboardServices.trend_last_n_days(facility_id=facility_id))
+    # print('daily trend', daily_trend_raw)
+    # print('weekly trend', weekly_trend_raw)
     age_distribution = DashboardServices.age_group_distribution(start_date = start_date, end_date = end_date)
     # print(monthly_trend_raw)
-    top_facilities_raw = DashboardServices.get_top_facilities(start_date=start_date, end_date=end_date, limit=5)
+    top_facilities_raw = list(DashboardServices.get_top_facilities(start_date=start_date, end_date=end_date, limit=5))
+    print("Top Facilities raw", top_facilities_raw)
+
+    formatted_top_facilities = []
+    for facility in top_facilities_raw:
+        if facility['last_submission']:
+            try:
+               dt_obj = arrow.get(facility['last_submission']).to('local') # Convert to local timezone if needed
+               facility['last_submission_formatted'] = dt_obj.strftime('%b %d, %Y %I:%M %p') # e.g., Oct 23, 2025 08:15 AM
+            except Exception:
+                facility['last_submission_formatted'] = str(facility['last_submission']) # Fallback
+        else:
+            facility['last_submission_formatted'] = 'N/A'
+        formatted_top_facilities.append(facility)
 
     # For recent encounters table
     recent_encounters = list(EncounterServices.get_all(limit=5, order_by=[('date', 'DESC')], and_filter=encounter_and_filters))
@@ -556,7 +650,7 @@ def admin():
                            female_perc=round(female_perc, 1),
 
                            # Chart Data
-                           monthly_trend=monthly_trend_raw,
+                           weekly_trend_raw=weekly_trend_raw,
                            gender_distribution=gender_distribution_data,
                            top_diseases=top_diseases_data,
                            top_facilities=top_facilities_raw,
@@ -564,7 +658,7 @@ def admin():
                            daily_trend_raw = daily_trend_raw,
 
                            # Table Data
-                           top_facilities_raw = top_facilities_raw,
+                           top_facilities_raw = formatted_top_facilities,
                            recent_encounters=recent_encounters  )
 
 
@@ -828,6 +922,6 @@ def upload_excel():
         month = form.month
         facility_id = form.facility_id.data
         user = get_current_user()
-        print("Doing nothing")
+        # print("Doing nothing")
 
     return render_template('upload_excel.html', title='Upload Encounter Sheet', form = form)

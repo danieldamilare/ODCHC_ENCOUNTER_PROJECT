@@ -4,6 +4,7 @@ from wtforms import IntegerField, SelectField, HiddenField, FieldList, DateField
 from wtforms.validators import DataRequired, Length, NumberRange, EqualTo, Optional, ValidationError 
 from wtforms import widgets
 from app.config import LOCAL_GOVERNMENT
+from app.models import get_current_user
 from app.services import FacilityServices, DiseaseCategoryServices, DiseaseServices
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileAllowed, FileRequired
@@ -21,16 +22,36 @@ class AddEncounterForm(FlaskForm):
     doctor_name = StringField('Doctor Name', validators = [DataRequired(), Length(min = 2)])
     age = IntegerField('Age', validators=[DataRequired(), NumberRange(0, 120, 'Age must be between 0 - 120 ')])
     date = DateField('Date', format="%Y-%m-%d", validators = [DataRequired()])
-    professional_service = TextAreaField('Professional Service')
     gender = SelectField('Gender', choices= [('M', 'Male'), ('F','Female')], validators=[DataRequired()])
-    referral = BooleanField('Referred')
-    diseases  = FieldList(SelectField('Disease', validators=[DataRequired()], coerce=int), min_entries=1)
+    diseases  = FieldList(SelectField('Disease/Diagnosis/Services', validators=[DataRequired()], coerce=int), min_entries=1)
+    facility = SelectField("Select Facility", coerce=int)
+    outcome = SelectField('Treatment Outcome',  validators = [Optional()], coerce=int, render_kw={'id': 'outcome-select'})
+    death_type = SelectField("Death Type", validators=[Optional()], coerce = int, render_kw={'id': 'death-type-select'})
     submit = SubmitField('submit')
 
     def validate_diseases(self, diseases):
         for disease in diseases:
             if not disease.data or int(disease.data) == 0:
                 raise ValidationError("Please select a valid disease from the list")
+
+    def validate_facility(self, facility):
+        user = get_current_user()
+        if user.role.name == 'admin' and not facility.data:
+            raise ValidationError("Admin User have to select a facility for encounter")
+
+    def validate(self, extra_validators=None):
+        # First, run all the standard validators
+        if not super().validate(extra_validators):
+            return False
+
+        # Now, add your custom cross-field logic
+        # Assuming '5' is the ID for the 'Death' outcome
+        if self.outcome.data == -1 and not self.death_type.data:
+            self.death_type.errors.append("Please select a death type when the outcome is 'Death'.")
+            return False
+
+        # If all is good
+        return True
 
 class AddFacilityForm(FlaskForm):
     name = StringField('Facility Name', validators =[DataRequired()])
@@ -99,7 +120,7 @@ class EncounterFilterForm(FlaskForm):
     local_government =  SelectField('Local Government', 
                                      choices=[('', 'Select Local Government')] + [ (lga, lga.title()) for lga in LOCAL_GOVERNMENT],
                                      validators=[Optional()])
-    facility_id = SelectField('Facility', validators=[Optional()])
+    facility_id = SelectField('Facility', coerce=int, validators=[Optional()])
     submit = SubmitField('Filter')
 
 class ExcelUploadForm(FlaskForm):

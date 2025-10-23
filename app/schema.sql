@@ -26,9 +26,6 @@ CREATE TABLE diseases (
         FOREIGN KEY (category_id) REFERENCES diseases_category (id)
     );
 
-CREATE INDEX idx_user_facility_id ON users (facility_id);
-
-CREATE INDEX idx_diseases_category_id ON diseases (category_id);
 
 CREATE TABLE encounters (
         id INTEGER PRIMARY KEY,
@@ -38,6 +35,7 @@ CREATE TABLE encounters (
         client_name TEXT NOT NULL,
         gender CHAR(1) NOT NULL CHECK (gender IN ('M', 'F')),
         age INTEGER NOT NULL CHECK (age >= 0 AND age <= 120),
+        scheme INTEGER NOT NULL,
         age_group VARCHAR(10) GENERATED ALWAYS AS (
             CASE
                 WHEN age < 1 THEN '<1'
@@ -50,13 +48,13 @@ CREATE TABLE encounters (
             END
         ) STORED,
         treatment TEXT,
-        referral INTEGER NOT NULL DEFAULT 0, -- should be boolean 0 and 1
         doctor_name VARCHAR(255) NOT NULL,
-        professional_service TEXT,
+        outcome INTEGER NOT NULL,
         created_by INTEGER,
         created_at DATE NOT NULL, 
         FOREIGN KEY (facility_id) REFERENCES facility (id) ON DELETE RESTRICT,
         FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
+        FOREIGN KEY (outcome) REFERENCES treatment_outcome(id)
     );
 
 -- To be updated once the whole application is working
@@ -70,7 +68,8 @@ CREATE TABLE encounters_diseases(
 
 CREATE TABLE insurance_scheme(
     id INTEGER PRIMARY KEY,
-    scheme_name TEXT UNIQUE NOT NULL
+    scheme_name TEXT UNIQUE NOT NULL,
+    color_scheme TEXT DEFAULT "#33a9f2"
 );
 
 CREATE TABLE facility_scheme(
@@ -79,10 +78,20 @@ CREATE TABLE facility_scheme(
     PRIMARY KEY(facility_id, scheme_id)
 );
 
+CREATE TABLE treatment_outcome(
+    id INTEGER PRIMARY KEY  AUTOINCREMENT,
+    name VARCHAR(255) UNIQUE NOT NULL,
+    type VARCHAR(255) NOT NULL
+);
 
 CREATE INDEX idx_encounters_facility_id ON encounters (facility_id);
 CREATE INDEX idx_encounters_date ON encounters (date);
 CREATE INDEX idx_encounters_created_by ON encounters (created_by);
 CREATE INDEX idx_encounters_created_at ON encounters (created_at);
-
+CREATE INDEX idx_facility_facility_id ON facility_scheme (facility_id);
+CREATE INDEX idx_insurance_scheme_id ON insurance_scheme (id);
+CREATE INDEX idx_facility_scheme_id ON facility_scheme (scheme_id);
+CREATE INDEX idx_treatment_outcome_id ON treatment_outcome(id);
 CREATE INDEX idx_encounters_facility_date ON encounters (facility_id, date);
+CREATE INDEX idx_user_facility_id ON users (facility_id);
+CREATE INDEX idx_diseases_category_id ON diseases (category_id);
