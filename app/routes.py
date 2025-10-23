@@ -82,7 +82,9 @@ def add_encounter():
         # print("In add encounter", get_current_user().facility)
         schemes = get_current_user().facility.scheme
         if (len(schemes) == 1):
-            return redirect(url_for(add_scheme_encounter), scheme_id =schemes[0].id)
+            scheme_id = schemes[0].id
+            print('scheme_id', scheme_id)
+            return redirect(url_for('add_scheme_encounter', scheme_id =scheme_id))
 
     return render_template('add_encounter.html',
                            title = 'Select Insurance Scheme',   

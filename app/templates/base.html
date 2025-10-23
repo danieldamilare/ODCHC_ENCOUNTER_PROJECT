@@ -114,7 +114,7 @@
     <a href="#main-content" class="skip-link">Skip to main content</a>
 
     <!-- Enhanced Navbar with Centered Branding -->
-    <nav class="glass-card sticky top-0 z-50 shadow-elevated border-b border-slate-200/60">
+    <nav class="glass-card  top-0 z-50 shadow-elevated border-b border-slate-200/60">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-20">
                 <!-- Logo and Branding -->
@@ -131,7 +131,7 @@
                         </div>
                         <div class="flex flex-col">
                             <p class="text-base font-bold text-slate-800 leading-tight">ODCHC</p>
-                            <p class="text-sm text-[#0ea5e9] font-medium leading-tight">Health Monitoring</p>
+                            <p class="text-sm text-[#0ea5e9] font-medium leading-tight">Monitoring & Evaluation System</p>
                         </div>
                     </a>
                 </div>
@@ -165,11 +165,6 @@
                         <a href="{{ url_for('logout') }}" 
                            class="btn-logout text-white px-5 py-2.5 rounded-lg text-base font-semibold shadow-sm">
                             Logout
-                        </a>
-                    {% else %}
-                        <a href="{{ url_for('login') }}" 
-                           class="bg-[#0ea5e9] hover:bg-[#0284c7] text-white px-6 py-2.5 rounded-lg text-base font-semibold shadow-md transition-all">
-                            Login
                         </a>
                     {% endif %}
                 </div>
@@ -225,7 +220,7 @@
                     © 2024 Ondo State Contributory Health Commission
                 </p>
             </div>
-            <p class="text-sm text-[#0ea5e9] font-medium">Health Monitoring System</p>
+            <p class="text-sm text-[#0ea5e9] font-medium">Monitoring & Evaluation System</p>
         </div>
     </footer>
 </body>

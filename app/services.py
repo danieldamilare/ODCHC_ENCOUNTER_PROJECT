@@ -1,5 +1,5 @@
 from werkzeug.security import generate_password_hash, check_password_hash
-from typing import Optional, Type, TypeVar, Any, Iterator, List, Tuple
+from typing import Optional, Type, TypeVar, Any, Iterator, List, Tuple, Dict
 from app.db import get_db, close_db
 from app.models import User, Facility, Disease, Encounter, TreatmentOutcome, DiseaseCategory, Role, InsuranceScheme, FacilityView, UserView, EncounterView
 from app.exceptions import MissingError, InvalidReferenceError, DuplicateError
@@ -896,20 +896,6 @@ class DashboardServices(BaseServices):
                                            'last_submission': row['last_submission']})
 
     @classmethod
-    def get_top_facility(cls):
-
-        query = '''
-            SELECT fc.name AS facility_name, COUNT(ec.id) AS encounter_count
-            FROM facility AS fc
-            JOIN encounters AS ec ON fc.id = ec.facility_id 
-            GROUP BY ec.facility_id
-            ORDER BY encounter_count DESC
-            LIMIT 1
-        '''
-        return cls._run_query(query,  [],
-                               lambda row: {'facility_name': row['facility_name'], 'encounter_count': row['encounter_count']})
-
-    @classmethod
     def _validate_date(cls, start_date, end_date, limit):
         today = datetime.today().date()
         start_date = start_date or  today.replace(day=1)
@@ -930,7 +916,7 @@ class DashboardServices(BaseServices):
 
 
     @classmethod
-    def  top_diseases(cls, start_date: Optional[date] = None, end_date: Optional[date]= None, facility_id: Optional[int] = 0, limit: int = 5):
+    def  top_diseases(cls, start_date: Optional[date] = None, end_date: Optional[date]= None, facility_id: Optional[int] = None, filter: Optional[Dict] = None, limit: int = 5):
         start_date, end_date, limit = cls._validate_date(start_date, end_date, limit)
         query = '''
              SELECT dis.name AS disease_name, COUNT(dis.id) AS disease_count
@@ -943,6 +929,8 @@ class DashboardServices(BaseServices):
              LIMIT ?
         '''
         and_filter = [('ec.date', start_date, '>='), ('ec.date', end_date, '<='), ('ec.facility_id', facility_id, '=')]
+        # for key, val in filter:
+
 
         cls._apply_filter(query, limit = limit, and_filter = and_filter, group_by=[''])
 
@@ -951,7 +939,7 @@ class DashboardServices(BaseServices):
                             lambda row: {'disease_name': row['disease_name'], 'disease_count': row['disease_count']})
 
     @classmethod
-    def gender_distribution(cls, start_date: Optional[date] = None, end_date: Optional[date] = None, facility_id: Optional[int] =0,  limit: int = 5):
+    def gender_distribution(cls, start_date: Optional[date] = None, end_date: Optional[date] = None, facility_id: Optional[int] = None, filter: Optional[Dict] = None,  limit: int = 5):
         start_date, end_date, limit = cls._validate_date(start_date, end_date, limit)
         query = '''
             SELECT 
@@ -970,7 +958,7 @@ class DashboardServices(BaseServices):
                               lambda row: {'gender': row['gender'], 'gender_count': row['gender_count']})
 
     @classmethod
-    def age_group_distribution(cls, start_date: Optional[date] = None, end_date: Optional[date] = None, facility_id: Optional[int] = 0, limit: int = 5):
+    def age_group_distribution(cls, start_date: Optional[date] = None, end_date: Optional[date] = None, filter: Optional[Dict] = None, limit: int = 5):
         start_date, end_date, limit = cls._validate_date(start_date= start_date, end_date = end_date, limit = limit)
         query = '''
             SELECT age_group, COUNT(*) as age_group_count 
@@ -984,7 +972,7 @@ class DashboardServices(BaseServices):
                               lambda row: {'age_group': row['age_group'], 'age_group_count': row['age_group_count']})
 
     @classmethod
-    def trend_last_n_weeks(cls, n: int = 8, facility_id: Optional[int] = None):
+    def trend_last_n_weeks(cls, n: int = 8, facility_id: Optional[int] = None, filter: Optional[Dict] = None):
         import pandas as pd
         if n < 0:
             raise ValidationError("Invalid month range")
@@ -1015,7 +1003,7 @@ class DashboardServices(BaseServices):
         return trend.to_json(orient="records")
 
     @classmethod
-    def trend_last_n_days(cls, n: int = 7, facility_id: Optional[int] = None):
+    def trend_last_n_days(cls, n: int = 7, facility_id: Optional[int] = None, filter: Optional[Dict] = None):
         import pandas as pd
         if n <= 0:
             raise ValidationError("Invalid day range")
