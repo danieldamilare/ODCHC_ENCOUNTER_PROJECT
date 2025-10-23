@@ -150,13 +150,13 @@ class AuthUser(UserMixin, UserView):
 def load_user(id:str) -> Optional[AuthUser]:
 
     from app.services import User, UserServices
-    print("In here")
+    # print("In here")
     try:
         user:UserView = UserServices.get_view_by_id(int(id))
-        print(user)
+        # print(user)
     except MissingError:
         return None
-    print("In load user")
+    # print("In load user")
     return AuthUser(user)
 
 def is_logged_in() -> bool:

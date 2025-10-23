@@ -726,13 +726,13 @@ class EncounterServices(BaseServices):
                 tc.name as treatment_outcome,
                 ec.created_at,
                 ec.treatment,
-                f.name as facility_name,
-                f.facility_type,
-                f.local_government as lga,
+                fc.name as facility_name,
+                fc.facility_type,
+                fc.local_government as lga,
                 u.username AS created_by
             FROM encounters AS ec
             JOIN insurance_scheme as isc on isc.id = ec.scheme
-            JOIN facility as f on ec.facility_id = f.id
+            JOIN facility as fc on ec.facility_id = fc.id
             JOIN treatment_outcome as tc on ec.outcome = tc.id
             LEFT JOIN users AS u ON ec.created_by = u.id
         '''
@@ -747,6 +747,9 @@ class EncounterServices(BaseServices):
             group_by= group_by,
             order_by=order_by
         )
+
+        print('encounter get_all query', query)
+        print('args', args)
         
         db = get_db()
         encounters_rows = db.execute(query, args).fetchall()
@@ -1122,8 +1125,8 @@ class ReportServices(BaseServices):
 
         rows = db.execute(query, args)
         df = pd.DataFrame([dict(row) for row in rows])
-        print("In generate Service utilization report")
-        print('df', df)
+        # print("In generate Service utilization report")
+        # print('df', df)
 
         if df.empty:
             raise MissingError("No report available for this timeframe!")
@@ -1152,7 +1155,7 @@ class ReportServices(BaseServices):
         table.index.name = ''
         table.columns.name = ''
         table.rename(columns={'disease_name': 'Diseases'}, inplace=True)
-        print(table)
+        # print(table)
 
         return facility_name, start_date, table
 
@@ -1188,9 +1191,9 @@ class ReportServices(BaseServices):
         age_groups = ['<1', '1-5', '6-14', '15-19', '20-44', '45-64', '65&AB']
         gender = ['M', 'F']
 
-        print('In generate_encounter_report')
+        # print('In generate_encounter_report')
 
-        print('df', df)
+        # print('df', df)
 
         table = df.pivot_table(
             index = 'facility_name',

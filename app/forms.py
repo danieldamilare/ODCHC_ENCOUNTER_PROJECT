@@ -120,7 +120,7 @@ class EncounterFilterForm(FlaskForm):
     local_government =  SelectField('Local Government', 
                                      choices=[('', 'Select Local Government')] + [ (lga, lga.title()) for lga in LOCAL_GOVERNMENT],
                                      validators=[Optional()])
-    facility_id = SelectField('Facility', validators=[Optional()])
+    facility_id = SelectField('Facility', coerce=int, validators=[Optional()])
     submit = SubmitField('Filter')
 
 class ExcelUploadForm(FlaskForm):
