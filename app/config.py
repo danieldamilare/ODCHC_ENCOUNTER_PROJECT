@@ -1,29 +1,6 @@
 import os
 import secrets
 
-LOCAL_GOVERNMENT = set([
-    "Akoko North-East".lower(),
-    "Akoko North-West".lower(),
-    "Akoko South-East".lower(),
-    "Akoko South-West".lower(),
-    "Akure North".lower(),
-    "Akure South".lower(),
-    "Emure-Ile".lower(),
-    "Idanre".lower(),
-    "Ifedore".lower(),
-    "Igbara-oke".lower(),
-    "Ilaje".lower(),
-    "Ese-Odo"
-    "Ile Oluji".lower(),
-    "Irele".lower(),
-    "Isua Akoko".lower(),
-    "Odigbo".lower(),
-    "Oka Akoko".lower(),
-    "Okitipupa".lower(),
-    "Ondo East".lower(),
-    "Ondo West".lower(),
-    "Ose".lower(),
-    "Owo".lower()])
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 DBNAME = 'odchc_encounter.db'

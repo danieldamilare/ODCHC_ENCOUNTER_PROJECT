@@ -8,7 +8,7 @@ from app.exceptions import ValidationError, AuthenticationError
 from datetime import datetime, date
 from flask_wtf import FlaskForm
 from app import app
-from app.config import LOCAL_GOVERNMENT
+from app.constants import ONDO_LGAS_LOWER
 from dataclasses import fields as dataclassfield
 import sqlite3
 from datetime import timedelta
@@ -355,7 +355,7 @@ class UserServices(BaseServices):
 class FacilityServices(BaseServices):
     table_name = 'facility'
     model = Facility
-    LOCAL_GOVERNMENT = sorted(LOCAL_GOVERNMENT)
+    LOCAL_GOVERNMENT = ONDO_LGAS_LOWER
     columns = {'id', 'name', 'local_government', 'facility_type'}
     columns_to_update  = {'name', 'local_government', 'facility_type'}
 
@@ -748,7 +748,7 @@ class EncounterServices(BaseServices):
             group_by= group_by,
             order_by=order_by
         )
-        print('encounter query', query, args)
+        # print('encounter query', query, args)
 
         db = get_db()
         encounters_rows = db.execute(query, args).fetchall()

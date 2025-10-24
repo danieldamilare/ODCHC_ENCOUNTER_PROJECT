@@ -3,6 +3,7 @@ import random
 from datetime import datetime, timedelta
 from faker import Faker
 from app.db import get_db
+from app.constants import ONDO_LGAS_LIST
 from werkzeug.security import generate_password_hash
 
 fake = Faker()
@@ -83,33 +84,11 @@ facilities = [
 random_facilities = []
 
 
-LOCAL_GOVERNMENT = list(set([
-    "Akoko North-East".lower(),
-    "Akoko North-West".lower(),
-    "Akoko South-East".lower(),
-    "Akoko South-West".lower(),
-    "Akure North".lower(),
-    "Akure South".lower(),
-    "Emure-Ile".lower(),
-    "Idanre".lower(),
-    "Ifedore".lower(),
-    "Igbara-oke".lower(),
-    "Ilaje".lower(),
-    "Ese-Odo"
-    "Ile Oluji".lower(),
-    "Irele".lower(),
-    "Isua Akoko".lower(),
-    "Odigbo".lower(),
-    "Oka Akoko".lower(),
-    "Okitipupa".lower(),
-    "Ondo East".lower(),
-    "Ondo West".lower(),
-    "Ose".lower(),
-    "Owo".lower()]))
+LOCAL_GOVERNMENT =  ONDO_LGAS_LIST
 
 for f in facilities:
     random_facilities.append((f, random.choice(LOCAL_GOVERNMENT), 
-                              random.choice(['primary', 'tertiary', 'secondary']),
+                              random.choice(['primary', 'private', 'secondary']),
                               ))
  
 print("Inserting into facility")
@@ -213,4 +192,4 @@ VALUES (?, ?)
 
 db.commit()
 
-print("✅ Database populated successfully.")
+print(" Database populated successfully.")

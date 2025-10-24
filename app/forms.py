@@ -3,9 +3,9 @@ from wtforms import StringField, PasswordField, SubmitField, BooleanField, TextA
 from wtforms import IntegerField, SelectField, HiddenField, FieldList, DateField, FileField, SelectMultipleField
 from wtforms.validators import DataRequired, Length, NumberRange, EqualTo, Optional, ValidationError 
 from wtforms import widgets
-from app.config import LOCAL_GOVERNMENT
 from app.models import get_current_user
 from app.services import FacilityServices, DiseaseCategoryServices, DiseaseServices
+from app.constants import LGA_CHOICES
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileAllowed, FileRequired
 
@@ -56,7 +56,7 @@ class AddEncounterForm(FlaskForm):
 class AddFacilityForm(FlaskForm):
     name = StringField('Facility Name', validators =[DataRequired()])
     local_government =  SelectField('Local Government', 
-                                     choices=[(lga, lga) for lga in LOCAL_GOVERNMENT],
+                                     choices=LGA_CHOICES, 
                                      validators=[DataRequired('Please select a local government from list')])
     facility_type = SelectField('Facility Type', 
                                 choices= ['Primary', 'Secondary', 'Private'], validators=[DataRequired()])
@@ -118,7 +118,7 @@ class EncounterFilterForm(FlaskForm):
     start_date = DateField('Start Date', format='%Y-%m-%d', validators=[Optional()])
     end_date = DateField('End Date', format='%Y-%m-%d', validators=[Optional()])
     local_government =  SelectField('Local Government', 
-                                     choices=[('', 'Select Local Government')] + [ (lga, lga.title()) for lga in LOCAL_GOVERNMENT],
+                                     choices= LGA_CHOICES,
                                      validators=[Optional()])
     facility_id = SelectField('Facility', coerce=int, validators=[Optional()])
     submit = SubmitField('Filter')

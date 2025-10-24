@@ -58,7 +58,7 @@ def seed_db():
 
     import app.seed
     from app.models import Role
-    u = UserServices.create_user('admin', None, 'password', role = Role.admin)
+    u = UserServices.create_user('odchc', None, 'password', role = Role.admin)
     click.echo(f"Created user username: {u.username}, facility_id: {u.facility_id}, role: {u.role.name}")
     db.commit()
 

@@ -1,7 +1,7 @@
 CREATE TABLE facility (
         id INTEGER PRIMARY KEY,
         name TEXT UNIQUE NOT NULL,  
-        local_government VARCHAR(100) NOT NULL,
+        local_government VARCHAR(100) NOT NULL COLLATE NOCASE,
         facility_type VARCHAR(10) NOT NULL
     );
 

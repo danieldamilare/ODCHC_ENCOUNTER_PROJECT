@@ -12,6 +12,7 @@ from app.config import Config
 from app.utils import form_to_dict, admin_required, humanize_datetime_filter
 from app.forms import LoginForm, AddEncounterForm, AddFacilityForm, EditFacilityForm, AddDiseaseForm, ExcelUploadForm
 from app.forms import AddUserForm, AddCategoryForm, DeleteUserForm, EditUserForm, EditDiseaseForm, EncounterFilterForm
+from app.constants import ONDO_LGAS_LIST
 from flask_wtf import FlaskForm
 from app.services import DashboardServices, ReportServices
 from typing import Optional
@@ -30,35 +31,26 @@ def index():
 def login() -> Any:
     if is_logged_in():
         return redirect(url_for('index'))
-    # print("In auth.login")
     form = LoginForm()
 
     if form.validate_on_submit():
-        # print("Form validated")
         username = form.username.data
         password = form.password.data
         remember_me = form.remember_me.data
-        # print(username, password)
         try:
             user = UserServices.get_verified_user(username, password)
-            # print(user)
             authuser = AuthUser(user)
-            # print("created auth user")
-            # print(authuser)
             login_user(authuser, remember = remember_me)
             next_page = request.args.get('next')
 
             if not next_page or urlparse(next_page).netloc != '':
                 next_page = url_for('index')
-            # print(next_page)
             return redirect(next_page)
 
         except AuthenticationError as e:
-            # print('An error occured')
             flash(str(e), 'error')
         # except Exception as e:
             # abort(500)
-    # print("In login")
     # return "<h1>Hello, world</h1>"
     return render_template('login.html', title='Sign in', form = form)
 
@@ -76,11 +68,9 @@ def add_encounter():
     if user.role.name == 'admin':
         schemes = list(InsuranceSchemeServices.get_all())
     else:
-        # print("In add encounter", get_current_user().facility)
         schemes = get_current_user().facility.scheme
         if (len(schemes) == 1):
             scheme_id = schemes[0].id
-            # print('scheme_id', scheme_id)
             return redirect(url_for('add_scheme_encounter', scheme_id =scheme_id))
 
     return render_template('add_encounter.html',
@@ -116,17 +106,13 @@ def add_scheme_encounter(scheme_id) -> Any:
 
     form.death_type.choices = ([('0', 'Select death type')] + 
                                [(t.id, t.name) for t in treatment_outcomes if t.type.lower() == 'death'])
-    # print(form.death_type.choices)
 
-    # print("In add Encounter")
     if form.validate_on_submit():
-        # print('validated on submit')
         res = form_to_dict(form, Encounter)
         final_outcome = form.death_type.data if form.outcome.data == -1 else form.outcome.data
         res['outcome'] = final_outcome
         #for the purpose of the demo deadline use the first disease and ignore others
         diseases = [disease.data for disease in form.diseases]
-        # print("disease id", diseases)
         res['diseases_id']  = diseases
         user = get_current_user()
         res['created_by'] =user.id
@@ -134,7 +120,6 @@ def add_scheme_encounter(scheme_id) -> Any:
         if user.role.name != 'admin':
             res['facility_id'] = user.facility.id
         res['scheme'] = scheme_id
-        # print(res)
         try:
             EncounterServices.create_encounter(**res)
             flash('Encounter has successfully been added', 'success')
@@ -223,7 +208,6 @@ def edit_facilities(pid: int) ->Any:
 @app.route('/admin/facilities/view/<int:pid>', methods=['GET', 'POST'])
 @admin_required
 def view_facilities(pid: int) -> Any:
-    # print("In view_facilities")
     try:
         facility = FacilityServices.get_view_by_id(pid)
     except MissingError as e:
@@ -235,24 +219,18 @@ def view_facilities(pid: int) -> Any:
     user_form: AddUserForm = AddUserForm()
     user_form.facility_id.choices = [('0', 'Select a facility')] + sorted([(fac.id, fac.name.title()) for fac in FacilityServices.get_all()], key=lambda x: x[1])
     user_form.facility_id.data = pid
-    # print("About to validate user_form")
 
     if user_form.validate_on_submit():
-        # print("User form validate on submit in view_facilities")
         try:
             created_user = UserServices.create_user(username =user_form.username.data,
                                      facility_id = pid, 
                                      password=user_form.password.data)
-            # print("Successfully created user", created_user)
             redirect(url_for('view_facilities', pid=pid))
         except (DuplicateError, InvalidReferenceError, ValidationError) as e:
-            # print(e)
             flash(str(e), "error")
 
-    # print("In view funtion after validation")
     today = datetime.now().date()
     first_month_day = today.replace(day=1)
-    # print(today, first_month_day)
 
     user_count = UserServices.get_total(
         and_filter = [('facility_id', pid, '=')]
@@ -297,7 +275,6 @@ def diseases():
     if category:= request.args.get('category'):
         and_filter = [('d.category_id', category, '=')]
         other_and_filter = [('category_id', category, '=')]
-    # print('category', category)
     disease_list = list(DiseaseServices.list_row_by_page(page,
                                                          and_filter= and_filter))
     total_diseases = DiseaseServices.get_total(and_filter = other_and_filter)
@@ -306,15 +283,11 @@ def diseases():
     total_categories = DiseaseCategoryServices.get_total()
 
     res = {** request.args}
-    # print('after res', category)
     if category: res['category'] = category
     res['page'] = page+1
     next_url = url_for('diseases', **res) if DiseaseServices.has_next_page(page, and_filter = other_and_filter) else None
-    # print('next url', next_url)
     res['page'] = page - 1
-    # print('res',res)
     prev_url = url_for('diseases', **res) if page > 1 else None
-    # print('prev url', prev_url)
 
     return render_template('diseases.html', 
                            title='Manage Diseases', 
@@ -412,7 +385,6 @@ def users():
 
     user_list = list(UserServices.list_row_by_page(page))
     total_user =  UserServices.get_total()
-    # print('total_user', total_user)
     next_url = (url_for('users', page=page + 1) 
                 if UserServices.has_next_page(page) else None)
     prev_url = None if page == 1 else url_for('users', page =page - 1)
@@ -437,10 +409,8 @@ def edit_user(user_id: int):
     form = EditUserForm()
 
     if form.validate_on_submit():
-        # print(f"on validate form data: {form.username.data}")
         try:
             if user.username != form.username.data:
-                # print(user.username, form.username.data)
                 user.username = form.username.data
                 UserServices.update_user(user)
             if form.password.data:
@@ -503,6 +473,7 @@ def encounters():
             and_filter.append(('fc.local_government', lga, '='))
         if facility_id :
             and_filter.append(('ec.facility_id', facility_id, '='))
+
         
 
     encounter_list = list(EncounterServices.list_row_by_page(page,
@@ -556,7 +527,7 @@ def admin():
     scheme_list = (list(InsuranceSchemeServices.get_all()) 
                         if user.role.name == 'admin' else user.facility.scheme)
 
-    local_government_list = FacilityServices.LOCAL_GOVERNMENT
+    local_government_list = ONDO_LGAS_LIST
 
     # --- 2. CALCULATE DATE RANGE ---
     today = date.today()
@@ -605,10 +576,8 @@ def admin():
         filter['gender'] =  (gender, '=')
 
 
-    print('filter', filter)
 
     # --- 4. FETCH DATA FROM SERVICES ---
-    # print(encounter_and_filters)
     active_facilities = len(list(EncounterServices.get_all(and_filter=encounter_and_filters, group_by=['ec.facility_id'])))
     
     top_diseases_data = DashboardServices.top_diseases(start_date=start_date, end_date=end_date, limit=5, filter=filter)
@@ -616,13 +585,9 @@ def admin():
     male_perc, female_perc = DashboardServices.gender_distribution(start_date=start_date, end_date=end_date, filter = filter)
        # For charts
     monthly_trend_raw = json.loads(DashboardServices.trend_last_n_months(filter=filter)) # 6 months
-    # print('daily trend', daily_trend_raw)
-    # print('weekly trend', weekly_trend_raw)
     age_distribution = DashboardServices.age_group_distribution(start_date = start_date, end_date = end_date, filter = filter)
-    # print(monthly_trend_raw)
     top_facilities_raw = list(DashboardServices.get_top_facilities(start_date=start_date, end_date=end_date, limit=5))
     total_encounters = len(list(EncounterServices.get_all(and_filter=encounter_and_filters)))
-    # print("Top Facilities raw", top_facilities_raw)
 
     formatted_top_facilities = []
     for facility in top_facilities_raw:
@@ -695,7 +660,6 @@ def get_report_data():
     facility_id_str = request.args.get('facility_id')
     month_str = request.args.get('month')
     year_str = request.args.get('year')
-    # print('report_type', report_type, 'facility_id', facility_id_str, 'month_str', month_str, 'year_str', year_str)
 
     month = int(month_str) if month_str else None
     year = int(year_str) if year_str else None
@@ -741,7 +705,6 @@ def view_report():
     # except Exception as e:
         # abort(500)
 
-    # print(report_html)
     header_info = []
     if report_data is not None and not report_data.empty:
         if report_data.columns.nlevels > 1:
@@ -932,6 +895,5 @@ def upload_excel():
         month = form.month
         facility_id = form.facility_id.data
         user = get_current_user()
-        # print("Doing nothing")
 
     return render_template('upload_excel.html', title='Upload Encounter Sheet', form = form)
