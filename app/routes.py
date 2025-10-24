@@ -24,10 +24,7 @@ import json
 @app.route('/index')
 @login_required
 def index():
-    user = get_current_user()
-    if user.role == Role.admin:
-         return redirect(url_for('admin'))
-    return redirect(url_for('add_encounter'))
+    return redirect(url_for('admin'))
 
 @app.route('/auth/login', methods = ['GET', 'POST'])
 def login() -> Any:
@@ -83,7 +80,7 @@ def add_encounter():
         schemes = get_current_user().facility.scheme
         if (len(schemes) == 1):
             scheme_id = schemes[0].id
-            print('scheme_id', scheme_id)
+            # print('scheme_id', scheme_id)
             return redirect(url_for('add_scheme_encounter', scheme_id =scheme_id))
 
     return render_template('add_encounter.html',
@@ -300,7 +297,7 @@ def diseases():
     if category:= request.args.get('category'):
         and_filter = [('d.category_id', category, '=')]
         other_and_filter = [('category_id', category, '=')]
-    print('category', category)
+    # print('category', category)
     disease_list = list(DiseaseServices.list_row_by_page(page,
                                                          and_filter= and_filter))
     total_diseases = DiseaseServices.get_total(and_filter = other_and_filter)
@@ -309,15 +306,15 @@ def diseases():
     total_categories = DiseaseCategoryServices.get_total()
 
     res = {** request.args}
-    print('after res', category)
+    # print('after res', category)
     if category: res['category'] = category
     res['page'] = page+1
     next_url = url_for('diseases', **res) if DiseaseServices.has_next_page(page, and_filter = other_and_filter) else None
-    print('next url', next_url)
+    # print('next url', next_url)
     res['page'] = page - 1
-    print('res',res)
+    # print('res',res)
     prev_url = url_for('diseases', **res) if page > 1 else None
-    print('prev url', prev_url)
+    # print('prev url', prev_url)
 
     return render_template('diseases.html', 
                            title='Manage Diseases', 
@@ -415,7 +412,7 @@ def users():
 
     user_list = list(UserServices.list_row_by_page(page))
     total_user =  UserServices.get_total()
-    print('total_user', total_user)
+    # print('total_user', total_user)
     next_url = (url_for('users', page=page + 1) 
                 if UserServices.has_next_page(page) else None)
     prev_url = None if page == 1 else url_for('users', page =page - 1)
@@ -544,18 +541,22 @@ def view_encounter(pid: int):
                            encounter=encounter_view)
 
 @app.route('/dashboard')
-@admin_required
+@login_required
 def admin():
     # --- 1. GET FILTERS FROM URL ---
     period = request.args.get('period', 'this_month')
-    facility_id = request.args.get('facility_id', None) 
-    user = get_current_user()
+    facility_id = request.args.get('facility_id', None)
+    scheme = request.args.get('scheme', None)
+    local_government = request.args.get('lga', None)
+    gender = request.args.get('gender', None)
 
-    if user.role.name != 'admin':
-        if facility_id != 'all':
-            flash("You cannot access another facility", 'error')
-            return redirect(url_for('admin'))
+    if (user:=get_current_user()).role.name != 'admin':
         facility_id = user.facility.id
+
+    scheme_list = (list(InsuranceSchemeServices.get_all()) 
+                        if user.role.name == 'admin' else user.facility.scheme)
+
+    local_government_list = FacilityServices.LOCAL_GOVERNMENT
 
     # --- 2. CALCULATE DATE RANGE ---
     today = date.today()
@@ -578,46 +579,49 @@ def admin():
     if start_date:
         encounter_and_filters.append(('date', start_date, '>='))
         other_encounter_filter += encounter_and_filters
+
+    filter = {}
     
     if facility_id is not None:
         try:
             # Filter for encounter-related queries
             encounter_and_filters.append(('ec.facility_id', int(facility_id), '='))
             other_encounter_filter.append(('facility_id', int(facility_id), '='))
-            # Filter for facility-related queries
-            facility_and_filters.append(('id', int(facility_id), '='))
+            filter['facility'] = (facility_id, '=')
         except ValueError:
             # Handle case where facility_id is not a valid integer
             pass
+    
+    if user.role.name == 'admin' and local_government is not None and local_government != 'all':
+        encounter_and_filters.append(('fc.local_government', local_government, '='))
+        filter['local government'] =  (local_government, '=')
+
+    if user.role.name == 'admin' and scheme is not None:
+        encounter_and_filters.append(('ec.scheme', scheme, '='))
+        filter['scheme'] = (scheme, '=')
+
+    if gender is not None and gender != 'all':
+        encounter_and_filters.append(('ec.gender', gender, '='))
+        filter['gender'] =  (gender, '=')
+
+    print(filter)
 
     # --- 4. FETCH DATA FROM SERVICES ---
-    total_encounters = EncounterServices.get_total(and_filter=other_encounter_filter)
+    total_encounters = len(list(EncounterServices.get_all(and_filter=encounter_and_filters)))
     # print(encounter_and_filters)
     active_facilities = len(list(EncounterServices.get_all(and_filter=encounter_and_filters, group_by=['ec.facility_id'])))
     
-    top_diseases_data = DashboardServices.top_diseases(start_date=start_date, end_date=end_date, limit=5, facility_id= facility_id)
+    top_diseases_data = DashboardServices.top_diseases(start_date=start_date, end_date=end_date, limit=5, filter=filter)
     
-    gender_distribution_data = DashboardServices.gender_distribution(start_date=start_date, end_date=end_date, facility_id = facility_id)
-    male_count = 0
-    female_count = 0
-    for item in gender_distribution_data:
-        if item['gender'] == 'Male':
-            male_count = item['gender_count']
-        elif item['gender'] == 'Female':
-            female_count = item['gender_count']
-    total_gender = male_count + female_count
-    male_perc = (male_count / total_gender * 100) if total_gender > 0 else 0
-    female_perc = (female_count / total_gender * 100) if total_gender > 0 else 0
-
-    # For charts
-    weekly_trend_raw = json.loads(DashboardServices.trend_last_n_weeks(facility_id=facility_id)) # 6 months
-    daily_trend_raw = json.loads(DashboardServices.trend_last_n_days(facility_id=facility_id))
+    male_perc, female_perc = DashboardServices.gender_distribution(start_date=start_date, end_date=end_date, filter = filter)
+       # For charts
+    monthly_trend_raw = json.loads(DashboardServices.trend_last_n_months(filter=filter)) # 6 months
     # print('daily trend', daily_trend_raw)
     # print('weekly trend', weekly_trend_raw)
-    age_distribution = DashboardServices.age_group_distribution(start_date = start_date, end_date = end_date)
+    age_distribution = DashboardServices.age_group_distribution(start_date = start_date, end_date = end_date, filter = filter)
     # print(monthly_trend_raw)
     top_facilities_raw = list(DashboardServices.get_top_facilities(start_date=start_date, end_date=end_date, limit=5))
-    print("Top Facilities raw", top_facilities_raw)
+    # print("Top Facilities raw", top_facilities_raw)
 
     formatted_top_facilities = []
     for facility in top_facilities_raw:
@@ -649,15 +653,19 @@ def admin():
                            active_facilities=active_facilities,
                            top_disease=top_diseases_data[0] if top_diseases_data else None,
                            male_perc=round(male_perc, 1),
+                           scheme_list = scheme_list,
+                           lga_list = local_government_list,
                            female_perc=round(female_perc, 1),
 
                            # Chart Data
-                           weekly_trend_raw=weekly_trend_raw,
-                           gender_distribution=gender_distribution_data,
+                           monthly_trend_raw=monthly_trend_raw,
                            top_diseases=top_diseases_data,
                            top_facilities=top_facilities_raw,
                            age_distribution = age_distribution,
-                           daily_trend_raw = daily_trend_raw,
+
+                           current_scheme_id=request.args.get('scheme_id', 'all'),
+                           current_gender=request.args.get('gender', 'all'),
+                           current_lga=request.args.get('lga', 'all'),
 
                            # Table Data
                            top_facilities_raw = formatted_top_facilities,
