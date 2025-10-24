@@ -81,8 +81,6 @@ class BaseServices:
             and_filter = and_filter,
             or_filter = or_filter,
         )
-        # print(query)
-
         db = get_db()
         return int(db.execute(query, args).fetchone()[0])
 
@@ -478,7 +476,6 @@ class FacilityServices(BaseServices):
             group_by= group_by
         )
         db = get_db()
-        # print(query)
         facility_rows = list(db.execute(query, args).fetchall())
         row_ids = [row['id'] for row in facility_rows]
         scheme_map = cls.get_insurance_list(row_ids)
@@ -751,10 +748,8 @@ class EncounterServices(BaseServices):
             group_by= group_by,
             order_by=order_by
         )
+        print('encounter query', query, args)
 
-        # print('encounter get_all query', query)
-        # print('args', args)
-        
         db = get_db()
         encounters_rows = db.execute(query, args).fetchall()
         
@@ -931,7 +926,6 @@ class DashboardServices(BaseServices):
         '''
         and_filter = [('ec.date', start_date, '>='), ('ec.date', end_date, '<=')]
         for key, val in filter.items():
-            print(key, val)
             if (key.lower() == 'local government'):
                 and_filter.append(('f.local_government', val[0].lower(), val[1]))
             elif (key.lower() == 'scheme'):
@@ -1051,7 +1045,6 @@ class DashboardServices(BaseServices):
 
         if df.empty:
             return pd.DataFrame(columns=['date', 'date_count']).to_json(orient="records")
-        # print(df)
         df['date'] = pd.to_datetime(df['date'])
         df['date'] = df['date'].dt.to_period('M')
         trend: pd.DataFrame = df.groupby(df['date'])["date_count"].sum().reset_index()
@@ -1059,7 +1052,6 @@ class DashboardServices(BaseServices):
         trend =trend.set_index('date').reindex(all_months, fill_value=0).reset_index()
         trend.rename(columns={'index': 'date'}, inplace=True)
         trend['date'] = trend['date'].astype(str)
-        print(trend)
         return trend.to_json(orient="records")
 
     # @classmethod
@@ -1114,8 +1106,6 @@ class ReportServices(BaseServices):
 
         rows = db.execute(query, args)
         df = pd.DataFrame([dict(row) for row in rows])
-        # print("In generate Service utilization report")
-        # print('df', df)
 
         if df.empty:
             raise MissingError("No report available for this timeframe!")
@@ -1144,7 +1134,6 @@ class ReportServices(BaseServices):
         table.index.name = ''
         table.columns.name = ''
         table.rename(columns={'disease_name': 'Diseases'}, inplace=True)
-        # print(table)
 
         return facility_name, start_date, table
 
@@ -1180,9 +1169,6 @@ class ReportServices(BaseServices):
         age_groups = ['<1', '1-5', '6-14', '15-19', '20-44', '45-64', '65&AB']
         gender = ['M', 'F']
 
-        # print('In generate_encounter_report')
-
-        # print('df', df)
 
         table = df.pivot_table(
             index = 'facility_name',
@@ -1205,7 +1191,6 @@ class ReportServices(BaseServices):
         table.index.name = ''
         table.columns.name = ''
         table.rename(columns={'facility_name': 'Facilities'}, inplace=True)
-        # print(table)
         return start_date, table
 
 

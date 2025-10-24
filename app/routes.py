@@ -546,7 +546,7 @@ def admin():
     # --- 1. GET FILTERS FROM URL ---
     period = request.args.get('period', 'this_month')
     facility_id = request.args.get('facility_id', None)
-    scheme = request.args.get('scheme', None)
+    scheme = request.args.get('scheme_id', None)
     local_government = request.args.get('lga', None)
     gender = request.args.get('gender', None)
 
@@ -604,10 +604,10 @@ def admin():
         encounter_and_filters.append(('ec.gender', gender, '='))
         filter['gender'] =  (gender, '=')
 
-    print(filter)
+
+    print('filter', filter)
 
     # --- 4. FETCH DATA FROM SERVICES ---
-    total_encounters = len(list(EncounterServices.get_all(and_filter=encounter_and_filters)))
     # print(encounter_and_filters)
     active_facilities = len(list(EncounterServices.get_all(and_filter=encounter_and_filters, group_by=['ec.facility_id'])))
     
@@ -621,6 +621,7 @@ def admin():
     age_distribution = DashboardServices.age_group_distribution(start_date = start_date, end_date = end_date, filter = filter)
     # print(monthly_trend_raw)
     top_facilities_raw = list(DashboardServices.get_top_facilities(start_date=start_date, end_date=end_date, limit=5))
+    total_encounters = len(list(EncounterServices.get_all(and_filter=encounter_and_filters)))
     # print("Top Facilities raw", top_facilities_raw)
 
     formatted_top_facilities = []
@@ -636,7 +637,6 @@ def admin():
         formatted_top_facilities.append(facility)
 
     # For recent encounters table
-    recent_encounters = list(EncounterServices.get_all(limit=5, order_by=[('date', 'DESC')], and_filter=encounter_and_filters))
 
     # For dropdown
     all_facilities = sorted(FacilityServices.get_all(), key=lambda x: x.name)
@@ -668,8 +668,8 @@ def admin():
                            current_lga=request.args.get('lga', 'all'),
 
                            # Table Data
-                           top_facilities_raw = formatted_top_facilities,
-                           recent_encounters=recent_encounters  )
+                           top_facilities_raw = formatted_top_facilities
+                           )
 
 
 @app.route('/admin/reports')
@@ -695,7 +695,7 @@ def get_report_data():
     facility_id_str = request.args.get('facility_id')
     month_str = request.args.get('month')
     year_str = request.args.get('year')
-    print('report_type', report_type, 'facility_id', facility_id_str, 'month_str', month_str, 'year_str', year_str)
+    # print('report_type', report_type, 'facility_id', facility_id_str, 'month_str', month_str, 'year_str', year_str)
 
     month = int(month_str) if month_str else None
     year = int(year_str) if year_str else None
