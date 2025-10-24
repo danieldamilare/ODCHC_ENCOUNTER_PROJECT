@@ -1,0 +1,10 @@
+Flask>=2.3.0
+Flask-Login>=0.6.0
+Flask-WTF>=1.1.0
+WTForms>=3.0.0
+Werkzeug>=2.3.0
+click>=8.0.0
+arrow>=1.2.0
+pandas>=1.5.0
+openpyxl>=3.0.0
+Faker>=15.0.0
