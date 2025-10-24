@@ -155,6 +155,12 @@
                             Encounters
                         </a>
 
+                        <a href="{{ url_for('add_encounter') }}" 
+                           class="nav-item text-slate-800 hover:text-[#0ea5e9] hover:bg-[#e0f2fe] px-5 py-2.5 rounded-lg text-base font-semibold transition-all">
+                            Add Encounter
+                        </a>
+
+
                         {% if current_user.role.name == "admin" %}
                         <a href="{{ url_for('admin') }}" 
                            class="nav-item text-slate-800 hover:text-[#0ea5e9] hover:bg-[#e0f2fe] px-5 py-2.5 rounded-lg text-base font-semibold transition-all">
@@ -167,6 +173,7 @@
                             Logout
                         </a>
                     {% endif %}
+
                 </div>
             </div>
         </div>

@@ -1,4 +1,4 @@
-{% extends "admin_base.html" %}
+{% extends "admin_base.html" if current_user.role.name == 'admin' else "base.html" %}
 
 {% block content %}
 <style>
@@ -70,70 +70,179 @@
             <h2 class="text-lg font-bold text-gray-900">Filter Data</h2>
             <p class="text-sm text-gray-600 mt-1">Customize the dashboard view by selecting filters below</p>
         </div>
-        
+
         <form id="filter-form" method="GET" action="{{ url_for('admin') }}" class="p-6">
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <!-- Date Range Filter -->
-                <div>
-                    <label for="period" class="block text-base font-semibold text-gray-900 mb-2">
-                        Date Range
-                        <span class="text-red-500 ml-1">*</span>
-                    </label>
-                    <div class="relative">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                            </svg>
-                        </div>
-                        <select id="period" name="period" class="block w-full pl-10 pr-10 py-3 text-base border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg shadow-sm transition-all appearance-none bg-white">
-                            <option value="this_month" {% if current_period == 'this_month' %}selected{% endif %}>This Month</option>
-                            <option value="last_3_months" {% if current_period == 'last_3_months' %}selected{% endif %}>Last 3 Months</option>
-                            <option value="last_year" {% if current_period == 'last_year' %}selected{% endif %}>Last Year</option>
-                        </select>
-                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                            </svg>
-                        </div>
-                    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-6">
+        <!-- Date Range Filter -->
+        <div>
+            <label for="period" class="block text-base font-semibold text-gray-900 mb-2">
+                Date Range <span class="text-red-500 ml-1">*</span>
+            </label>
+            <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
                 </div>
-
-                <!-- Facility Filter -->
-                <div>
-                    <label for="facility_id" class="block text-base font-semibold text-gray-900 mb-2">
-                        Facility
-                    </label>
-                    <div class="relative">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
-                            </svg>
-                        </div>
-                        <select id="facility_id" name="facility_id" class="block w-full pl-10 pr-10 py-3 text-base border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg shadow-sm transition-all appearance-none bg-white">
-                            <option value="all" {% if not current_facility_id or current_facility_id == 'all' %}selected{% endif %}>All Facilities</option>
-                            {% for facility in all_facilities %}
-                                <option value="{{ facility.id }}" {% if current_facility_id|int == facility.id %}selected{% endif %}>{{ facility.name }}</option>
-                            {% endfor %}
-                        </select>
-                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                            </svg>
-                        </div>
-                    </div>
+                <select id="period" name="period"
+                        class="block w-full pl-10 pr-10 py-3 text-base border border-gray-300 focus:outline-none
+                               focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg shadow-sm
+                               transition-all appearance-none bg-white">
+                    <option value="this_month" {% if current_period == 'this_month' %}selected{% endif %}>This Month</option>
+                    <option value="last_3_months" {% if current_period == 'last_3_months' %}selected{% endif %}>Last 3 Months</option>
+                    <option value="last_year" {% if current_period == 'last_year' %}selected{% endif %}>Last Year</option>
+                </select>
+                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                    <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M19 9l-7 7-7-7"/>
+                    </svg>
                 </div>
-                
             </div>
+        </div>
 
-            <!-- Loading Indicator -->
-            <div id="loading-indicator" class="hidden mt-4 flex items-center justify-center gap-2 text-indigo-600">
-                <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <span class="text-sm font-medium">Loading data...</span>
+        {% if current_user.role.name == 'admin' %}
+        <!-- Facility Filter -->
+        <div>
+            <label for="facility_id" class="block text-base font-semibold text-gray-900 mb-2">Facility</label>
+            <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                    </svg>
+                </div>
+                <select id="facility_id" name="facility_id"
+                        class="block w-full pl-10 pr-10 py-3 text-base border border-gray-300 focus:outline-none
+                               focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg shadow-sm
+                               transition-all appearance-none bg-white">
+                    <option value="all" {% if not current_facility_id or current_facility_id == 'all' %}selected{% endif %}>
+                        All Facilities
+                    </option>
+                    {% for facility in all_facilities %}
+                        <option value="{{ facility.id }}"
+                                {% if current_facility_id|int == facility.id %}selected{% endif %}>
+                            {{ facility.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                    <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </div>
             </div>
-        </form>
+        </div>
+        {% endif %}
+
+        <!-- Scheme Filter -->
+        <div>
+            <label for="scheme_id" class="block text-base font-semibold text-gray-900 mb-2">Scheme</label>
+            <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M3 7h18M3 12h18M3 17h18"/>
+                    </svg>
+                </div>
+                <select id="scheme_id" name="scheme_id"
+                        class="block w-full pl-10 pr-10 py-3 text-base border border-gray-300 focus:outline-none
+                               focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg shadow-sm
+                               transition-all appearance-none bg-white">
+                    <option value="all" {% if not current_scheme_id or current_scheme_id == 'all' %}selected{% endif %}>
+                        All Schemes
+                    </option>
+                    {% for scheme in scheme_list %}
+                        <option value="{{ scheme.id }}"
+                                {% if current_scheme_id|int == scheme.id %}selected{% endif %}>
+                            {{ scheme.scheme_name }}
+                        </option>
+                    {% endfor %}
+                </select>
+                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                    <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gender Filter -->
+        <div>
+            <label for="gender" class="block text-base font-semibold text-gray-900 mb-2">Gender</label>
+            <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M12 14l9-5-9-5-9 5 9 5zM12 14v7m0-7L3 9m9 5l9-5"/>
+                    </svg>
+                </div>
+                <select id="gender" name="gender"
+                        class="block w-full pl-10 pr-10 py-3 text-base border border-gray-300 focus:outline-none
+                               focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg shadow-sm
+                               transition-all appearance-none bg-white">
+                    <option value="all" {% if current_gender == 'all' %}selected{% endif %}>All</option>
+                    <option value="M" {% if current_gender == 'M' %}selected{% endif %}>Male</option>
+                    <option value="F" {% if current_gender == 'F' %}selected{% endif %}>Female</option>
+                </select>
+                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                    <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        {% if current_user.role.name == 'admin' %}
+        <!-- Local Government Filter -->
+        <div>
+            <label for="lga" class="block text-base font-semibold text-gray-900 mb-2">Local Government</label>
+            <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M17 20h5V4H2v16h5v-6h10v6z"/>
+                    </svg>
+                </div>
+                <select id="lga" name="lga"
+                        class="block w-full pl-10 pr-10 py-3 text-base border border-gray-300 focus:outline-none
+                               focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg shadow-sm
+                               transition-all appearance-none bg-white">
+                    <option value="all" {% if current_lga == 'all' %}selected{% endif %}>All LGAs</option>
+                    {% for lga in lga_list %}
+                        <option value="{{ lga }}"
+                                {% if current_lga == lga %}selected{% endif %}>
+                            {{ lga }}
+                        </option>
+                    {% endfor %}
+                </select>
+                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                    <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Loading Indicator -->
+    <div id="loading-indicator" class="hidden mt-4 flex items-center justify-center gap-2 text-indigo-600">
+        <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0
+                     c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <span class="text-sm font-medium">Loading data...</span>
+    </div>
+</form>
+        
     </div>
 
     <!-- Key Metrics Cards -->
@@ -246,12 +355,12 @@
     <!-- Weekly Trend Chart -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden chart-container">
         <div class="bg-gray-50 px-6 py-4 border-b border-gray-200">
-            <h3 class="text-lg font-bold text-gray-900">Weekly Encounter Trend</h3>
-            <p class="text-sm text-gray-600 mt-1">Number of encounters submitted per week</p>
+            <h3 class="text-lg font-bold text-gray-900">Monthly Encounter Trend</h3>
+            <p class="text-sm text-gray-600 mt-1">Number of encounters submitted per month</p>
         </div>
         <div class="p-6">
             <div style="height: 320px; position: relative;">
-                <canvas id="weeklyTrendChart"></canvas>
+                <canvas id="monthlyTrendChart"></canvas>
             </div>
         </div>
     </div>
@@ -335,7 +444,7 @@
         });
 
         // --- CHART DATA (from Flask template) ---
-        const weeklyTrendData = {{ weekly_trend_raw|default('[]')|tojson }};
+        const monthlyTrendData = {{ monthly_trend_raw|default('[]')|tojson }};
         const ageDistributionData = {{ age_distribution|default('[]')|tojson }};
         const topDiseasesData = {{ top_diseases|default('[]')|tojson }};
         const malePercentage = {{ male_perc|default(0) }};
@@ -555,42 +664,40 @@
             displayFallback(ctxTopDiseases, "No disease data available");
         }
 
-        // --- 4. WEEKLY ENCOUNTER TREND CHART (Line with Area) ---
-        const ctxWeekly = document.getElementById('weeklyTrendChart')?.getContext('2d');
-        if (ctxWeekly && Array.isArray(weeklyTrendData) && weeklyTrendData.length > 0) {
-            try {
-                const weeklyGradient = ctxWeekly.createLinearGradient(0, 0, 0, 320);
-                weeklyGradient.addColorStop(0, primaryColor + '40');
-                weeklyGradient.addColorStop(1, primaryColor + '00');
 
-                const weeklyPoints = weeklyTrendData.map(d => {
-                    if (typeof d.date !== 'string' || !d.date.includes('/')) { return null; }
-                    const startDateString = d.date.split('/')[0];
+        // --- MONTHLY TREND CHART ---
+        // *** JS VARIABLE & ID TWEAK ***
+        const ctxMonthly = document.getElementById('monthlyTrendChart')?.getContext('2d');
+        if (ctxMonthly && Array.isArray(monthlyTrendData) && monthlyTrendData.length > 0) {
+            try {
+                const monthlyGradient = ctxMonthly.createLinearGradient(0, 0, 0, 320);
+                monthlyGradient.addColorStop(0, primaryColor + '40');
+                monthlyGradient.addColorStop(1, primaryColor + '00');
+
+                const monthlyPoints = monthlyTrendData.map(d => {
+                    // ** Assuming backend returns 'date' as 'YYYY-MM' **
+                    if (typeof d.date !== 'string' || !d.date.includes('-')) { return null; }
+                    // Parse YYYY-MM string (treat as start of month for consistency)
+                    const [year, month] = d.date.split('-');
+                    const dateObj = new Date(parseInt(year), parseInt(month) - 1, 1); // Month is 0-indexed
+                    if (isNaN(dateObj)) return null; // Invalid date
+
                     const count = Number(d.date_count);
                     if (isNaN(count)) { return null; }
-                    return { x: new Date(startDateString), y: count };
+                    return { x: dateObj, y: count };
                 }).filter(p => p !== null);
 
-                if (weeklyPoints.length > 0) {
-                    new Chart(ctxWeekly, {
+                if (monthlyPoints.length > 0) {
+                    new Chart(ctxMonthly, {
                         type: 'line',
                         data: {
                             datasets: [{
-                                label: 'Encounters per Week',
-                                data: weeklyPoints,
-                                borderColor: primaryColor,
-                                backgroundColor: weeklyGradient,
-                                tension: 0.4,
-                                fill: true,
-                                pointBackgroundColor: primaryColor,
-                                pointBorderColor: '#fff',
-                                pointBorderWidth: 2,
-                                pointHoverBackgroundColor: '#fff',
-                                pointHoverBorderColor: primaryColor,
-                                pointHoverBorderWidth: 3,
-                                pointRadius: 4,
-                                pointHoverRadius: 7,
-                                borderWidth: 3
+                                label: 'Encounters per Month', data: monthlyPoints,
+                                borderColor: primaryColor, backgroundColor: monthlyGradient,
+                                tension: 0.4, fill: true,
+                                pointBackgroundColor: primaryColor, pointBorderColor: '#fff', pointBorderWidth: 2,
+                                pointHoverBackgroundColor: '#fff', pointHoverBorderColor: primaryColor, pointHoverBorderWidth: 3,
+                                pointRadius: 4, pointHoverRadius: 7, borderWidth: 3
                             }]
                         },
                         options: {
@@ -598,39 +705,22 @@
                             scales: {
                                 x: {
                                     type: 'time',
+                                    // *** TIME UNIT & FORMAT TWEAK ***
                                     time: {
-                                        unit: 'week',
-                                        tooltipFormat: "'Week of' MMM d, yyyy",
-                                        displayFormats: { week: 'MMM d' }
+                                        unit: 'month',
+                                        tooltipFormat: 'MMM yyyy', // Tooltip: Jan 2025
+                                        displayFormats: { month: 'MMM' } // Axis: Jan, Feb, Mar
                                     },
                                     grid: { display: false },
-                                    ticks: {
-                                        color: grayColor,
-                                        font: { size: 12, family: 'Inter, sans-serif' },
-                                        maxRotation: 0,
-                                        autoSkipPadding: 20
-                                    }
+                                    ticks: { color: grayColor, font: { size: 12, family: 'Inter, sans-serif' }, maxRotation: 0, autoSkipPadding: 20 }
                                 },
-                                y: {
-                                    ...chartOptionsBase.scales.y,
-                                    ticks: {
-                                        ...chartOptionsBase.scales.y.ticks,
-                                        stepSize: 1
-                                    }
-                                }
+                                y: { ...chartOptionsBase.scales.y, ticks: { ...chartOptionsBase.scales.y.ticks, stepSize: 1 } }
                             }
                         }
                     });
-                } else {
-                    displayFallback(ctxWeekly, "Invalid trend data format");
-                }
-            } catch (e) {
-                console.error("Error rendering Weekly Trend Chart:", e);
-                displayFallback(ctxWeekly, "Could not render chart");
-            }
-        } else if (ctxWeekly) {
-            displayFallback(ctxWeekly, "No weekly trend data available");
-        }
+                } else { displayFallback(ctxMonthly, "Invalid trend data format"); }
+            } catch (e) { console.error("Error rendering Monthly Trend Chart:", e); displayFallback(ctxMonthly, "Could not render chart"); }
+        } else if (ctxMonthly) { displayFallback(ctxMonthly, "No monthly trend data available"); }
 
     });
 </script>

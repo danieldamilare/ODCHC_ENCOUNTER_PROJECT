@@ -9,6 +9,7 @@ from datetime import datetime, date
 from flask_wtf import FlaskForm
 from app import app
 from app.config import LOCAL_GOVERNMENT
+from dataclasses import fields as dataclassfield
 import sqlite3
 from datetime import timedelta
 import pandas as pd
@@ -34,6 +35,9 @@ class BaseServices:
         if row is None:
             raise MissingError(f"{cls.model.get_name()} not found in the database")
         return cls._row_to_model(row, cls.model)
+
+    # @classmethod
+    # def build
 
     @classmethod
     def list_row_by_page(cls,
@@ -474,7 +478,7 @@ class FacilityServices(BaseServices):
             group_by= group_by
         )
         db = get_db()
-        print(query)
+        # print(query)
         facility_rows = list(db.execute(query, args).fetchall())
         row_ids = [row['id'] for row in facility_rows]
         scheme_map = cls.get_insurance_list(row_ids)
@@ -748,8 +752,8 @@ class EncounterServices(BaseServices):
             order_by=order_by
         )
 
-        print('encounter get_all query', query)
-        print('args', args)
+        # print('encounter get_all query', query)
+        # print('args', args)
         
         db = get_db()
         encounters_rows = db.execute(query, args).fetchall()
@@ -916,30 +920,37 @@ class DashboardServices(BaseServices):
 
 
     @classmethod
-    def  top_diseases(cls, start_date: Optional[date] = None, end_date: Optional[date]= None, facility_id: Optional[int] = None, filter: Optional[Dict] = None, limit: int = 5):
+    def  top_diseases(cls, start_date: Optional[date] = None, end_date: Optional[date]= None, facility_id: Optional[int] = None, filter: Optional[Dict] = {}, limit: int = 5):
         start_date, end_date, limit = cls._validate_date(start_date, end_date, limit)
         query = '''
              SELECT dis.name AS disease_name, COUNT(dis.id) AS disease_count
              FROM encounters AS ec
              JOIN encounters_diseases as ecd ON ecd.encounter_id = ec.id
-             JOIN diseases as dis ON ecd.disease_id = dis.id
-             WHERE ec.date >= ? AND ec.date <= ?
-             GROUP BY dis.id
-             ORDER BY disease_count DESC
-             LIMIT ?
+             JOIN diseases AS dis ON ecd.disease_id = dis.id
+             JOIN facility AS f ON f.id = ec.facility_id
         '''
-        and_filter = [('ec.date', start_date, '>='), ('ec.date', end_date, '<='), ('ec.facility_id', facility_id, '=')]
-        # for key, val in filter:
-
-
-        cls._apply_filter(query, limit = limit, and_filter = and_filter, group_by=[''])
-
+        and_filter = [('ec.date', start_date, '>='), ('ec.date', end_date, '<=')]
+        for key, val in filter.items():
+            print(key, val)
+            if (key.lower() == 'local government'):
+                and_filter.append(('f.local_government', val[0].lower(), val[1]))
+            elif (key.lower() == 'scheme'):
+                and_filter.append(('ec.scheme', val[0], val[1]))
+            elif (key.lower() == 'facility'):
+                and_filter.append(('ec.facility_id', val[0], val[1]))
+        group_by = ['dis.id']
+        order_by = [('disease_count', 'DESC')]
+        query, args = cls._apply_filter(query, limit = limit, and_filter = and_filter,
+                                        group_by = group_by, 
+                                        order_by = order_by
+                                        )
+                
         return cls._run_query(query, 
-                            (start_date, end_date, limit),
+                            args,  
                             lambda row: {'disease_name': row['disease_name'], 'disease_count': row['disease_count']})
 
     @classmethod
-    def gender_distribution(cls, start_date: Optional[date] = None, end_date: Optional[date] = None, facility_id: Optional[int] = None, filter: Optional[Dict] = None,  limit: int = 5):
+    def gender_distribution(cls, start_date: Optional[date] = None, end_date: Optional[date] = None, facility_id: Optional[int] = None, filter: Optional[Dict] = {},  limit: int = 5):
         start_date, end_date, limit = cls._validate_date(start_date, end_date, limit)
         query = '''
             SELECT 
@@ -949,120 +960,110 @@ class DashboardServices(BaseServices):
               END as gender,
             COUNT(ec.gender) as gender_count
             FROM encounters AS ec
-            WHERE ec.date >= ? AND ec.date <= ?
-            GROUP BY ec.gender
-            LIMIT ?
+            JOIN facility as f ON f.id = ec.facility_id
         '''
-        return cls._run_query(query,
-                              (start_date, end_date, limit,),
+        and_filter = [('ec.date', start_date, '>='), ('ec.date', end_date, '<=')]
+        for key, val in filter.items():
+            if (key.lower() == 'local government'):
+                and_filter.append(('f.local_government', val[0].lower(), val[1]))
+            elif (key.lower() == 'scheme'):
+                and_filter.append(('ec.scheme', val[0], val[1]))
+            elif (key.lower() == 'facility'):
+                and_filter.append(('ec.facility_id', val[0], val[1]))
+
+        query, args = cls._apply_filter(query, limit = limit, and_filter = and_filter, group_by=['ec.gender'],
+                                        )
+
+        res =  cls._run_query(query, 
+                              args, 
                               lambda row: {'gender': row['gender'], 'gender_count': row['gender_count']})
+        male_count = 0
+        female_count = 0
+
+        for item in res:
+            if item['gender'] == 'Male':
+                male_count = item['gender_count']
+            elif item['gender'] == 'Female':
+                female_count = item['gender_count']
+
+        total_gender = male_count + female_count
+        male_perc = (male_count / total_gender * 100) if total_gender > 0 else 0
+        female_perc = (female_count / total_gender * 100) if total_gender > 0 else 0
+        return (male_perc, female_perc)
 
     @classmethod
-    def age_group_distribution(cls, start_date: Optional[date] = None, end_date: Optional[date] = None, filter: Optional[Dict] = None, limit: int = 5):
+    def age_group_distribution(cls, start_date: Optional[date] = None, end_date: Optional[date] = None, filter: Optional[Dict] = {}, limit: int = 5):
         start_date, end_date, limit = cls._validate_date(start_date= start_date, end_date = end_date, limit = limit)
         query = '''
             SELECT age_group, COUNT(*) as age_group_count 
             FROM encounters as ec
-            WHERE ec.date >= ? AND ec.date <= ?
-            GROUP BY ec.age_group
-            LIMIT ?
+            JOIN facility as f ON f.id = ec.facility_id
         '''
+
+        and_filter = [('ec.date', start_date, '>='), ('ec.date', end_date, '<=')]
+        for key, val in filter.items():
+            if (key.lower() == 'local government'):
+                and_filter.append(('f.local_government', val[0].lower(), val[1]))
+            elif (key.lower() == 'scheme'):
+                and_filter.append(('ec.scheme', val[0], val[1]))
+            elif (key.lower() == 'facility'):
+                and_filter.append(('ec.facility_id', val[0], val[1]))
+
+        query, args = cls._apply_filter(query, limit = limit, and_filter = and_filter, 
+                                        group_by=['ec.age_group'])
         return cls._run_query(query,
-                              (start_date, end_date, limit),
+                              args,
                               lambda row: {'age_group': row['age_group'], 'age_group_count': row['age_group_count']})
 
     @classmethod
-    def trend_last_n_weeks(cls, n: int = 8, facility_id: Optional[int] = None, filter: Optional[Dict] = None):
+    def trend_last_n_months(cls, n: int = 8, facility_id: Optional[int] = None, filter: Optional[Dict] = {}):
         import pandas as pd
         if n < 0:
             raise ValidationError("Invalid month range")
 
         today = datetime.today().date()
-        start_date = today -timedelta(weeks=n)
+        month = today.month
+        month = month - 8
+        if month < 0: month += 12
+        start_date = today.replace(month=month)
 
         query = '''
             SELECT date, COUNT(date) as date_count
-            FROM encounters 
-            WHERE date >= ?
-            GROUP BY date
+            FROM encounters  as ec
+            JOIN facility as f on f.id = ec.facility_id
         '''
+        and_filter = [('ec.date', start_date, '>=')]
+        for key, val in filter.items():
+            if (key.lower() == 'local government'):
+                and_filter.append(('f.local_government', val[0].lower(), val[1]))
+            elif (key.lower() == 'scheme'):
+                and_filter.append(('ec.scheme', val[0], val[1]))
+            elif (key.lower() == 'facility'):
+                and_filter.append(('ec.facility_id', val[0], val[1]))
+
+        query, args = cls._apply_filter(query, and_filter = and_filter, 
+                                        group_by=['ec.date'])
+ 
+
         db = get_db()
-        rows = db.execute(query, (start_date, )).fetchall()
+        rows = db.execute(query, args).fetchall()
         df = pd.DataFrame(rows, columns=['date', 'date_count'])
 
         if df.empty:
             return pd.DataFrame(columns=['date', 'date_count']).to_json(orient="records")
         # print(df)
         df['date'] = pd.to_datetime(df['date'])
-        df['date'] = df['date'].dt.to_period('W')
+        df['date'] = df['date'].dt.to_period('M')
         trend: pd.DataFrame = df.groupby(df['date'])["date_count"].sum().reset_index()
-        all_week = pd.period_range(start = start_date, end = today, freq='W')
-        trend =trend.set_index('date').reindex(all_week, fill_value=0).reset_index()
+        all_months = pd.period_range(start = start_date, end = today, freq='M')
+        trend =trend.set_index('date').reindex(all_months, fill_value=0).reset_index()
         trend.rename(columns={'index': 'date'}, inplace=True)
         trend['date'] = trend['date'].astype(str)
+        print(trend)
         return trend.to_json(orient="records")
 
-    @classmethod
-    def trend_last_n_days(cls, n: int = 7, facility_id: Optional[int] = None, filter: Optional[Dict] = None):
-        import pandas as pd
-        if n <= 0:
-            raise ValidationError("Invalid day range")
-
-        today = datetime.today().date()
-        start_date = today - timedelta(days=n)
-
-        query = '''
-            SELECT date, COUNT(date) AS date_count
-            FROM encounters
-            WHERE date >= ?
-            GROUP BY date
-        '''
-        db = get_db()
-        rows = db.execute(query, (start_date,)).fetchall()
-
-        df = pd.DataFrame(rows, columns = ['date', 'date_count'])
-        if df.empty:
-            return pd.DataFrame(columns=['day', 'date_count']).to_json(orient="records")
-
-        df['date'] = pd.to_datetime(df['date'])
-        df['date'] = df['date'].dt.to_period('D')
-        trend = df.groupby('date')['date_count'].sum().reset_index()
-
-        all_days = pd.period_range(start=start_date, end=today, freq='D')
-        trend = trend.set_index('date').reindex(all_days, fill_value=0).reset_index()
-        trend.rename(columns={'index': 'day'}, inplace=True)
-        trend['day'] = trend['day'].astype(str)
-
-        return trend.to_json(orient="records")
-
-    @classmethod
-    def encounter_last_this_month(cls):
-        from datetime import timedelta
-        import json
-        this_month_end = datetime.now().date()
-        this_month_start = this_month_end.replace(day=1)
-
-        last_month_end = this_month_start - timedelta(days=1)
-        last_month_start = last_month_end.replace(day=1)
-        query = '''
-        SELECT month_range, COUNT(*) as encounter_count
-        FROM (
-            SELECT
-                CASE
-                    WHEN date >= ? AND date <= ? THEN 'LM'
-                    WHEN date >= ? AND date <= ? THEN 'TM'
-                END AS month_range
-            FROM encounters
-            WHERE date >= ? AND date <= ?
-       ) sub
-       GROUP BY month_range;
-       '''
-        db = get_db()
-        row = db.execute(query, (last_month_start, last_month_end,
-            this_month_start, this_month_end,
-            last_month_start, this_month_end)).fetchall()
-        json_result = json.dumps({r["month_range"]: r["encounter_count"] for r in row})
-        return json_result
+    # @classmethod
+    # def motartility_trend_per_month(cls, n: int, filter = {}):
 
 
 class ReportServices(BaseServices):
