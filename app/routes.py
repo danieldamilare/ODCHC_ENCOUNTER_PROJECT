@@ -553,7 +553,7 @@ def admin():
 
     filter = {}
     
-    if facility_id is not None:
+    if facility_id:
         try:
             # Filter for encounter-related queries
             encounter_and_filters.append(('ec.facility_id', int(facility_id), '='))
@@ -563,15 +563,15 @@ def admin():
             # Handle case where facility_id is not a valid integer
             pass
     
-    if user.role.name == 'admin' and local_government is not None and local_government != 'all':
+    if user.role.name == 'admin' and local_government:
         encounter_and_filters.append(('fc.local_government', local_government, '='))
         filter['local government'] =  (local_government, '=')
 
-    if user.role.name == 'admin' and scheme is not None:
+    if scheme:
         encounter_and_filters.append(('ec.scheme', scheme, '='))
         filter['scheme'] = (scheme, '=')
 
-    if gender is not None and gender != 'all':
+    if gender:
         encounter_and_filters.append(('ec.gender', gender, '='))
         filter['gender'] =  (gender, '=')
 

@@ -117,7 +117,7 @@
                         class="block w-full pl-10 pr-10 py-3 text-base border border-gray-300 focus:outline-none
                                focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg shadow-sm
                                transition-all appearance-none bg-white">
-                    <option value="all" {% if not current_facility_id or current_facility_id == 'all' %}selected{% endif %}>
+                    <option value="" {% if not current_facility_id or current_facility_id == '' %}selected{% endif %}>
                         All Facilities
                     </option>
                     {% for facility in all_facilities %}
@@ -151,7 +151,7 @@
                         class="block w-full pl-10 pr-10 py-3 text-base border border-gray-300 focus:outline-none
                                focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg shadow-sm
                                transition-all appearance-none bg-white">
-                    <option value="all" {% if not current_scheme_id or current_scheme_id == 'all' %}selected{% endif %}>
+                    <option value="" {% if not current_scheme_id or current_scheme_id == '' %}selected{% endif %}>
                         All Schemes
                     </option>
                     {% for scheme in scheme_list %}
@@ -184,7 +184,7 @@
                         class="block w-full pl-10 pr-10 py-3 text-base border border-gray-300 focus:outline-none
                                focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg shadow-sm
                                transition-all appearance-none bg-white">
-                    <option value="all" {% if current_gender == 'all' %}selected{% endif %}>All</option>
+                    <option value="" {% if current_gender == '' %}selected{% endif %}>All</option>
                     <option value="M" {% if current_gender == 'M' %}selected{% endif %}>Male</option>
                     <option value="F" {% if current_gender == 'F' %}selected{% endif %}>Female</option>
                 </select>
@@ -212,7 +212,7 @@
                         class="block w-full pl-10 pr-10 py-3 text-base border border-gray-300 focus:outline-none
                                focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg shadow-sm
                                transition-all appearance-none bg-white">
-                    <option value="all" {% if current_lga == 'all' %}selected{% endif %}>All LGAs</option>
+                    <option value="" {% if current_lga == '' %}selected{% endif %}>All LGAs</option>
                     {% for lga in lga_list %}
                         <option value="{{ lga }}"
                                 {% if current_lga == lga %}selected{% endif %}>
