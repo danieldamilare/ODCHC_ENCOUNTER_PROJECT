@@ -104,12 +104,23 @@ class TreatmentOutcome(Model):
         return "Treatment Outcome"
 
 @dataclass
+class FacilityScheme(Model):
+    facility_id: int
+    scheme_id: int
+
+@dataclass
+class EncounterDiseases(Model):
+    encounter_id: int
+    disease_id: int
+
+@dataclass
 class FacilityView:
     id: int
     name: str
     lga: str
     scheme: List[InsuranceScheme]
     facility_type: str
+
 
 
 @dataclass
