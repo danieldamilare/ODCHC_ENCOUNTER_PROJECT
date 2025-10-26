@@ -1,5 +1,4 @@
-
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from datetime import datetime, date
 from flask_login import UserMixin, current_user
 from enum import Enum, auto
@@ -12,9 +11,17 @@ class Role(Enum):
     admin = auto()
     user = auto()
 
+@dataclass
+class Model:
+    @classmethod
+    def validate_col(cls, col: str):
+        for field in fields(cls):
+            if (field.name == col):
+                return True
+        return False
 
 @dataclass
-class User:
+class User(Model):
     id: int
     username: str
     facility_id: int
@@ -25,13 +32,8 @@ class User:
     def get_name(cls):
         return "User"
 
-    @classmethod
-    def validate_col(cls, col: str):
-
-
-
 @dataclass
-class Facility:
+class Facility(Model):
     id: int
     name: str
     local_government: str
@@ -41,10 +43,8 @@ class Facility:
     @classmethod
     def get_name(cls) -> str:
         return "Facility"
-
-
 @dataclass
-class Disease:
+class Disease(Model):
     id: int
     name:  str
     category_id:  int
@@ -53,19 +53,16 @@ class Disease:
     def get_name(cls) -> str:
         return "Disease"
 
-
 @dataclass
-class DiseaseCategory:
+class DiseaseCategory(Model):
     id: int
     category_name: str
 
     @classmethod
     def get_name(cls) -> str:
         return "Disease Category"
-
-
 @dataclass
-class Encounter:
+class Encounter(Model):
     id: int
     facility_id: int
     date: date
@@ -85,9 +82,8 @@ class Encounter:
     def get_name(cls) -> str:
         return "Encounter"
 
-
 @dataclass
-class InsuranceScheme:
+class InsuranceScheme(Model):
     id: int
     scheme_name: str
     color_scheme: str
@@ -98,7 +94,7 @@ class InsuranceScheme:
 
 
 @dataclass
-class TreatmentOutcome:
+class TreatmentOutcome(Model):
     id: int
     name: str
     type: str
@@ -106,7 +102,6 @@ class TreatmentOutcome:
     @classmethod
     def get_name(cls) -> str:
         return "Treatment Outcome"
-
 
 @dataclass
 class FacilityView:
@@ -182,4 +177,3 @@ def is_logged_in() -> bool:
 
 def get_current_user() -> Optional[AuthUser]:
     return current_user if current_user.is_authenticated else None
-
