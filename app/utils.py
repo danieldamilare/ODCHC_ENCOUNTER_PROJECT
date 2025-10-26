@@ -1,11 +1,12 @@
 from flask_wtf import FlaskForm
 import functools
-from flask import request, url_for, redirect, flash
+from flask import url_for, redirect, flash
 from app import app
 import arrow
-from typing import Any, TypeVar, Type
+from typing import Any
 from dataclasses import fields as datafield
 from app.models import get_current_user, Role
+
 
 def form_to_dict(form: FlaskForm, model: Any) -> dict:
     """Extract object attribute relating to a model from a form and create the model"""
@@ -15,11 +16,12 @@ def form_to_dict(form: FlaskForm, model: Any) -> dict:
     model_fields = {f.name for f in datafield(model)}
     for field_name, field_obj in form._fields.items():
         # print(field_name)
-        if  field_name in model_fields:
+        if field_name in model_fields:
             # print(field_name)
             data[field_name] = field_obj.data
     # print(data)
     return data
+
 
 def admin_required(func):
     @functools.wraps(func)
@@ -27,7 +29,7 @@ def admin_required(func):
         user = get_current_user()
         if user is None or user.role != Role.admin:
             flash("You  don't have access to that page", "error")
-            return  redirect(url_for('index'))
+            return redirect(url_for('index'))
         return func(*args, **kwargs)
     return wrapper
 
@@ -48,11 +50,12 @@ def humanize_datetime_filter(dt):
         return "N/A"
     try:
         # Arrow can parse various formats, including ISO strings from databases
-        arrow_dt = arrow.get(dt) 
+        arrow_dt = arrow.get(dt)
         return arrow_dt.humanize()
     except Exception:
         # Fallback if parsing fails
-        return str(dt) 
+        return str(dt)
+
 
 # Register the filter with Jinja
 app.jinja_env.filters['humanize_datetime'] = humanize_datetime_filter

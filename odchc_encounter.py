@@ -1,1 +1,2 @@
-from app import app, db
+'''Main app'''
+from app import app

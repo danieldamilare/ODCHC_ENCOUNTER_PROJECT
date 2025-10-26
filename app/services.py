@@ -1,39 +1,41 @@
 from werkzeug.security import generate_password_hash, check_password_hash
-from typing import Optional, Type, TypeVar, Any, Iterator, List, Tuple, Dict
-from app.db import get_db, close_db
-from app.models import User, Facility, Disease, Encounter, TreatmentOutcome, DiseaseCategory, Role, InsuranceScheme, FacilityView, UserView, EncounterView
+from typing import Optional, Type, TypeVar, Iterator, List, Tuple, Dict
+from app.db import get_db
+from app.models import User, Facility, Disease, Encounter, TreatmentOutcome, DiseaseCategory, Role, InsuranceScheme, FacilityView, UserView, EncounterView, DiseaseView
 from app.exceptions import MissingError, InvalidReferenceError, DuplicateError
 from collections import defaultdict
 from app.exceptions import ValidationError, AuthenticationError
 from datetime import datetime, date
-from flask_wtf import FlaskForm
 from app import app
 from app.constants import ONDO_LGAS_LOWER
-from dataclasses import fields as dataclassfield
 import sqlite3
 from datetime import timedelta
 import pandas as pd
-import json
 
 
 T = TypeVar('T')
+
+
 class BaseServices:
     model: Type[T] = None
     table_name = ''
     columns: set = set()
     columns_to_update: set = set()
+
     @staticmethod
     def _row_to_model(row, model_cls: Type[T]) -> T:
         if row is None:
             raise MissingError("Invalid Row Data")
         return model_cls(**row)
-    
+
     @classmethod
     def get_by_id(cls, id: int) -> object:
         db = get_db()
-        row = db.execute(f'SELECT * FROM {cls.table_name} WHERE id = ?', (id,)).fetchone()
+        row = db.execute(
+            f'SELECT * FROM {cls.table_name} WHERE id = ?', (id,)).fetchone()
         if row is None:
-            raise MissingError(f"{cls.model.get_name()} not found in the database")
+            raise MissingError(
+                f"{cls.model.get_name()} not found in the database")
         return cls._row_to_model(row, cls.model)
 
     # @classmethod
@@ -42,72 +44,73 @@ class BaseServices:
     @classmethod
     def list_row_by_page(cls,
                          page: int,
-                         page_size = app.config['ADMIN_PAGE_PAGINATION'],
+                         page_size=app.config['ADMIN_PAGE_PAGINATION'],
                          and_filter: Optional[List[Tuple]] = None,
                          or_filter: Optional[List[Tuple]] = None,
                          order_by: Optional[List[Tuple[str, str]]] = None,
                          group_by: Optional[List[str]] = None
                          ) -> Iterator:
 
-        try:
-            offset = (int(page) - 1) * page_size
-            if offset < 0: raise ValueError
-        except:
+        offset = (int(page) - 1) * page_size
+        if offset < 0:
             raise ValidationError("Invalid listing page")
 
-        return cls.get_all(limit=page_size, offset = offset, and_filter =and_filter,
-                           or_filter = or_filter, group_by = group_by,
-                           order_by = order_by)
+        return cls.get_all(limit=page_size, offset=offset, and_filter=and_filter,
+                           or_filter=or_filter, group_by=group_by,
+                           order_by=order_by)
 
     @classmethod
     def update_data(cls, model: Type[T]) -> T:
         db = get_db()
-        field = [f"{key}=?" for key in vars(model).keys() if key in cls.columns_to_update]
-        values = [v for k, v in vars(model).items() if k in cls.columns_to_update]
+        field = [f"{key}=?" for key in vars(
+            model).keys() if key in cls.columns_to_update]
+        values = [v for k, v in vars(
+            model).items() if k in cls.columns_to_update]
 
-        db.execute(f'UPDATE {cls.table_name} SET {",".join(field)} WHERE id = ?', values + [model.id])
+        db.execute(
+            f'UPDATE {cls.table_name} SET {",".join(field)} WHERE id = ?', values + [model.id])
         db.commit()
         return model
 
     @classmethod
-    def get_total(cls, 
+    def get_total(cls,
                   and_filter: Optional[List[Tuple]] = None,
                   or_filter: Optional[List[Tuple]] = None):
 
         query = f'SELECT COUNT(*) from {cls.table_name}'
         query, args = cls._apply_filter(
-            base_query = query,
-            base_arg = [],
-            and_filter = and_filter,
-            or_filter = or_filter,
+            base_query=query,
+            base_arg=[],
+            and_filter=and_filter,
+            or_filter=or_filter,
         )
         db = get_db()
         return int(db.execute(query, args).fetchone()[0])
 
     @classmethod
     def _apply_filter(cls,
-                    base_query: str, 
-                    base_arg: Optional[List] = None,
-                    limit: int = 0,
-                    offset: int = 0, 
-                    and_filter: Optional[List[Tuple]] = None,
-                    or_filter: Optional[List[Tuple]] = None,
-                    order_by: Optional[List[Tuple[str, str]]] = None,
-                    group_by: Optional[List[str]] = None
+                      base_query: str,
+                      base_arg: Optional[List] = None,
+                      limit: int = 0,
+                      offset: int = 0,
+                      and_filter: Optional[List[Tuple]] = None,
+                      or_filter: Optional[List[Tuple]] = None,
+                      order_by: Optional[List[Tuple[str, str]]] = None,
+                      group_by: Optional[List[str]] = None
                       ):
         ALLOWED_OPERATORS = {'=', '>', '<', '>=', '<=', '!=', 'LIKE'}
         query = ''
-        args = base_arg  if base_arg is not None else []
+        args = base_arg if base_arg is not None else []
         conditions = []
         query = base_query
-        
+
         if and_filter:
             for column_name, value, opt in and_filter:
                 if opt not in ALLOWED_OPERATORS:
                     raise ValidationError(f"Invalid operator: {opt}")
                 conditions.append(f"{column_name} {opt} ?")
                 args.append(value)
-        
+
         if or_filter:
             or_conditions = []
             for column_name, value, opt in or_filter:
@@ -117,7 +120,7 @@ class BaseServices:
                 args.append(value)
             if or_conditions:
                 conditions.append("(" + " OR ".join(or_conditions) + ")")
-        
+
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
 
@@ -130,15 +133,15 @@ class BaseServices:
             clause = []
             for col, direction in order_by:
                 if direction.upper() not in ['ASC', 'DESC']:
-                    raise ValidationError(f"Invalid sort direction: {direction}")
+                    raise ValidationError(
+                        f"Invalid sort direction: {direction}")
                 clause.append(f"{col} {direction.upper()}")
             query += f" ORDER BY {','.join(clause)}"
 
-        
         if limit > 0:
             query += ' LIMIT ?'
             args.append(limit)
-        
+
         if offset > 0:
             query += ' OFFSET ?'
             args.append(offset)
@@ -146,70 +149,74 @@ class BaseServices:
         return query, args
 
     @classmethod
-    def get_all(cls, 
-            limit: int = 0,
-            offset: int = 0, 
-            and_filter: Optional[List[Tuple]] = None,
-            or_filter: Optional[List[Tuple]] = None,
-            order_by: Optional[List[Tuple[str, str]]] = None,
-            group_by: Optional[List[str]] = None
-            ) -> Iterator:
+    def get_all(cls,
+                limit: int = 0,
+                offset: int = 0,
+                and_filter: Optional[List[Tuple]] = None,
+                or_filter: Optional[List[Tuple]] = None,
+                order_by: Optional[List[Tuple[str, str]]] = None,
+                group_by: Optional[List[str]] = None
+                ) -> Iterator:
         query = f"SELECT * from {cls.table_name}"
-        query, args = cls._apply_filter(query, 
-                        limit = limit, offset = offset,
-                        and_filter= and_filter,
-                        or_filter = or_filter,
-                        order_by = order_by,
-                        group_by = group_by)
+        query, args = cls._apply_filter(query,
+                                        limit=limit, offset=offset,
+                                        and_filter=and_filter,
+                                        or_filter=or_filter,
+                                        order_by=order_by,
+                                        group_by=group_by)
         db = get_db()
         rows = db.execute(query, args)
-        for  row in rows:
+        for row in rows:
             yield cls._row_to_model(row, cls.model)
-    
 
     @classmethod
-    def has_next_page(cls, page: int, 
+    def has_next_page(cls, page: int,
                       and_filter: Optional[list[Tuple]] = None,
-                      or_filter: Optional[List[Tuple]]  = None) -> bool:
+                      or_filter: Optional[List[Tuple]] = None) -> bool:
         total = cls.get_total(and_filter=and_filter, or_filter=or_filter)
         current = page * app.config['ADMIN_PAGE_PAGINATION']
-        if (current < total): return True
+        if current < total:
+            return True
         return False
+
 
 class UserServices(BaseServices):
     model = User
-    table_name = 'users';
+    table_name = 'users'
     columns_to_update = {'username', 'facility_id', 'role'}
     columns = {'id', 'username', 'facility_id', 'role', 'password_hash'}
 
     @classmethod
-    def create_user(cls, username: str, facility_id: Optional[int], password: str, role=None, commit = True) -> User:
+    def create_user(cls, username: str, facility_id: Optional[int], password: str, role=None, commit=True) -> User:
         password_hash = generate_password_hash(password)
         role = ('admin' if role == Role.admin else 'user')
-        if (role != 'admin'):
+        if role != 'admin':
             if not facility_id:
                 raise ValidationError("User must have a facility")
             try:
                 FacilityServices.get_by_id(facility_id)
             except MissingError:
-                raise InvalidReferenceError("You can't attach user to a facility that does not exists")
+                raise InvalidReferenceError(
+                    "You can't attach user to a facility that does not exists")
 
         db = get_db()
         try:
             cursor = db.execute(f'INSERT INTO {cls.table_name}(username, password_hash, facility_id, role)'
-                   ' VALUES (?, ?, ?, ?)', (username, password_hash,
-                   facility_id, role))
+                                ' VALUES (?, ?, ?, ?)', (username, password_hash,
+                                                         facility_id, role))
             if commit:
                 db.commit()
             new_id: int = cursor.lastrowid
             return cls.get_by_id(new_id)
         except sqlite3.IntegrityError:
-            raise DuplicateError('Username exists! Please use another username')
+            raise DuplicateError(
+                'Username exists! Please use another username')
 
     @classmethod
     def get_user_by_username(cls, username: str) -> User:
         db = get_db()
-        row = db.execute(f'SELECT * FROM {cls.table_name} where username = ?', [username]).fetchone()
+        row = db.execute(
+            f'SELECT * FROM {cls.table_name} where username = ?', [username]).fetchone()
 
         if row is None:
             raise MissingError("Username does not exist")
@@ -224,7 +231,8 @@ class UserServices(BaseServices):
     def get_by_id(cls, id: int) -> User:
         db = get_db()
         try:
-            row = db.execute(f'SELECT * FROM {cls.table_name} where id = ?', (id,)).fetchone()
+            row = db.execute(
+                f'SELECT * FROM {cls.table_name} where id = ?', (id,)).fetchone()
         except sqlite3.IntegrityError:
             raise MissingError("User is not in the database")
         if row is None:
@@ -237,19 +245,19 @@ class UserServices(BaseServices):
         return UserServices._row_to_model(row, User)
 
     @classmethod
-    def get_all(cls, 
-            limit: int = 0,
-            offset: int = 0, 
-            and_filter: Optional[List[Tuple]] = None,
-            or_filter: Optional[List[Tuple]] = None,
-            order_by: Optional[List[Tuple[str, str]]] = None,
-            group_by: Optional[List[str]] = None
-            ) -> Iterator:
+    def get_all(cls,
+                limit: int = 0,
+                offset: int = 0,
+                and_filter: Optional[List[Tuple]] = None,
+                or_filter: Optional[List[Tuple]] = None,
+                order_by: Optional[List[Tuple[str, str]]] = None,
+                group_by: Optional[List[str]] = None
+                ) -> Iterator:
 
         db = get_db()
 
         query = '''
-            SELECT 
+            SELECT
                 u.id AS user_id,
                 u.facility_id,
                 f.name,
@@ -262,18 +270,18 @@ class UserServices(BaseServices):
             LEFT JOIN facility AS f ON u.facility_id = f.id
         '''
         query, args = cls._apply_filter(
-            base_query = query,
-            base_arg = [],
-            limit= limit,
-            offset= offset, 
-            and_filter= and_filter,
-            or_filter= or_filter,
-            order_by=  order_by,
-            group_by=  group_by
+            base_query=query,
+            base_arg=[],
+            limit=limit,
+            offset=offset,
+            and_filter=and_filter,
+            or_filter=or_filter,
+            order_by=order_by,
+            group_by=group_by
         )
 
         rows = db.execute(query, args).fetchall()
-        facility_ids = [row['facility_id'] for  row in rows]
+        facility_ids = [row['facility_id'] for row in rows]
         scheme_map = {}
         if facility_ids:
             scheme_map = FacilityServices.get_insurance_list(facility_ids)
@@ -281,29 +289,27 @@ class UserServices(BaseServices):
         for row in rows:
             facility_view = None
             if row['facility_id'] is not None:
-                facility_view= FacilityView(
-                    id= row['facility_id'],
-                    name = row['name'],
-                    lga = row['local_government'],
-                    facility_type= row['facility_type'],
-                    scheme = scheme_map[row['facility_id']]
+                facility_view = FacilityView(
+                    id=row['facility_id'],
+                    name=row['name'],
+                    lga=row['local_government'],
+                    facility_type=row['facility_type'],
+                    scheme=scheme_map[row['facility_id']]
                 )
             yield UserView(
                 id=row['user_id'],
-                facility= facility_view,
+                facility=facility_view,
                 username=row['username'],
-               role=Role[row['role']],
+                role=Role[row['role']],
             )
 
     @classmethod
     def get_view_by_id(cls, id: int):
         and_filter = [('u.id', id, '=')]
         return next(cls.get_all(and_filter=and_filter))
-        
-                
+
     @staticmethod
     def get_verified_user(username: str, password: str):
-        db = get_db()
         try:
             user = UserServices.get_user_by_username(username)
         except MissingError:
@@ -314,7 +320,7 @@ class UserServices(BaseServices):
         return UserServices.get_view_by_id(user.id)
 
     @classmethod
-    def update_data(cls, model: User)->User:
+    def update_data(cls, model: User) -> User:
         db = get_db()
         field = []
         values = []
@@ -326,10 +332,12 @@ class UserServices(BaseServices):
                 else:
                     values.append(value)
         try:
-            db.execute(f'UPDATE {cls.table_name} SET {",".join(field)} WHERE id = ?', values + [model.id])
+            db.execute(
+                f'UPDATE {cls.table_name} SET {",".join(field)} WHERE id = ?', values + [model.id])
             db.commit()
         except sqlite3.IntegrityError:
-            raise DuplicateError("You cannot a new user with the same username as another user")
+            raise DuplicateError(
+                "You cannot a new user with the same username as another user")
         return model
 
     @classmethod
@@ -337,11 +345,12 @@ class UserServices(BaseServices):
         return cls.update_data(user)
 
     @classmethod
-    def update_user_password(cls, user: User, password: str) ->User:
+    def update_user_password(cls, user: User, password: str) -> User:
         db = get_db()
         password_hash = generate_password_hash(password)
         user.password_hash = password_hash
-        db.execute(f'UPDATE {cls.table_name} SET password_hash = ? WHERE id = ?', (password_hash, user.id))
+        db.execute(
+            f'UPDATE {cls.table_name} SET password_hash = ? WHERE id = ?', (password_hash, user.id))
         db.commit()
         return user
 
@@ -357,43 +366,46 @@ class FacilityServices(BaseServices):
     model = Facility
     LOCAL_GOVERNMENT = ONDO_LGAS_LOWER
     columns = {'id', 'name', 'local_government', 'facility_type'}
-    columns_to_update  = {'name', 'local_government', 'facility_type'}
+    columns_to_update = {'name', 'local_government', 'facility_type'}
 
     @classmethod
     def create_facility(cls, name: str, local_government: str,
-                         facility_type: str, scheme: List[int],
-                         commit=True) -> Facility:
+                        facility_type: str, scheme: List[int],
+                        commit=True) -> Facility:
         db = get_db()
         if local_government.lower() not in FacilityServices.LOCAL_GOVERNMENT:
             raise ValidationError("Local Government does not exist in Akure")
         try:
-            cursor = db.execute(f'INSERT INTO {cls.table_name} (name, local_government, facility_type) VALUES (?, ?, ?)', (name, local_government, facility_type))
+            cursor = db.execute(f'INSERT INTO {cls.table_name} (name, local_government, facility_type) VALUES (?, ?, ?)', (
+                name, local_government, facility_type))
             new_id = cursor.lastrowid
-            scheme_list = list(set((new_id, x) for x in insurance_scheme))
+            scheme_list = list(set((new_id, x) for x in scheme))
             cls.add_scheme(scheme_list)
-            if commit: db.commit()
+            if commit:
+                db.commit()
             return cls.get_by_id(new_id)
         except sqlite3.IntegrityError:
             db.rollback()
             raise DuplicateError(f"Facility {name} already exist in database")
 
-    
     @classmethod
-    def add_scheme(cls, scheme_list:List[Tuple[int, int]]):
+    def add_scheme(cls, scheme_list: List[Tuple[int, int]]):
         db = get_db()
-        db.executemany('INSERT INTO facility_scheme (facility_id, scheme_id) VALUES (? ?)',
-                        scheme_list)
+        db.executemany('INSERT INTO facility_scheme (facility_id, scheme_id) VALUES (?, ?)',
+                       scheme_list)
 
     @classmethod
     def get_current_scheme(cls, facility_id: int):
         db = get_db()
-        cur = db.execute('SELECT scheme_id from facility_scheme WHERE facility_id = ?', [ facility_id ])
+        cur = db.execute(
+            'SELECT scheme_id from facility_scheme WHERE facility_id = ?', [facility_id])
         return [row['scheme_id'] for row in cur]
 
     @classmethod
     def get_facility_by_name(cls, name: str) -> Facility:
         db = get_db()
-        row = db.execute(f'SELECT * FROM {cls.table_name} WHERE name = ?', (name,)).fetchone()
+        row = db.execute(
+            f'SELECT * FROM {cls.table_name} WHERE name = ?', (name,)).fetchone()
         if row is None:
             raise MissingError(f"No Facility with name {name}")
         return FacilityServices._row_to_model(row, Facility)
@@ -401,7 +413,8 @@ class FacilityServices(BaseServices):
     @classmethod
     def delete_facility(cls, facility: Facility):
         db = get_db()
-        db.execute(f"DELETE FROM {cls.table_name} WHERE id = ?",  [facility.id])
+        db.execute(
+            f"DELETE FROM {cls.table_name} WHERE id = ?",  [facility.id])
         db.commit()
 
     @classmethod
@@ -410,30 +423,32 @@ class FacilityServices(BaseServices):
             raise ValidationError("Local Government does not exist in Akure")
         db = get_db()
         try:
-            db.execute('DELETE FROM facility_scheme WHERE facility_id = ?', (facility.id, ))
-            if new_scheme:
+            db.execute(
+                'DELETE FROM facility_scheme WHERE facility_id = ?', (facility.id, ))
+            if scheme:
                 scheme_list = [(facility.id, sc) for sc in scheme]
                 cls.add_scheme(scheme_list)
 
-            #update data does commit
+            # update data does commit
             FacilityServices.update_data(facility)
         except DuplicateError:
             db.rollback()
-            raise DuplicateError(f'Facility with name {facility.name} already exists')
+            raise DuplicateError(
+                f'Facility with name {facility.name} already exists')
         return facility
 
-    @classmethod #facility service
+    @classmethod  # facility service
     def get_insurance_list(cls, row_ids: List[int]):
         db = get_db()
         placeholders = ','.join(('?' * len(row_ids)))
         query = f'''
-        SELECT  
+        SELECT
             fc.id,
             isc.id as scheme_id,
             isc.scheme_name,
             isc.color_scheme
         FROM {cls.table_name} as fc
-        JOIN facility_scheme as fsc 
+        JOIN facility_scheme as fsc
         ON fc.id = fsc.facility_id
         JOIN insurance_scheme as isc
         ON isc.id = fsc.scheme_id
@@ -443,23 +458,22 @@ class FacilityServices(BaseServices):
         scheme_rows = db.execute(query, row_ids).fetchall()
         scheme_map = defaultdict(list)
         for row in scheme_rows:
-            scheme_map[row['id']].append(InsuranceScheme(id = row['scheme_id'], 
-                                                         scheme_name = row['scheme_name'],
+            scheme_map[row['id']].append(InsuranceScheme(id=row['scheme_id'],
+                                                         scheme_name=row['scheme_name'],
                                                          color_scheme=row['color_scheme']))
         return scheme_map
 
-
     @classmethod
-    def get_all(cls, 
-            limit: int = 0,
-            offset: int = 0, 
-            and_filter: Optional[List[Tuple]] = None,
-            or_filter: Optional[List[Tuple]] = None,
-            order_by: Optional[List[Tuple[str, str]]] = None,
-            group_by: Optional[List[str]] = None
-            ) -> Iterator:
+    def get_all(cls,
+                limit: int = 0,
+                offset: int = 0,
+                and_filter: Optional[List[Tuple]] = None,
+                or_filter: Optional[List[Tuple]] = None,
+                order_by: Optional[List[Tuple[str, str]]] = None,
+                group_by: Optional[List[str]] = None
+                ) -> Iterator:
         query = f'''
-        SELECT 
+        SELECT
             fc.id,
             fc.name as facility_name,
             fc.local_government,
@@ -468,12 +482,12 @@ class FacilityServices(BaseServices):
         '''
         query, args = cls._apply_filter(
             base_query=query,
-            limit = limit,
-            offset = offset,
-            and_filter= and_filter,
-            or_filter= or_filter,
-            order_by= order_by,
-            group_by= group_by
+            limit=limit,
+            offset=offset,
+            and_filter=and_filter,
+            or_filter=or_filter,
+            order_by=order_by,
+            group_by=group_by
         )
         db = get_db()
         facility_rows = list(db.execute(query, args).fetchall())
@@ -482,17 +496,17 @@ class FacilityServices(BaseServices):
 
         for row in facility_rows:
             facility = FacilityView(
-                id = row['id'],
-                lga = row['local_government'],
+                id=row['id'],
+                lga=row['local_government'],
                 scheme=scheme_map[row['id']],
-                name =  row['facility_name'],
-                facility_type = row['facility_type']
+                name=row['facility_name'],
+                facility_type=row['facility_type']
             )
             yield facility
 
     @classmethod
     def get_view_by_id(cls, facility_id: int) -> FacilityView:
-        return next(cls.get_all(and_filter=[ ('fc.id', facility_id, '=')]))
+        return next(cls.get_all(and_filter=[('fc.id', facility_id, '=')]))
 
 
 class InsuranceSchemeServices(BaseServices):
@@ -505,22 +519,25 @@ class InsuranceSchemeServices(BaseServices):
     def create_scheme(cls, name: str, color_scheme: str, commit=True):
         db = get_db()
         try:
-            cursor = db.execute(f'INSERT INTO {cls.table_name} (scheme_name, color_scheme) VALUES (?)',
+            cursor = db.execute(f'INSERT INTO {cls.table_name} (scheme_name, color_scheme) VALUES (?, ?)',
                                 (name, color_scheme))
-            if commit: db.commit()
+            if commit:
+                db.commit()
             new_id = cursor.lastrowid
             return cls.get_by_id(new_id)
 
         except sqlite3.IntegrityError:
-            raise DuplicateError("Insurance scheme already exists in the database")
-    
+            raise DuplicateError(
+                "Insurance scheme already exists in the database")
+
     @classmethod
     def update_scheme(cls, scheme: InsuranceScheme):
         try:
             cls.update_data(scheme)
         except sqlite3.IntegrityError:
-            raise DuplicateError(f"{scheme.scheme_name} already exists in database")
-        
+            raise DuplicateError(
+                f"{scheme.scheme_name} already exists in database")
+
 
 class DiseaseServices(BaseServices):
     table_name = 'diseases'
@@ -536,55 +553,54 @@ class DiseaseServices(BaseServices):
         except MissingError:
             raise InvalidReferenceError('Disease Category does not exist')
         try:
-            cursor = db.execute(f'INSERT INTO {cls.table_name} (name, category_id) VALUES (?, ?)', [name,category_id])
-            if commit: db.commit()
+            cursor = db.execute(
+                f'INSERT INTO {cls.table_name} (name, category_id) VALUES (?, ?)', [name, category_id])
+            if commit:
+                db.commit()
             new_id = cursor.lastrowid
-            return  cls.get_by_id(new_id)
+            return cls.get_by_id(new_id)
         except sqlite3.IntegrityError:
             raise DuplicateError(f'Disease {name} already exists')
 
-    
     @classmethod
-    def get_all(cls, 
-            limit: int = 0,
-            offset: int = 0, 
-            and_filter: Optional[List[Tuple]] = None,
-            or_filter: Optional[List[Tuple]] = None,
-            order_by: Optional[List[Tuple[str, str]]] = None,
-            group_by: Optional[List[str]] = None
-            ) -> Iterator:
+    def get_all(cls,
+                limit: int = 0,
+                offset: int = 0,
+                and_filter: Optional[List[Tuple]] = None,
+                or_filter: Optional[List[Tuple]] = None,
+                order_by: Optional[List[Tuple[str, str]]] = None,
+                group_by: Optional[List[str]] = None
+                ) -> Iterator:
 
-        from app.models import DiseaseView
         query = '''
-        SELECT 
+        SELECT
             d.id as disease_id,
             d.name as disease_name,
             dc.id as category_id,
-            dc.category_name 
+            dc.category_name
         FROM diseases as d
-        JOIN diseases_category as dc 
+        JOIN diseases_category as dc
         ON d.category_id = dc.id'''
 
         query, args = cls._apply_filter(
-            base_query= query,
-            base_arg = [],
-            limit = limit,
-            offset = offset,
-            and_filter = and_filter,
-            or_filter= or_filter,
-            order_by= order_by,
-            group_by= group_by
+            base_query=query,
+            base_arg=[],
+            limit=limit,
+            offset=offset,
+            and_filter=and_filter,
+            or_filter=or_filter,
+            order_by=order_by,
+            group_by=group_by
         )
         db = get_db()
         rows = db.execute(query, args)
         for row in rows:
-            category= DiseaseCategory(row['category_id'], 
-                                      row['category_name'])
-            disease = DiseaseView(id =row['disease_id'],
-                                  name = row['disease_name'],
-                                  category =category)
+            category = DiseaseCategory(row['category_id'],
+                                       row['category_name'])
+            disease = DiseaseView(id=row['disease_id'],
+                                  name=row['disease_name'],
+                                  category=category)
             yield disease
-
 
     @classmethod
     def delete_disease(cls, disease: Disease):
@@ -595,11 +611,11 @@ class DiseaseServices(BaseServices):
     @classmethod
     def get_disease_by_name(cls, name: str) -> Disease:
         db = get_db()
-        row = db.execute(f'SELECT * FROM {cls.table_name} WHERE name = ?', (name,)).fetchone()
+        row = db.execute(
+            f'SELECT * FROM {cls.table_name} WHERE name = ?', (name,)).fetchone()
         if row is None:
-            raise  MissingError('Disease does not Exist')
+            raise MissingError('Disease does not Exist')
         return DiseaseServices._row_to_model(row, Disease)
-
 
     @staticmethod
     def update_disease(disease: Disease):
@@ -614,7 +630,7 @@ class DiseaseServices(BaseServices):
 class DiseaseCategoryServices(BaseServices):
     model = DiseaseCategory
     table_name = 'diseases_category'
-    columns= {'id', 'category_name'}
+    columns = {'id', 'category_name'}
     columns_to_update = {'category_name'}
 
     @classmethod
@@ -623,19 +639,21 @@ class DiseaseCategoryServices(BaseServices):
 
         try:
             cursor = db.execute(f'INSERT INTO {cls.table_name} (category_name) VALUES(?)',
-                       (category_name, ))
-            if commit: db.commit()
+                                (category_name, ))
+            if commit:
+                db.commit()
             new_id = cursor.lastrowid
             return cls.get_by_id(new_id)
         except sqlite3.IntegrityError:
-            raise DuplicateError(f"Category {category_name} already exist in database")
-    
+            raise DuplicateError(
+                f"Category {category_name} already exist in database")
+
 
 class EncounterServices(BaseServices):
     table_name = 'encounters'
     model = Encounter
     columns = {'id', 'facility_id', 'date', 'policy_number', 'client_name',
-               'gender', 'age', 'age_group', 'treatment', 'referral', 'doctor_name', 
+               'gender', 'age', 'age_group', 'treatment', 'referral', 'doctor_name',
                'created_by', 'created_at', "scheme", "outcome"
                }
 
@@ -647,9 +665,9 @@ class EncounterServices(BaseServices):
                          client_name: str,
                          gender: str,
                          age: int,
-                         treatment: Optional[str], 
+                         treatment: Optional[str],
                          referral: bool,
-                         doctor_name: Optional[str], 
+                         doctor_name: Optional[str],
                          scheme: int,
                          outcome: int,
                          created_by: int,
@@ -663,28 +681,30 @@ class EncounterServices(BaseServices):
         import re
         if not re.match(r'^[A-Za-z]{3}/\d+/\d+/[A-Za-z]/[0-5]$', policy_number):
             raise ValidationError('Invalid Policy number')
-        
+
         try:
             FacilityServices.get_by_id(facility_id)
         except MissingError:
-            raise InvalidReferenceError('You cannot add Encounter to a facility that does not exists')
-        
+            raise InvalidReferenceError(
+                'You cannot add Encounter to a facility that does not exists')
 
         created_at = datetime.now().date()
         try:
-        
+
             cur = db.execute(f'''INSERT INTO {cls.table_name} (facility_id, date, policy_number
                    , client_name, gender, age, treatment, referral, doctor_name,
                    scheme, outcome, created_by, created_at) VALUES( ?, ?, ?, ?, ?, ?, ?,
                    ?, ?, ?, ?, ?, ?)''', (facility_id, date, policy_number, client_name,
-                                   gender, age, treatment, int(referral), doctor_name, 
-                                   scheme, outcome, created_by.id, created_at))
+                                          gender, age, treatment, int(
+                                              referral), doctor_name,
+                                          scheme, outcome, created_by.id, created_at))
             new_id = cur.lastrowid
 
             diseases_list = list(set((new_id, x) for x in diseases_id))
             db.executemany('''INSERT into encounter_diseases(encounter_id, disease_id)
                            VALUES(?, ?)''', diseases_list)
-            db.commit()
+            if commit:
+                db.commit()
             return cls.get_by_id(new_id)
 
         except sqlite3.IntegrityError as e:
@@ -702,17 +722,17 @@ class EncounterServices(BaseServices):
                 raise InvalidReferenceError(f"Database error: {str(e)}")
 
     @classmethod
-    def get_all(cls, 
-        limit: int = 0,
-        offset: int = 0, 
-        and_filter: Optional[List[Tuple]] = None,
-        or_filter: Optional[List[Tuple]] = None,
-        order_by: Optional[List[Tuple[str, str]]] = None,
-        group_by: Optional[List[str]] = None
-    ) -> Iterator:
-    
+    def get_all(cls,
+                limit: int = 0,
+                offset: int = 0,
+                and_filter: Optional[List[Tuple]] = None,
+                or_filter: Optional[List[Tuple]] = None,
+                order_by: Optional[List[Tuple[str, str]]] = None,
+                group_by: Optional[List[str]] = None
+                ) -> Iterator:
+
         query = '''
-            SELECT 
+            SELECT
                 ec.id,
                 ec.client_name,
                 ec.gender,
@@ -737,7 +757,7 @@ class EncounterServices(BaseServices):
             JOIN treatment_outcome as tc on ec.outcome = tc.id
             LEFT JOIN users AS u ON ec.created_by = u.id
         '''
-        
+
         query, args = cls._apply_filter(
             base_query=query,
             base_arg=[],
@@ -745,22 +765,22 @@ class EncounterServices(BaseServices):
             offset=offset,
             and_filter=and_filter,
             or_filter=or_filter,
-            group_by= group_by,
+            group_by=group_by,
             order_by=order_by
         )
         # print('encounter query', query, args)
 
         db = get_db()
         encounters_rows = db.execute(query, args).fetchall()
-        
+
         encounter_ids = [row['id'] for row in encounters_rows]
-        
+
         if not encounter_ids:
             return
-        
+
         placeholders = ','.join('?' * len(encounter_ids))
         diseases_query = f'''
-            SELECT 
+            SELECT
                 ecd.encounter_id,
                 dis.id AS disease_id,
                 dis.name AS disease_name,
@@ -772,12 +792,11 @@ class EncounterServices(BaseServices):
             WHERE ecd.encounter_id IN ({placeholders})
             ORDER BY ecd.encounter_id
         '''
-        
+
         diseases_rows = db.execute(diseases_query, encounter_ids).fetchall()
-        
+
         diseases_by_encounter = defaultdict(list)
-        from app.models import EncounterView, DiseaseView
-        
+
         for row in diseases_rows:
             encounter_id = row['encounter_id']
             category = DiseaseCategory(
@@ -790,31 +809,30 @@ class EncounterServices(BaseServices):
                 category=category
             )
             diseases_by_encounter[encounter_id].append(disease)
-        
 
         facility_ids = [row['facility_id'] for row in encounters_rows]
 
         scheme_map = FacilityServices.get_insurance_list(facility_ids)
-       
+
         for row in encounters_rows:
             encounter = EncounterView(
                 id=row['id'],
-                facility=  FacilityView(
-                    id = row['facility_id'],
-                    name =  row['facility_name'],
-                    lga =  row['lga'],
-                    scheme =  scheme_map[row['facility_id']],
-                    facility_type = row['facility_type']
+                facility=FacilityView(
+                    id=row['facility_id'],
+                    name=row['facility_name'],
+                    lga=row['lga'],
+                    scheme=scheme_map[row['facility_id']],
+                    facility_type=row['facility_type']
                 ),
-                insurance_scheme= InsuranceScheme(id = row['scheme_id'], 
-                                                  scheme_name= row['scheme_name'],
-                                                  color_scheme = row['color_scheme']),
-                diseases=diseases_by_encounter[row['id']],  
+                insurance_scheme=InsuranceScheme(id=row['scheme_id'],
+                                                 scheme_name=row['scheme_name'],
+                                                 color_scheme=row['color_scheme']),
+                diseases=diseases_by_encounter[row['id']],
                 policy_number=row['policy_number'],
                 client_name=row['client_name'],
                 gender=row['gender'],
                 date=row['date'],
-                treatment_outcome = row['treatment_outcome'],
+                treatment_outcome=row['treatment_outcome'],
                 age=row['age'],
                 treatment=row['treatment'],
                 doctor_name=row['doctor_name'],
@@ -830,12 +848,13 @@ class EncounterServices(BaseServices):
     @classmethod
     def get_view_by_id(cls, id: int) -> EncounterView:
         and_filter = [('ec.id', id, '=')]
-        return next(cls.get_all(and_filter = and_filter))
+        return next(cls.get_all(and_filter=and_filter))
 
     @classmethod
     def update_data(cls, model):
         # do not allow update of encounter
-        raise NotImplementedError("Encounter are immutable and cannot be updated")
+        raise NotImplementedError(
+            "Encounter are immutable and cannot be updated")
 
 
 class TreatmentOutcomeServices(BaseServices):
@@ -847,15 +866,18 @@ class TreatmentOutcomeServices(BaseServices):
     def create_treatment_outcome(cls, name: str, treatment_type: str, commit: bool = True) -> TreatmentOutcome:
         db = get_db()
         try:
-            cur = db.execute(f'INSERT INTO {cls.table_name} (name, type) VALUES (?, ?)', (name, treatment_type))
-            if commit: db.commit()
-            new_id  = cur.lastrowid
+            cur = db.execute(
+                f'INSERT INTO {cls.table_name} (name, type) VALUES (?, ?)', (name, treatment_type))
+            if commit:
+                db.commit()
+            new_id = cur.lastrowid
             return cls.get_by_id(new_id)
-            
+
         except sqlite3.IntegrityError:
             db.rollback()
-            raise ValidationError("Treatment Outcome already exist in the database")
-        
+            raise ValidationError(
+                "Treatment Outcome already exist in the database")
+
 
 class DashboardServices(BaseServices):
     model = None
@@ -863,22 +885,23 @@ class DashboardServices(BaseServices):
 
     @classmethod
     def get_top_facilities(cls, start_date: Optional[date] = None, end_date: Optional[date] = None, limit: int = 5):
-        start_date, end_date, limit = cls._validate_date(start_date, end_date, limit)
+        start_date, end_date, limit = cls._validate_date(
+            start_date, end_date, limit)
         query = '''
-        SELECT 
-            fc.name AS facility_name, 
+        SELECT
+            fc.name AS facility_name,
             COUNT(ec.id) as encounter_count,
             (
-                SELECT dis.name 
+                SELECT dis.name
                 FROM encounters AS ec2
                 JOIN encounters_diseases as ecd ON ec2.id = ecd.encounter_id
                 JOIN diseases AS dis ON ecd.disease_id = dis.id
-                WHERE ec2.facility_id = ec.facility_id 
+                WHERE ec2.facility_id = ec.facility_id
                     AND ec2.date >= ? AND ec2.date <= ?
                  GROUP BY ecd.disease_id
-                 ORDER BY COUNT(ecd.disease_id) DESC 
+                 ORDER BY COUNT(ecd.disease_id) DESC
                  LIMIT 1
-            ) AS top_disease, 
+            ) AS top_disease,
            MAX(ec.created_at) as last_submission
            FROM encounters as ec
             JOIN facility as fc on ec.facility_id = fc.id
@@ -889,7 +912,7 @@ class DashboardServices(BaseServices):
           '''
 
         return cls._run_query(query, (start_date, end_date, start_date, end_date, limit),
-                              lambda row: {'facility_name': row['facility_name'], 
+                              lambda row: {'facility_name': row['facility_name'],
                                            'encounter_count': row['encounter_count'],
                                            'top_disease': row['top_disease'],
                                            'last_submission': row['last_submission']})
@@ -897,7 +920,7 @@ class DashboardServices(BaseServices):
     @classmethod
     def _validate_date(cls, start_date, end_date, limit):
         today = datetime.today().date()
-        start_date = start_date or  today.replace(day=1)
+        start_date = start_date or today.replace(day=1)
         end_date = end_date or today
 
         if end_date < start_date:
@@ -908,15 +931,15 @@ class DashboardServices(BaseServices):
         return start_date, end_date, limit
 
     @classmethod
-    def _run_query(cls, query: str, params: tuple, row_mapper ):
+    def _run_query(cls, query: str, params: tuple, row_mapper):
         db = get_db()
         rows = db.execute(query, params)
-        return [ row_mapper(row) for row in rows]
-
+        return [row_mapper(row) for row in rows]
 
     @classmethod
-    def  top_diseases(cls, start_date: Optional[date] = None, end_date: Optional[date]= None, facility_id: Optional[int] = None, filter: Optional[Dict] = {}, limit: int = 5):
-        start_date, end_date, limit = cls._validate_date(start_date, end_date, limit)
+    def top_diseases(cls, start_date: Optional[date] = None, end_date: Optional[date] = None, filter: Optional[Dict] = None, limit: int = 5):
+        start_date, end_date, limit = cls._validate_date(
+            start_date, end_date, limit)
         query = '''
              SELECT dis.name AS disease_name, COUNT(dis.id) AS disease_count
              FROM encounters AS ec
@@ -924,30 +947,34 @@ class DashboardServices(BaseServices):
              JOIN diseases AS dis ON ecd.disease_id = dis.id
              JOIN facility AS f ON f.id = ec.facility_id
         '''
-        and_filter = [('ec.date', start_date, '>='), ('ec.date', end_date, '<=')]
-        for key, val in filter.items():
-            if (key.lower() == 'local government'):
-                and_filter.append(('f.local_government', val[0].lower(), val[1]))
-            elif (key.lower() == 'scheme'):
-                and_filter.append(('ec.scheme', val[0], val[1]))
-            elif (key.lower() == 'facility'):
-                and_filter.append(('ec.facility_id', val[0], val[1]))
+        and_filter = [('ec.date', start_date, '>='),
+                      ('ec.date', end_date, '<=')]
+        if filter:
+            for key, val in filter.items():
+                if key.lower() == 'local government':
+                    and_filter.append(
+                        ('f.local_government', val[0].lower(), val[1]))
+                elif key.lower() == 'scheme':
+                    and_filter.append(('ec.scheme', val[0], val[1]))
+                elif key.lower() == 'facility':
+                    and_filter.append(('ec.facility_id', val[0], val[1]))
         group_by = ['dis.id']
         order_by = [('disease_count', 'DESC')]
-        query, args = cls._apply_filter(query, limit = limit, and_filter = and_filter,
-                                        group_by = group_by, 
-                                        order_by = order_by
+        query, args = cls._apply_filter(query, limit=limit, and_filter=and_filter,
+                                        group_by=group_by,
+                                        order_by=order_by
                                         )
-                
-        return cls._run_query(query, 
-                            args,  
-                            lambda row: {'disease_name': row['disease_name'], 'disease_count': row['disease_count']})
+
+        return cls._run_query(query,
+                              args,
+                              lambda row: {'disease_name': row['disease_name'], 'disease_count': row['disease_count']})
 
     @classmethod
-    def gender_distribution(cls, start_date: Optional[date] = None, end_date: Optional[date] = None, facility_id: Optional[int] = None, filter: Optional[Dict] = {},  limit: int = 5):
-        start_date, end_date, limit = cls._validate_date(start_date, end_date, limit)
+    def gender_distribution(cls, start_date: Optional[date] = None, end_date: Optional[date] = None, facility_id: Optional[int] = None, filter: Optional[Dict] = None,  limit: int = 5):
+        start_date, end_date, limit = cls._validate_date(
+            start_date, end_date, limit)
         query = '''
-            SELECT 
+            SELECT
               CASE
                 WHEN ec.gender = 'M' THEN 'Male'
                 WHEN ec.gender = 'F' THEN 'Female'
@@ -956,21 +983,24 @@ class DashboardServices(BaseServices):
             FROM encounters AS ec
             JOIN facility as f ON f.id = ec.facility_id
         '''
-        and_filter = [('ec.date', start_date, '>='), ('ec.date', end_date, '<=')]
-        for key, val in filter.items():
-            if (key.lower() == 'local government'):
-                and_filter.append(('f.local_government', val[0].lower(), val[1]))
-            elif (key.lower() == 'scheme'):
-                and_filter.append(('ec.scheme', val[0], val[1]))
-            elif (key.lower() == 'facility'):
-                and_filter.append(('ec.facility_id', val[0], val[1]))
+        and_filter = [('ec.date', start_date, '>='),
+                      ('ec.date', end_date, '<=')]
+        if filter:
+            for key, val in filter.items():
+                if key.lower() == 'local government':
+                    and_filter.append(
+                        ('f.local_government', val[0].lower(), val[1]))
+                elif key.lower() == 'scheme':
+                    and_filter.append(('ec.scheme', val[0], val[1]))
+                elif key.lower() == 'facility':
+                    and_filter.append(('ec.facility_id', val[0], val[1]))
 
-        query, args = cls._apply_filter(query, limit = limit, and_filter = and_filter, group_by=['ec.gender'],
+        query, args = cls._apply_filter(query, limit=limit, and_filter=and_filter, group_by=['ec.gender'],
                                         )
 
-        res =  cls._run_query(query, 
-                              args, 
-                              lambda row: {'gender': row['gender'], 'gender_count': row['gender_count']})
+        res = cls._run_query(query,
+                             args,
+                             lambda row: {'gender': row['gender'], 'gender_count': row['gender_count']})
         male_count = 0
         female_count = 0
 
@@ -981,44 +1011,50 @@ class DashboardServices(BaseServices):
                 female_count = item['gender_count']
 
         total_gender = male_count + female_count
-        male_perc = (male_count / total_gender * 100) if total_gender > 0 else 0
-        female_perc = (female_count / total_gender * 100) if total_gender > 0 else 0
+        male_perc = (male_count / total_gender *
+                     100) if total_gender > 0 else 0
+        female_perc = (female_count / total_gender *
+                       100) if total_gender > 0 else 0
         return (male_perc, female_perc)
 
     @classmethod
-    def age_group_distribution(cls, start_date: Optional[date] = None, end_date: Optional[date] = None, filter: Optional[Dict] = {}, limit: int = 5):
-        start_date, end_date, limit = cls._validate_date(start_date= start_date, end_date = end_date, limit = limit)
+    def age_group_distribution(cls, start_date: Optional[date] = None, end_date: Optional[date] = None, filter: Optional[Dict] = None, limit: int = 5):
+        start_date, end_date, limit = cls._validate_date(
+            start_date=start_date, end_date=end_date, limit=limit)
         query = '''
-            SELECT age_group, COUNT(*) as age_group_count 
+            SELECT age_group, COUNT(*) as age_group_count
             FROM encounters as ec
             JOIN facility as f ON f.id = ec.facility_id
         '''
 
-        and_filter = [('ec.date', start_date, '>='), ('ec.date', end_date, '<=')]
-        for key, val in filter.items():
-            if (key.lower() == 'local government'):
-                and_filter.append(('f.local_government', val[0].lower(), val[1]))
-            elif (key.lower() == 'scheme'):
-                and_filter.append(('ec.scheme', val[0], val[1]))
-            elif (key.lower() == 'facility'):
-                and_filter.append(('ec.facility_id', val[0], val[1]))
+        and_filter = [('ec.date', start_date, '>='),
+                      ('ec.date', end_date, '<=')]
+        if filter:
+            for key, val in filter.items():
+                if key.lower() == 'local government':
+                    and_filter.append(
+                        ('f.local_government', val[0].lower(), val[1]))
+                elif key.lower() == 'scheme':
+                    and_filter.append(('ec.scheme', val[0], val[1]))
+                elif key.lower() == 'facility':
+                    and_filter.append(('ec.facility_id', val[0], val[1]))
 
-        query, args = cls._apply_filter(query, limit = limit, and_filter = and_filter, 
+        query, args = cls._apply_filter(query, limit=limit, and_filter=and_filter,
                                         group_by=['ec.age_group'])
         return cls._run_query(query,
                               args,
                               lambda row: {'age_group': row['age_group'], 'age_group_count': row['age_group_count']})
 
     @classmethod
-    def trend_last_n_months(cls, n: int = 8, facility_id: Optional[int] = None, filter: Optional[Dict] = {}):
-        import pandas as pd
+    def trend_last_n_months(cls, n: int = 8, filter: Optional[Dict] = None):
         if n < 0:
             raise ValidationError("Invalid month range")
 
         today = datetime.today().date()
         month = today.month
         month = month - 8
-        if month < 0: month += 12
+        if month < 0:
+            month += 12
         start_date = today.replace(month=month)
 
         query = '''
@@ -1027,17 +1063,18 @@ class DashboardServices(BaseServices):
             JOIN facility as f on f.id = ec.facility_id
         '''
         and_filter = [('ec.date', start_date, '>=')]
-        for key, val in filter.items():
-            if (key.lower() == 'local government'):
-                and_filter.append(('f.local_government', val[0].lower(), val[1]))
-            elif (key.lower() == 'scheme'):
-                and_filter.append(('ec.scheme', val[0], val[1]))
-            elif (key.lower() == 'facility'):
-                and_filter.append(('ec.facility_id', val[0], val[1]))
+        if filter:
+            for key, val in filter.items():
+                if key.lower() == 'local government':
+                    and_filter.append(
+                        ('f.local_government', val[0].lower(), val[1]))
+                elif key.lower() == 'scheme':
+                    and_filter.append(('ec.scheme', val[0], val[1]))
+                elif key.lower() == 'facility':
+                    and_filter.append(('ec.facility_id', val[0], val[1]))
 
-        query, args = cls._apply_filter(query, and_filter = and_filter, 
+        query, args = cls._apply_filter(query, and_filter=and_filter,
                                         group_by=['ec.date'])
- 
 
         db = get_db()
         rows = db.execute(query, args).fetchall()
@@ -1047,9 +1084,11 @@ class DashboardServices(BaseServices):
             return pd.DataFrame(columns=['date', 'date_count']).to_json(orient="records")
         df['date'] = pd.to_datetime(df['date'])
         df['date'] = df['date'].dt.to_period('M')
-        trend: pd.DataFrame = df.groupby(df['date'])["date_count"].sum().reset_index()
-        all_months = pd.period_range(start = start_date, end = today, freq='M')
-        trend =trend.set_index('date').reindex(all_months, fill_value=0).reset_index()
+        trend: pd.DataFrame = df.groupby(
+            df['date'])["date_count"].sum().reset_index()
+        all_months = pd.period_range(start=start_date, end=today, freq='M')
+        trend = trend.set_index('date').reindex(
+            all_months, fill_value=0).reset_index()
         trend.rename(columns={'index': 'date'}, inplace=True)
         trend['date'] = trend['date'].astype(str)
         return trend.to_json(orient="records")
@@ -1064,22 +1103,23 @@ class ReportServices(BaseServices):
     def get_start_end_date(cls, month: Optional[int], year: Optional[int]):
         filter_date = datetime.now().date()
         if month is not None:
-            filter_date = filter_date.replace(month = month)
+            filter_date = filter_date.replace(month=month)
         if year is not None:
-            filter_date = filter_date.replace(year = year)
+            filter_date = filter_date.replace(year=year)
 
-        start_date = filter_date.replace(day = 1)
+        start_date = filter_date.replace(day=1)
         if filter_date.month == 12:
-            end_date = filter_date.replace(year=filter_date.year+1, month=1, day=1) - timedelta(days=1)
+            end_date = filter_date.replace(
+                year=filter_date.year+1, month=1, day=1) - timedelta(days=1)
         else:
-            end_date = filter_date.replace(month=filter_date.month+1, day=1) - timedelta(days=1)
+            end_date = filter_date.replace(
+                month=filter_date.month+1, day=1) - timedelta(days=1)
         return start_date, end_date
 
     @classmethod
-    def generate_service_utilization_report(cls, facility: int, month: Optional[int] = None, 
+    def generate_service_utilization_report(cls, facility: int, month: Optional[int] = None,
                                             year: Optional[int] = None,
                                             ) -> Tuple:
-        import pandas as pd
         try:
             facility_name = FacilityServices.get_by_id(facility)
         except MissingError:
@@ -1090,11 +1130,11 @@ class ReportServices(BaseServices):
         start_date, end_date = cls.get_start_end_date(month, year)
 
         query = '''
-            SELECT 
+            SELECT
                 ec.policy_number,
                 dis.name AS disease_name,
                 ec.gender,
-                ec.age_group 
+                ec.age_group
             FROM encounters AS ec
             JOIN encounters_diseases as ed on ed.encounter_id = ec.id
             JOIN diseases as dis on dis.id = ed.disease_id
@@ -1114,11 +1154,11 @@ class ReportServices(BaseServices):
         gender = ['M', 'F']
 
         table = df.pivot_table(
-            index = 'disease_name',
-            values = 'policy_number',
-            columns = ['age_group', 'gender'],
+            index='disease_name',
+            values='policy_number',
+            columns=['age_group', 'gender'],
             aggfunc='count',
-            fill_value = 0
+            fill_value=0
         ).reindex(
             pd.MultiIndex.from_product([age_groups, gender]),
             axis=1,
@@ -1126,9 +1166,9 @@ class ReportServices(BaseServices):
         )
         # table
 
-        table[('TOTAL', 'M')] = table.filter(like= 'M').sum(axis=1)
-        table[('TOTAL', 'F')] = table.filter(like= 'F').sum(axis=1)
-        table['GRAND TOTAL'] =  table[('TOTAL', 'M')] + table[('TOTAL', 'F')]
+        table[('TOTAL', 'M')] = table.filter(like='M').sum(axis=1)
+        table[('TOTAL', 'F')] = table.filter(like='F').sum(axis=1)
+        table['GRAND TOTAL'] = table[('TOTAL', 'M')] + table[('TOTAL', 'F')]
         table.loc['TOTAL'] = table.sum()
         table = table.reset_index()
         table.index.name = ''
@@ -1137,11 +1177,10 @@ class ReportServices(BaseServices):
 
         return facility_name, start_date, table
 
-
     @classmethod
     def generate_encounter_report(cls, month: Optional[int] = None,
-                                   year: Optional[int] = None,
-                                   )->Tuple:
+                                  year: Optional[int] = None,
+                                  ) -> Tuple:
 
         if month and (month > 12 or month < 1):
             raise ValidationError("Invalid month selection")
@@ -1149,9 +1188,9 @@ class ReportServices(BaseServices):
         start_date, end_date = cls.get_start_end_date(month, year)
 
         query = '''
-            SELECT 
+            SELECT
                 f.name as facility_name,
-                ec.policy_number, 
+                ec.policy_number,
                 ec.gender,
                 ec.age_group
             FROM encounters as ec
@@ -1169,23 +1208,22 @@ class ReportServices(BaseServices):
         age_groups = ['<1', '1-5', '6-14', '15-19', '20-44', '45-64', '65&AB']
         gender = ['M', 'F']
 
-
         table = df.pivot_table(
-            index = 'facility_name',
-            values = 'policy_number',
-            columns = ['age_group', 'gender'],
-            aggfunc = 'count',
-            fill_value = 0,
+            index='facility_name',
+            values='policy_number',
+            columns=['age_group', 'gender'],
+            aggfunc='count',
+            fill_value=0,
 
         ).reindex(
             pd.MultiIndex.from_product([age_groups, gender]),
-            fill_value = 0,
+            fill_value=0,
             axis=1
         )
 
-        table[('TOTAL', 'M')] = table.filter(like= 'M').sum(axis=1)
-        table[('TOTAL', 'F')] = table.filter(like= 'F').sum(axis=1)
-        table['GRAND TOTAL'] =  table[('TOTAL', 'M')] + table[('TOTAL', 'F')]
+        table[('TOTAL', 'M')] = table.filter(like='M').sum(axis=1)
+        table[('TOTAL', 'F')] = table.filter(like='F').sum(axis=1)
+        table['GRAND TOTAL'] = table[('TOTAL', 'M')] + table[('TOTAL', 'F')]
         table.loc['TOTAL'] = table.sum()
         table = table.reset_index()
         table.index.name = ''
@@ -1193,15 +1231,14 @@ class ReportServices(BaseServices):
         table.rename(columns={'facility_name': 'Facilities'}, inplace=True)
         return start_date, table
 
-
     @classmethod
     def generate_categorization_report(cls, month: Optional[None], year: Optional[None]):
-        if month and (month <1 or month > 12):
+        if month and (month < 1 or month > 12):
             raise ValidationError("Invalid Month selection")
         start_date, end_date = cls.get_start_end_date(month, year)
         query = '''
             SELECT
-              ec.policy_number, 
+              ec.policy_number,
               cg.category_name,
               f.name as facility_name
             FROM encounters as ec
@@ -1217,11 +1254,11 @@ class ReportServices(BaseServices):
         if df.empty:
             raise MissingError("No report available for the time frame")
         table = df.pivot_table(
-            index = 'facility_name',
-            values = 'policy_number',
-            columns = ['category_name'],
-            aggfunc = 'count',
-            fill_value = 0
+            index='facility_name',
+            values='policy_number',
+            columns=['category_name'],
+            aggfunc='count',
+            fill_value=0
         )
         rows = db.execute('SELECT category_name from diseases_category')
         categories = [row['category_name'] for row in rows]
@@ -1235,9 +1272,10 @@ class ReportServices(BaseServices):
 
         return start_date, table
 
+
 class UploadServices(BaseServices):
-    
+
     @classmethod
-    #todo
+    # todo
     def upload_sheet(cls):
         return
