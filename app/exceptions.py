@@ -20,3 +20,6 @@ class ValidationError(ServiceError):
 
 class AuthenticationError(ServiceError):
     """Raised when user credentials are wrongs"""
+
+class QueryParameterError(ServiceError):
+    '''Raised when Parameter passed for sql query is wrong Usually for filter parsing'''

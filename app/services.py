@@ -1,26 +1,41 @@
+import sqlite3
+from datetime import timedelta
+from datetime import datetime, date
+from collections import defaultdict
+import pandas as pd
 from werkzeug.security import generate_password_hash, check_password_hash
 from typing import Optional, Type, TypeVar, Iterator, List, Tuple, Dict
 from app.db import get_db
 from app.models import User, Facility, Disease, Encounter, TreatmentOutcome, DiseaseCategory, Role, InsuranceScheme, FacilityView, UserView, EncounterView, DiseaseView
-from app.exceptions import MissingError, InvalidReferenceError, DuplicateError
-from collections import defaultdict
+from app.exceptions import MissingError, InvalidReferenceError, DuplicateError, QueryParameterError
 from app.exceptions import ValidationError, AuthenticationError
-from datetime import datetime, date
 from app import app
 from app.constants import ONDO_LGAS_LOWER
-import sqlite3
-from datetime import timedelta
-import pandas as pd
+from app.filter_parser import FilterParser, Params
 
+
+def _legacy_to_params(**kwargs) -> Dict:
+    res = {}
+    if 'and_filter' in kwargs:
+        res['and_filter'] = kwargs['and_filter']
+    if 'or_filter' in kwargs:
+        res['or_filter'] = kwargs['or_filter']
+    if 'group_by' in kwargs:
+        res['group_by'] = kwargs['group_by']
+    if 'order_by' in kwargs:
+        res['order_by'] = kwargs['order_by']
+    if 'limit' in kwargs:
+        res['limit'] = kwargs['limit']
+    if 'offset' in kwargs:
+        res['offset'] = kwargs['offset']
+    return res
 
 T = TypeVar('T')
-
-
 class BaseServices:
     model: Type[T] = None
     table_name = ''
-    columns: set = set()
     columns_to_update: set = set()
+    MODEL_MAP = {}
 
     @staticmethod
     def _row_to_model(row, model_cls: Type[T]) -> T:
@@ -44,20 +59,32 @@ class BaseServices:
     @classmethod
     def list_row_by_page(cls,
                          page: int,
-                         page_size=app.config['ADMIN_PAGE_PAGINATION'],
-                         and_filter: Optional[List[Tuple]] = None,
-                         or_filter: Optional[List[Tuple]] = None,
-                         order_by: Optional[List[Tuple[str, str]]] = None,
-                         group_by: Optional[List[str]] = None
+                         params: Optional[Params] = None,
+                         **kwargs,
                          ) -> Iterator:
 
-        offset = (int(page) - 1) * page_size
+        limit = 0
+        res = {}
+        if not params:
+            res = _legacy_to_params(**kwargs)
+            if not 'limit' in res:
+                res['limit'] = app.config['ADMIN_PAGE_PAGINATION']
+                limit = res['limit']
+            else:
+                limit = res['limit']
+        else:
+            params.limit = app.config['ADMIN_PAGE_PAGINATION'] if not params.limit else params.limit
+            limit = params.limit
+
+        offset = (int(page) - 1) * limit
         if offset < 0:
             raise ValidationError("Invalid listing page")
-
-        return cls.get_all(limit=page_size, offset=offset, and_filter=and_filter,
-                           or_filter=or_filter, group_by=group_by,
-                           order_by=order_by)
+        if params:
+            params.offset = offset
+            return cls.get_all(params=params)
+        else:
+            res['offset'] = offset
+            return cls.get_all(**res)
 
     @classmethod
     def update_data(cls, model: Type[T]) -> T:
@@ -74,15 +101,23 @@ class BaseServices:
 
     @classmethod
     def get_total(cls,
-                  and_filter: Optional[List[Tuple]] = None,
-                  or_filter: Optional[List[Tuple]] = None):
+                  params: Optional[Params] = None,
+                  **kwargs) -> int:
 
         query = f'SELECT COUNT(*) from {cls.table_name}'
+        res ={}
+        if params is not None:
+            if params.group_by or params.order_by:
+                raise QueryParameterError("You can't groupby or order by to get_total")
+            model_map = {cls.model: cls.table_name}
+            res = FilterParser.parse_params(params, model_map=model_map)
+        else:
+            res = _legacy_to_params(**kwargs)
+
         query, args = cls._apply_filter(
             base_query=query,
             base_arg=[],
-            and_filter=and_filter,
-            or_filter=or_filter,
+            **res
         )
         db = get_db()
         return int(db.execute(query, args).fetchone()[0])
@@ -98,7 +133,7 @@ class BaseServices:
                       order_by: Optional[List[Tuple[str, str]]] = None,
                       group_by: Optional[List[str]] = None
                       ):
-        ALLOWED_OPERATORS = {'=', '>', '<', '>=', '<=', '!=', 'LIKE'}
+        ALLOWED_OPERATORS = {'=', '>', '<', '>=', '<=', '!=', 'LIKE', 'IN'}
         query = ''
         args = base_arg if base_arg is not None else []
         conditions = []
@@ -106,7 +141,7 @@ class BaseServices:
 
         if and_filter:
             for column_name, value, opt in and_filter:
-                if opt not in ALLOWED_OPERATORS:
+                if opt.upper() not in ALLOWED_OPERATORS:
                     raise ValidationError(f"Invalid operator: {opt}")
                 conditions.append(f"{column_name} {opt} ?")
                 args.append(value)
@@ -114,7 +149,7 @@ class BaseServices:
         if or_filter:
             or_conditions = []
             for column_name, value, opt in or_filter:
-                if opt not in ALLOWED_OPERATORS:
+                if opt.upper() not in ALLOWED_OPERATORS:
                     raise ValidationError(f"Invalid operator: {opt}")
                 or_conditions.append(f"{column_name} {opt} ?")
                 args.append(value)
@@ -150,20 +185,19 @@ class BaseServices:
 
     @classmethod
     def get_all(cls,
-                limit: int = 0,
-                offset: int = 0,
-                and_filter: Optional[List[Tuple]] = None,
-                or_filter: Optional[List[Tuple]] = None,
-                order_by: Optional[List[Tuple[str, str]]] = None,
-                group_by: Optional[List[str]] = None
+                params: Optional[Params] = None,
+                **kwargs
                 ) -> Iterator:
+
+        res = {}
+        if params:
+            model_map = {cls.model: cls.table_name}
+            res = FilterParser.parse_params(params, model_map=model_map)
+        else:
+            res = _legacy_to_params(**kwargs)
         query = f"SELECT * from {cls.table_name}"
         query, args = cls._apply_filter(query,
-                                        limit=limit, offset=offset,
-                                        and_filter=and_filter,
-                                        or_filter=or_filter,
-                                        order_by=order_by,
-                                        group_by=group_by)
+                                        **res)
         db = get_db()
         rows = db.execute(query, args)
         for row in rows:
@@ -171,20 +205,29 @@ class BaseServices:
 
     @classmethod
     def has_next_page(cls, page: int,
-                      and_filter: Optional[list[Tuple]] = None,
-                      or_filter: Optional[List[Tuple]] = None) -> bool:
-        total = cls.get_total(and_filter=and_filter, or_filter=or_filter)
-        current = page * app.config['ADMIN_PAGE_PAGINATION']
+                      page_count = app.config['ADMIN_PAGE_PAGINATION'],
+                      params: Optional[Params] =  None,
+                      **kwargs
+                      ) -> bool:
+        res = {}
+        if params:
+            total = cls.get_total(params)
+        else:
+            total = cls.get_total(**kwargs)
+
+        current = page * page_count
         if current < total:
             return True
         return False
-
 
 class UserServices(BaseServices):
     model = User
     table_name = 'users'
     columns_to_update = {'username', 'facility_id', 'role'}
-    columns = {'id', 'username', 'facility_id', 'role', 'password_hash'}
+    MODEL_ALIAS_MAP = {
+        User: 'u',
+        Facility: 'fc'
+    }
 
     @classmethod
     def create_user(cls, username: str, facility_id: Optional[int], password: str, role=None, commit=True) -> User:

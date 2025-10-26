@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from typing import Any, List, Optional, Dict, Union, Type, Tuple
 from app.config import Config
-from exceptions import ValidationError
+from app.exceptions import QueryParameterError
 @dataclass
 class AndFilter:
     model: Type
@@ -88,11 +88,11 @@ class FilterParser:
             value = fil.value
 
             if not model.validate_col(col):
-                raise ValidationError(f"Column {col} not in table {model.get_name()}")
+                raise QueryParameterError(f"Column {col} not in table {model.get_name()}")
             if not op in cls.ALLOWED_OPERATORS:
-                raise ValidationError(f"Operator {op} not allowed")
+                raise QueryParameterError(f"Operator {op} not allowed")
             if not model in model_map:
-                raise ValidationError("Model not in Model map")
+                raise QueryParameterError("Model not in Model map")
 
             result.append((f'{model_map[model]}.{col}', value, op ))
         return result
@@ -105,9 +105,9 @@ class FilterParser:
             model = fil.model
             col = fil.col
             if not model.validate_col(col):
-                raise ValidationError(f"Column {col} not in table {model.get_name()}")
+                raise QueryParameterError(f"Column {col} not in table {model.get_name()}")
             if not model in model_map:
-                raise ValidationError("Model not in Model map")
+                raise QueryParameterError("Model not in Model map")
 
             result.append(f'{model_map[model]}.{col}')
         return result
@@ -122,10 +122,10 @@ class FilterParser:
             order = fil.order.upper()
 
             if not model.validate_col(col):
-                raise ValidationError(f"Column {col} not in table {model.get_name()}")
+                raise QueryParameterError(f"Column {col} not in table {model.get_name()}")
             if not model in model_map:
-                raise ValidationError("Model not in Model map")
+                raise QueryParameterError("Model not in Model map")
             if not order in {'ASC', 'DESC'}:
-                raise ValidationError("Invalid Order Format")
+                raise QueryParameterError("Invalid Order Format")
             result.append((f'{model_map[model]}.{col}', order))
         return result
