@@ -1,61 +1,77 @@
 ''' Parse SQL Params'''
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, List, Optional, Dict, Union, Type, Tuple
 from app.config import Config
 from app.exceptions import QueryParameterError
 @dataclass
-class AndFilter:
-    model: Type
+class Filter:
+    model: Optional[ Type ]
     col: str
     op: str
     value: Any
 
 @dataclass
-class OrFilter(AndFilter):
-    pass
-
-@dataclass
 class GroupBy:
-    model: Type
+    model: Optional[Type]
     col: str
 
 @dataclass
 class OrderBy:
-    model: Type
+    model: Optional[Type]
     col: str
     order: str = 'ASC'
 
-@dataclass
+@dataclass(frozen=True)
 class Params:
-    and_filter: List[AndFilter]  = field(default_factory=list)
-    or_filter: List[OrFilter]  = field(default_factory=list)
-    group_by: List[GroupBy]  = field(default_factory=list)
-    order_by: List[OrderBy]  = field(default_factory=list)
-    limit: int = field(default=0)
-    offset: int = field(default=0)
+    _and_filter: tuple = field(default_factory=tuple)
+    _or_filter:tuple  = field(default_factory=tuple)
+    _group_by: tuple  = field(default_factory=tuple)
+    _order_by: tuple  = field(default_factory=tuple)
+    _limit: int = 0
+    _offset: int = 0
 
-    def where(self, model: Type, col: str, op: str, value: Any):
-        self.and_filter.append(AndFilter(model, col, op, value))
-        return self
+    def where(self, model: Type, col: str, op: str, value: Any) -> 'Params':
+        return replace(self, _and_filter = self._and_filter + (Filter(model, col, op, value),))
 
-    def or_where(self, model: Type, col: str, value: Any):
-        self.or_filter.append(OrFilter(model, col, op, value))
-        return self
+    def or_where(self, model: Type, col: str, op: str, value: Any) -> 'Params':
+        return replace(self, _or_filter = self._or_filter + (Filter(model, col, op, value),))
 
-    def group(self, model:Type, col: str):
-        self.group_by.append(GroupBy(model, col))
-        return self
+    def group(self, model:Type, col: str) -> 'Params':
+        return replace(self, _group_by = self._group_by + (GroupBy(model, col),))
 
-    def sort(self, model:Type, col: str, order: str = 'ASC'):
-        self.order_by.append(OrderBy(model, col, order))
-        return self
+    def sort(self, model:Type, col: str, order: str = 'ASC') -> 'Params':
+        return replace(self, _order_by = self._order_by + (OrderBy(model, col, order), ))
 
-    def paginate(self, limit: int = 0,
-                 offset: int = 0):
-        self.limit = limit
-        self.offset = offset
-        return self
+    def set_limit(self, limit: int = 0) -> 'Params':
+        return replace(self, _limit = limit)
+
+    def set_offset(self, offset: int = 0) -> 'Params':
+        return replace(self,  _offset = offset)
+
+    @property
+    def and_filter(self) -> List[Filter]:
+        return list(self._and_filter)
+
+    @property
+    def or_filter(self) -> List[Filter]:
+        return list(self._or_filter)
+
+    @property
+    def group_by(self) -> List[GroupBy]:
+        return list(self._group_by)
+
+    @property
+    def order_by(self) -> List[OrderBy]:
+        return list(self._order_by)
+
+    @property
+    def limit(self) -> int:
+        return self._limit
+
+    @property
+    def offset(self) -> int:
+        return self._offset
 
 class FilterParser:
     ALLOWED_OPERATORS = {'=', '>', '<', '>=', '<=', '!=', 'LIKE', 'IN'}
@@ -63,14 +79,14 @@ class FilterParser:
     @classmethod
     def parse_params(cls, params: Params, model_map: Dict):
         result = {}
-        if params.and_filter:
-            result['and_filter'] = cls.parse_filters(params.and_filter, model_map)
-        if params.or_filter:
-            result[ 'or_filter' ] = cls.parse_filters(params.or_filter, model_map)
-        if params.group_by:
-            result[ 'group_by' ] = cls.parse_groupby(params.group_by, model_map)
-        if params.order_by:
-           result [ 'order_by' ] = cls.parse_orderby(params.order_by, model_map)
+        if and_filter := params.and_filter:
+            result['and_filter'] = cls.parse_filters(and_filter, model_map)
+        if or_filter := params.or_filter:
+            result[ 'or_filter' ] = cls.parse_filters(or_filter, model_map)
+        if group_by := params.group_by:
+            result[ 'group_by' ] = cls.parse_groupby(group_by, model_map)
+        if order_by := params.order_by:
+           result [ 'order_by' ] = cls.parse_orderby(order_by, model_map)
         if params.limit > 0:
             result['limit'] = params.limit
         if params.offset > 0:
@@ -78,54 +94,77 @@ class FilterParser:
         return result
 
     @classmethod
-    def parse_filters(cls, filters: List[Union[AndFilter, OrFilter]],
+    def parse_filters(cls, filters: List[Filter],
                       model_map: Dict) -> List[Tuple]:
         result = []
+        save = {}
         for fil in filters:
             model = fil.model
             op = fil.op
             col = fil.col
             value = fil.value
+            if model:
+                if not model.validate_col(col):
+                    raise QueryParameterError(f"Column {col} not in table {model.get_name()}")
+                if not model in model_map:
+                    print(fil)
+                    raise QueryParameterError(f"Model {model} not in Model map")
+                col = f'{model_map[model]}.{col}'
 
-            if not model.validate_col(col):
-                raise QueryParameterError(f"Column {col} not in table {model.get_name()}")
             if not op in cls.ALLOWED_OPERATORS:
                 raise QueryParameterError(f"Operator {op} not allowed")
-            if not model in model_map:
-                raise QueryParameterError("Model not in Model map")
-
-            result.append((f'{model_map[model]}.{col}', value, op ))
+            if (col, op) in save:
+                save[(col, op)] = (col, value, op)
+            else:
+                save[(col, op)] = len(result)
+                result.append((col, value, op))
         return result
 
     @classmethod
     def parse_groupby(cls, filters: List[GroupBy],
                       model_map: Dict):
         result = []
+        save = {}
+
         for fil in filters:
             model = fil.model
             col = fil.col
-            if not model.validate_col(col):
-                raise QueryParameterError(f"Column {col} not in table {model.get_name()}")
-            if not model in model_map:
-                raise QueryParameterError("Model not in Model map")
-
-            result.append(f'{model_map[model]}.{col}')
+            if model:
+                if not model.validate_col(col):
+                    raise QueryParameterError(f"Column {col} not in table {model.get_name()}")
+                if not model in model_map:
+                    print(fil)
+                    raise QueryParameterError(f"Model {model} not in Model map")
+                col = (f'{model_map[model]}.{col}')
+            if col not in save:
+                save[col] = len(result)
+                result.append(col)
         return result
 
     @classmethod
     def parse_orderby(cls, filters: List[OrderBy],
                       model_map: Dict):
         result = []
+        save = {}
+
         for fil in filters:
             model = fil.model
             col = fil.col
             order = fil.order.upper()
+            if model:
+                if not model.validate_col(col):
+                    raise QueryParameterError(f"Column {col} not in table {model.get_name()}")
+                if not model in model_map:
+                    print(fil)
+                    raise QueryParameterError(f"Model {model} not in Model map")
+                col = f'{model_map[model]}.{col}'
 
-            if not model.validate_col(col):
-                raise QueryParameterError(f"Column {col} not in table {model.get_name()}")
-            if not model in model_map:
-                raise QueryParameterError("Model not in Model map")
             if not order in {'ASC', 'DESC'}:
                 raise QueryParameterError("Invalid Order Format")
-            result.append((f'{model_map[model]}.{col}', order))
+
+            if col not in save:
+                save[col] = len(result)
+                result.append((col, order))
+            else:
+                result[save[col]] = (col, order)
         return result

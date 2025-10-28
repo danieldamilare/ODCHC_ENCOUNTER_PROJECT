@@ -11,6 +11,7 @@ class Role(Enum):
     admin = auto()
     user = auto()
 
+<<<<<<< Updated upstream
 @dataclass
 class Model:
     @classmethod
@@ -20,6 +21,8 @@ class Model:
                 return True
         return False
 
+=======
+>>>>>>> Stashed changes
 @dataclass
 class User(Model):
     id: int
