@@ -1,7 +1,7 @@
 from app import app
 from flask import redirect, flash, url_for, request, render_template, abort
 from flask_login import login_required, login_user, logout_user
-from app.models import Role, is_logged_in, get_current_user, AuthUser, Facility, Encounter, User
+from app.models import Role, is_logged_in, get_current_user, AuthUser, Facility, Encounter, User, Disease, TreatmentOutcome
 from app.services import UserServices, EncounterServices, FacilityServices, DiseaseServices, TreatmentOutcomeServices
 from app.services import DiseaseCategoryServices, InsuranceSchemeServices
 from app.exceptions import AuthenticationError, MissingError, ValidationError
@@ -12,7 +12,9 @@ from app.utils import form_to_dict, admin_required, humanize_datetime_filter
 from app.forms import LoginForm, AddEncounterForm, AddFacilityForm, EditFacilityForm, AddDiseaseForm, ExcelUploadForm
 from app.forms import AddUserForm, AddCategoryForm, DeleteUserForm, EditUserForm, EditDiseaseForm, EncounterFilterForm
 from app.constants import ONDO_LGAS_LIST
+from app.filter_parser import Params
 from flask_wtf import FlaskForm
+from copy import copy
 from app.services import DashboardServices, ReportServices
 from typing import Optional
 from datetime import datetime, date, timedelta
@@ -247,27 +249,29 @@ def view_facilities(pid: int) -> Any:
     today = datetime.now().date()
     first_month_day = today.replace(day=1)
 
-    user_count = UserServices.get_total(
-        and_filter=[('facility_id', pid, '=')]
-    )
-    and_filter = [('facility_id', pid, '='),
-                  ('date', first_month_day, '>='),
-                  ('date', today, '<=')]
-    and_filter2 = [('ec.facility_id', pid, '='), and_filter[1], and_filter[2]]
 
-    month_encounter_count = EncounterServices.get_total(
-        and_filter=and_filter)
+    print("Testing params in user_count")
+    user_count = UserServices.get_total(params= Params().where(User, 'facility_id', '=', pid))
 
-    recent_encounters = list(EncounterServices.get_all(limit=10,
-                                                       and_filter=and_filter2,
-                                                       order_by=[('date', 'DESC')]))
+    filters = Params()
+    filters = (filters.where(Encounter, 'facility_id', '=', pid)
+            .where(Encounter, 'date', '>=', first_month_day)
+            .where(Encounter, 'date', '<=', today))
+
+    print('Testing params in monthly encounter count')
+    month_encounter_count = EncounterServices.get_total(params = filters)
+    filters = filters.set_limit(10)
+    filters = filters.sort(Encounter, 'date', 'DESC')
+    recent_encounters = list(EncounterServices.get_all(params = filters))
+
 
     page = int(request.args.get('user_page', 1))
     user_list = list(UserServices.list_row_by_page(page=page,
-                                                   and_filter=[('facility_id', pid, '=')]))
+                                                   params=Params().where(User, 'facility_id', '=', pid)))
 
     next_url = url_for('view_facilities', pid=pid, user_page=page +
-                       1) if UserServices.has_next_page(page, and_filter=[and_filter[0]]) else None
+                       1) if UserServices.has_next_page(page,
+                                                        params=Params().where(User, 'facility_id', '=', pid)) else None
     prev_url = url_for('view_facilities', pid=pid,
                        user_page=page - 1) if page > 1 else None
 
@@ -287,14 +291,13 @@ def view_facilities(pid: int) -> Any:
 @admin_required
 def diseases():
     page = int(request.args.get('page', 1))
-    and_filter = None
-    other_and_filter = None
+    filters = Params()
     if category := request.args.get('category'):
-        and_filter = [('d.category_id', category, '=')]
-        other_and_filter = [('category_id', category, '=')]
+        filters = filters.where(Disease, 'category_id', '=', category)
+
     disease_list = list(DiseaseServices.list_row_by_page(page,
-                                                         and_filter=and_filter))
-    total_diseases = DiseaseServices.get_total(and_filter=other_and_filter)
+                                                         params=filters))
+    total_diseases = DiseaseServices.get_total(params=filters)
 
     category_list = list(DiseaseCategoryServices.get_all())
     total_categories = DiseaseCategoryServices.get_total()
@@ -304,8 +307,8 @@ def diseases():
         res['category'] = category
 
     res['page'] = page+1
-    next_url = url_for('diseases', **res) if DiseaseServices.has_next_page(page,
-                                                                           and_filter=other_and_filter) else None
+    next_url = url_for('diseases', **res) if DiseaseServices.has_next_page(page=page,
+                                                                           params=filters) else None
     res['page'] = page - 1
     prev_url = url_for('diseases', **res) if page > 1 else None
 
@@ -478,34 +481,33 @@ def encounters():
     user = get_current_user()
     page = int(request.args.get('page', 1))
     filter_form = EncounterFilterForm(request.args)
+
     filter_form.facility_id.choices = [('0', 'All Facilities')] + sorted(
         [(fac.id, fac.name.title()) for fac in FacilityServices.get_all()],
         key=lambda x: x[1])
 
-    and_filter = []
+    filters = Params()
 
     if filter_form.start_date.data:
         start_date = datetime.strptime(
             filter_form.start_date.data, '%Y-%m-%d').date()
-        and_filter.append(('date', start_date, '>='))
+        filters = filters.where(Encounter, 'date', '>=', start_date)
 
     if filter_form.end_date.data:
         end_date = datetime.strptime(
             filter_form.end_date.data, '%Y-%m-%d').date()
-        and_filter.append(('date', end_date, '<='))
+        filters = filters.where(Encounter, 'date', '>=', start_date)
 
     if user.role == Role.user:
-        and_filter.append(('ec.facility_id', user.facility.id, '='))
+        filters = filters.where(Encounter, 'date', '>=', start_date)
     else:
-        lga = filter_form.local_government.data
-        facility_id = filter_form.facility_id.data
-        if lga:
-            and_filter.append(('fc.local_government', lga, '='))
-        if facility_id:
-            and_filter.append(('ec.facility_id', facility_id, '='))
+        if lga := filter_form.local_government.data:
+            filters = filters.where(Facility, 'local_government', '=', lga)
+        if facility_id := filter_form.facility_id.data:
+            filters = filters.where(Encounter, 'facility_id', '=', facility_id)
 
     encounter_list = list(EncounterServices.list_row_by_page(page,
-                                                             and_filter=and_filter))
+                                                             params=filters))
 
     pagination_args = {**request.args, "page": page + 1}
     next_url = (url_for('encounters', **pagination_args)
@@ -534,17 +536,13 @@ def view_encounter(pid: int):
         flash(str(e), "error")
     except ValidationError as e:
         flash(str(e), "erro")
-    encounter_view = list(EncounterServices.get_all(and_filter=[
-        ("ec.id", pid, '=')]))[0]
+    encounter_view =  EncounterServices.get_view_by_id(pid)
     return render_template('view_encounter.html',
                            title=f"Encounter Details: {encounter_view.client_name}",
                            encounter=encounter_view)
 
 
-@app.route('/dashboard')
-@login_required
-def admin():
-    # --- 1. GET FILTERS FROM URL ---
+def build_filter():
     period = request.args.get('period', 'this_month')
     facility_id = request.args.get('facility_id', None)
     scheme = request.args.get('scheme_id', None)
@@ -554,95 +552,87 @@ def admin():
     if (user := get_current_user()).role.name != 'admin':
         facility_id = user.facility.id
 
-    scheme_list = (list(InsuranceSchemeServices.get_all())
-                   if user.role.name == 'admin' else user.facility.scheme)
-
-    local_government_list = ONDO_LGAS_LIST
-
-    # --- 2. CALCULATE DATE RANGE ---
     today = date.today()
-    start_date = None
+    start_date = today.replace(day=1)
     end_date = today
-
     if period == 'this_month':
         start_date = today.replace(day=1)
     elif period == 'last_3_months':
         start_date = today - timedelta(days=90)
     elif period == 'last_year':
         start_date = today.replace(year=today.year - 1)
+    elif not period:
+        start_date = today.replace(day=1)
+    else:
+        raise ValueError(f"Invalid Period selected {period}", 'error')
 
-    # Custom range would be handled by a different form, but this is good for demo
+    filters = Params()
 
-    # --- 3. BUILD FILTERS FOR SERVICES ---
-    encounter_and_filters = []
-    facility_and_filters = []  # For services that filter on the facility table directly
-    other_encounter_filter = []
     if start_date:
-        encounter_and_filters.append(('date', start_date, '>='))
-        other_encounter_filter += encounter_and_filters
-
-    filter = {}
+        filters = filters.where(Encounter, 'date', '>=', start_date)
+    filters = filters.where(Encounter, 'date', '<=', end_date)
 
     if facility_id:
-        try:
-            # Filter for encounter-related queries
-            encounter_and_filters.append(
-                ('ec.facility_id', int(facility_id), '='))
-            other_encounter_filter.append(
-                ('facility_id', int(facility_id), '='))
-            filter['facility'] = (facility_id, '=')
-        except ValueError:
-            # Handle case where facility_id is not a valid integer
-            pass
+        filters = filters.where(Encounter, 'facility_id', '=', int(facility_id))
 
     if user.role.name == 'admin' and local_government:
-        encounter_and_filters.append(
-            ('fc.local_government', local_government, '='))
-        filter['local government'] = (local_government, '=')
+        filters = filters.where(Facility, 'local_government', '=', local_government)
 
     if scheme:
-        encounter_and_filters.append(('ec.scheme', scheme, '='))
-        filter['scheme'] = (scheme, '=')
+        filters = filters.where(Encounter, 'scheme', '=', int(scheme))
 
     if gender:
-        encounter_and_filters.append(('ec.gender', gender, '='))
-        filter['gender'] = (gender, '=')
+        filters = filters.where(Encounter, 'gender', '=', gender)
 
-    # --- 4. FETCH DATA FROM SERVICES ---
-    active_facilities = len(list(EncounterServices.get_all(
-        and_filter=encounter_and_filters, group_by=['ec.facility_id'])))
+    return filters
 
-    top_diseases_data = DashboardServices.top_diseases(
-        start_date=start_date, end_date=end_date, limit=5, filter=filter)
 
-    male_perc, female_perc = DashboardServices.gender_distribution(
-        start_date=start_date, end_date=end_date, filter=filter)
-    # For charts
-    monthly_trend_raw = json.loads(
-        DashboardServices.trend_last_n_months(filter=filter))  # 6 months
-    age_distribution = DashboardServices.age_group_distribution(
-        start_date=start_date, end_date=end_date, filter=filter)
-    top_facilities_raw = list(DashboardServices.get_top_facilities(
-        start_date=start_date, end_date=end_date, limit=5))
-    total_encounters = len(
-        list(EncounterServices.get_all(and_filter=encounter_and_filters)))
+@app.route('/dashboard')
+@login_required
+def admin():
+    try:
+        filters = build_filter()
 
-    formatted_top_facilities = []
-    for facility in top_facilities_raw:
-        if facility['last_submission']:
-            try:
-                dt_obj = arrow.get(facility['last_submission']).to(
-                    'local')  # Convert to local timezone if needed
-                facility['last_submission_formatted'] = dt_obj.strftime(
-                    '%b %d, %Y %I:%M %p')  # e.g., Oct 23, 2025 08:15 AM
-            except Exception:
-                facility['last_submission_formatted'] = str(
-                    facility['last_submission'])  # Fallback
-        else:
-            facility['last_submission_formatted'] = 'N/A'
-        formatted_top_facilities.append(facility)
+        active_facilities = len(list(EncounterServices.get_all(
+            params= filters.group(Encounter, 'facility_id'))))
 
-    # For recent encounters table
+        top_diseases_data = DashboardServices.top_diseases(
+            params= filters.set_limit(5))
+
+        male_perc, female_perc = DashboardServices.gender_distribution(params=filters)
+        # For charts
+        monthly_trend_raw = json.loads(
+            DashboardServices.trend_last_n_months(params=filters))
+        age_distribution = DashboardServices.age_group_distribution(
+            params=filters.set_limit(5))
+        top_facilities_raw = list(DashboardServices.get_top_facilities(
+            params= filters.set_limit(5)))
+        total_encounters = len(
+            list(EncounterServices.get_all(params=filters)))
+
+        formatted_top_facilities = []
+        for facility in top_facilities_raw:
+            if facility['last_submission']:
+                try:
+                    dt_obj = arrow.get(facility['last_submission']).to(
+                        'local')  # Convert to local timezone if needed
+                    facility['last_submission_formatted'] = dt_obj.strftime(
+                        '%b %d, %Y %I:%M %p')  # e.g., Oct 23, 2025 08:15 AM
+                except Exception:
+                    facility['last_submission_formatted'] = str(
+                        facility['last_submission'])  # Fallback
+            else:
+                facility['last_submission_formatted'] = 'N/A'
+            formatted_top_facilities.append(facility)
+    except ValueError as e:
+        flash(f"Error occur in your filtering {e}")
+
+
+    scheme_list = (list(InsuranceSchemeServices.get_all())
+                   if get_current_user().role.name == 'admin' else get_current_user().facility.scheme)
+
+    local_government_list = ONDO_LGAS_LIST
+
 
     # For dropdown
     all_facilities = sorted(FacilityServices.get_all(), key=lambda x: x.name)
@@ -651,8 +641,8 @@ def admin():
                            # Filters for UI
                            title='Dashboard',
                            all_facilities=all_facilities,
-                           current_period=period,
-                           current_facility_id=facility_id,
+                           current_period=request.args.get('period'),
+                           current_facility_id=request.args.get('facility_id'),
 
                            # KPI Cards
                            total_encounters=total_encounters,
