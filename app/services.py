@@ -13,6 +13,7 @@ from app.exceptions import MissingError, InvalidReferenceError, DuplicateError, 
 from app.exceptions import ValidationError, AuthenticationError
 from app import app
 from app.constants import ONDO_LGAS_LOWER
+from copy import copy
 from app.filter_parser import FilterParser, Params
 
 
@@ -75,14 +76,14 @@ class BaseServices:
             else:
                 limit = res['limit']
         else:
-            params.limit = app.config['ADMIN_PAGE_PAGINATION'] if not params.limit else params.limit
-            limit = params.limit
+           limit = app.config['ADMIN_PAGE_PAGINATION'] if not params.limit else params.limit
 
         offset = (int(page) - 1) * limit
         if offset < 0:
             raise ValidationError("Invalid listing page")
         if params:
-            params.offset = offset
+            params = params.set_limit(limit)
+            params = params.set_offset(offset)
             return cls.get_all(params=params)
         else:
             res['offset'] = offset
@@ -111,8 +112,10 @@ class BaseServices:
         if params is not None:
             if params.group_by or params.order_by:
                 raise QueryParameterError("You can't groupby or order by to get_total")
-            model_map = {cls.model: cls.table_name}
-            res = FilterParser.parse_params(params, model_map=model_map)
+
+            mapper = {cls.model: cls.table_name}
+            res = FilterParser.parse_params(params, model_map=mapper)
+            # print(res)
         else:
             res = _legacy_to_params(**kwargs)
 
@@ -121,8 +124,13 @@ class BaseServices:
             base_arg=[],
             **res
         )
+        # print("In get_total\n", query, args)
         db = get_db()
-        return int(db.execute(query, args).fetchone()[0])
+        res =db.execute(query, args).fetchone()
+        if res:
+            return res[0]
+        else:
+            return 0
 
     @classmethod
     def _apply_filter(cls,
@@ -158,8 +166,10 @@ class BaseServices:
             if or_conditions:
                 conditions.append("(" + " OR ".join(or_conditions) + ")")
 
+        where = ' WHERE ' if not 'WHERE' in base_query.upper() else ' AND '
+
         if conditions:
-            query += " WHERE " + " AND ".join(conditions)
+            query += where + " AND ".join(conditions)
 
         # --- GROUP BY Clause ---
         if group_by:
@@ -750,7 +760,7 @@ class EncounterServices(BaseServices):
             new_id = cur.lastrowid
 
             diseases_list = list(set((new_id, x) for x in diseases_id))
-            db.executemany('''INSERT into encounter_diseases(encounter_id, disease_id)
+            db.executemany('''INSERT into encounters_diseases(encounter_id, disease_id)
                            VALUES(?, ?)''', diseases_list)
             if commit:
                 db.commit()
@@ -800,25 +810,29 @@ class EncounterServices(BaseServices):
             JOIN insurance_scheme as isc on isc.id = ec.scheme
             JOIN facility as fc on ec.facility_id = fc.id
             JOIN treatment_outcome as tc on ec.outcome = tc.id
-            JOIN encounters_diseases as eds on eds.encounter_id = ec.id
+            LEFT JOIN encounters_diseases as eds on eds.encounter_id = ec.id
             LEFT JOIN users AS u ON ec.created_by = u.id
         '''
 
         if params:
+            # print(params)
             res =FilterParser.parse_params(params,cls.MODEL_ALIAS_MAP)
         else:
             res = _legacy_to_params(**kwargs)
 
+        # print("In get_encounter, res", res)
+
         query, args = cls._apply_filter(
             base_query=query,
             base_arg=[],
-            **kwargs
+            **res
         )
-        print(query, args)
+        # print(query, args)
         # print('encounter query', query, args)
 
         db = get_db()
         encounters_rows = db.execute(query, args).fetchall()
+        # print("Encounter rows", encounters_rows)
 
         encounter_ids = [row['id'] for row in encounters_rows]
 
@@ -894,8 +908,8 @@ class EncounterServices(BaseServices):
 
     @classmethod
     def get_view_by_id(cls, id: int) -> EncounterView:
-        and_filter = [('ec.id', id, '=')]
-        return next(cls.get_all(and_filter=and_filter))
+        filters = Params().where(Encounter, 'id', '=', id)
+        return next(cls.get_all(params=filters))
 
     @classmethod
     def update_data(cls, model):
@@ -925,41 +939,57 @@ class TreatmentOutcomeServices(BaseServices):
             raise ValidationError(
                 "Treatment Outcome already exist in the database")
 
-
 class DashboardServices(BaseServices):
     model = None
     table_name = None
-    MODEL_ALIAS_MAP = EncounterServices.MODEL_ALIAS_MAP
+    MODEL_ALIAS_MAP = {**EncounterServices.MODEL_ALIAS_MAP,
+                       User : 'u',
+                       Disease: 'dis',
+                       DiseaseCategory: 'dc',
+                       EncounterDiseases: 'ecd'}
 
     @classmethod
-    def get_top_facilities(cls, start_date: Optional[date] = None, end_date: Optional[date] = None, limit: int = 5):
-        start_date, end_date, limit = cls._validate_date(
-            start_date, end_date, limit)
-        query = '''
+    def get_top_encounter_facilities(cls, params: Params):
+        subquery = '''
+            SELECT dis.name
+            FROM encounters AS ec2
+            LEFT JOIN encounters_diseases as ecd ON ec2.id = ecd.encounter_id
+            JOIN diseases AS dis ON ecd.disease_id = dis.id
+            WHERE ec2.facility_id = ec.facility_id
+        '''
+        temp_param = (Params()
+                      .sort(EncounterDiseases, 'disease_id', 'DESC')
+                      .set_limit(1))
+
+        temp_model = {**cls.MODEL_ALIAS_MAP}
+        temp_model[Encounter] = 'ec2'
+        res = FilterParser.parse_params(temp_param, temp_model)
+        # print("Printing Subquery")
+        subquery, args = cls._apply_filter(subquery, **res)
+        # print(subquery)
+
+        query = f'''
         SELECT
             fc.name AS facility_name,
             COUNT(ec.id) as encounter_count,
-            (
-                SELECT dis.name
-                FROM encounters AS ec2
-                JOIN encounters_diseases as ecd ON ec2.id = ecd.encounter_id
-                JOIN diseases AS dis ON ecd.disease_id = dis.id
-                WHERE ec2.facility_id = ec.facility_id
-                    AND ec2.date >= ? AND ec2.date <= ?
-                 GROUP BY ecd.disease_id
-                 ORDER BY COUNT(ecd.disease_id) DESC
-                 LIMIT 1
-            ) AS top_disease,
+            ({subquery}) AS top_disease,
            MAX(ec.created_at) as last_submission
            FROM encounters as ec
-            JOIN facility as fc on ec.facility_id = fc.id
-            WHERE ec.date >= ? AND ec.date <= ?
-            GROUP BY ec.facility_id
-            ORDER BY encounter_count DESC
-            LIMIT ?
+           JOIN facility as fc on ec.facility_id = fc.id
           '''
 
-        return cls._run_query(query, (start_date, end_date, start_date, end_date, limit),
+        # print("Printing query")
+
+        params = params.group(Encounter, 'date')
+        params = params.sort(None, 'encounter_count', 'DESC')
+        if not params.limit:
+            params.set_limit(5)
+
+        res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, args = cls._apply_filter(base_query=query, base_arg=args, **res)
+        # print('query', query, args)
+
+        return cls._run_query(query, args,
                               lambda row: {'facility_name': row['facility_name'],
                                            'encounter_count': row['encounter_count'],
                                            'top_disease': row['top_disease'],
