@@ -1009,16 +1009,15 @@ class DashboardServices(BaseServices):
         return start_date, end_date, limit
 
     @classmethod
-    def _run_query(cls, query: str, params: tuple, row_mapper):
+    def _run_query(cls, query: str, params: list, row_mapper):
         db = get_db()
         rows = db.execute(query, params)
         return [row_mapper(row) for row in rows]
 
     @classmethod
-    def top_diseases(cls, start_date: Optional[date] = None, end_date: Optional[date] = None,
-                     filter: Optional[Dict] = None, params: Optional[Params] = None, limit: int = 5):
-        start_date, end_date, limit = cls._validate_date(
-            start_date, end_date, limit)
+    def top_diseases(cls,
+                     params:Params):
+
         query = '''
              SELECT dis.name AS disease_name, COUNT(dis.id) AS disease_count
              FROM encounters AS ec
@@ -1026,44 +1025,22 @@ class DashboardServices(BaseServices):
              JOIN diseases AS dis ON ecd.disease_id = dis.id
              JOIN facility AS fc ON fc.id = ec.facility_id
         '''
-        and_filter = [('ec.date', start_date, '>='),
-                      ('ec.date', end_date, '<=')]
-        if filter:
-            for key, val in filter.items():
-                if key.lower() == 'local government':
-                    and_filter.append(
-                        ('f.local_government', val[0].lower(), val[1]))
-                elif key.lower() == 'scheme':
-                    and_filter.append(('ec.scheme', val[0], val[1]))
-                elif key.lower() == 'facility':
-                    and_filter.append(('ec.facility_id', val[0], val[1]))
-        group_by = ['dis.id']
-        order_by = [('disease_count', 'DESC')]
         args = ()
-        if params:
-            params.group(Disease, 'id')
-            res:Dict = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
-            res['order_by'] = res.get('order_by', []) + [('disease_count', 'DESC')]
-            query, args = cls._apply_filter(query, limit=limit, and_filter=and_filter,
-                                        group_by=group_by,
-                                        order_by=order_by
-                                        )
-        else:
-            query, args = cls._apply_filter(query, limit=limit, and_filter=and_filter,
-                                        group_by=group_by,
-                                        order_by=order_by
-                                        )
+        params = params.group(Disease, 'id')
+        params = params.sort(None, 'disease_count', 'DESC')
+        if not params.limit:
+            params.set_limit(10)
+
+        res:Dict = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, args = cls._apply_filter(query, **res)
 
         return cls._run_query(query,
                               args,
                               lambda row: {'disease_name': row['disease_name'], 'disease_count': row['disease_count']})
 
     @classmethod
-    def gender_distribution(cls, start_date: Optional[date] = None, end_date: Optional[date] = None,
-                            facility_id: Optional[int] = None, filter: Optional[Dict] = None,
-                            limit: int = 5, params: Optional[Params] = None):
-        start_date, end_date, limit = cls._validate_date(
-                        start_date, end_date, limit)
+    def encounter_gender_distribution(cls,
+                            params: Params):
         query = '''
             SELECT
               CASE
@@ -1074,25 +1051,13 @@ class DashboardServices(BaseServices):
             FROM encounters AS ec
             JOIN facility as fc ON fc.id = ec.facility_id
         '''
-        and_filter = [('ec.date', start_date, '>='),
-                      ('ec.date', end_date, '<=')]
-        if filter:
-            for key, val in filter.items():
-                if key.lower() == 'local government':
-                    and_filter.append(
-                        ('f.local_government', val[0].lower(), val[1]))
-                elif key.lower() == 'scheme':
-                    and_filter.append(('ec.scheme', val[0], val[1]))
-                elif key.lower() == 'facility':
-                    and_filter.append(('ec.facility_id', val[0], val[1]))
+        params = params.group(Encounter, 'gender')
+        if not params.limit:
+            params.set_limit(5)
 
-        if params:
-            params.group(Encounter, 'gender')
-            res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
-            query, args = cls._apply_filter(query, **res)
-        else:
-            query, args = cls._apply_filter(query, limit=limit, and_filter=and_filter, group_by=['ec.gender'])
-
+        res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, args = cls._apply_filter(query, **res)
+        # print('query', query)
         res = cls._run_query(query,
                              args,
                              lambda row: {'gender': row['gender'], 'gender_count': row['gender_count']})
@@ -1113,41 +1078,27 @@ class DashboardServices(BaseServices):
         return (male_perc, female_perc)
 
     @classmethod
-    def age_group_distribution(cls, start_date: Optional[date] = None, end_date: Optional[date] = None,
-                               params: Optional[Params] = None, filter: Optional[Dict] = None, limit: int = 5):
+    def encounter_age_group_distribution(cls,
+                               params:Params):
 
-        start_date, end_date, limit = cls._validate_date(
-            start_date=start_date, end_date=end_date, limit=limit)
         query = '''
             SELECT age_group, COUNT(*) as age_group_count
             FROM encounters as ec
             JOIN facility as f ON f.id = ec.facility_id
         '''
 
-        and_filter = [('ec.date', start_date, '>='),
-                      ('ec.date', end_date, '<=')]
-        if filter:
-            for key, val in filter.items():
-                if key.lower() == 'local government':
-                    and_filter.append(
-                        ('f.local_government', val[0].lower(), val[1]))
-                elif key.lower() == 'scheme':
-                    and_filter.append(('ec.scheme', val[0], val[1]))
-                elif key.lower() == 'facility':
-                    and_filter.append(('ec.facility_id', val[0], val[1]))
-        if params:
-            params.group(Encounter, 'age_group')
-            res  = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
-            query, args = cls._apply_filter(query, **res)
-        else:
-            query, args = cls._apply_filter(query, limit=limit, and_filter=and_filter,
-                                        group_by=['ec.age_group'])
+        params = params.group(Encounter, 'age_group')
+        if not params.limit:
+            params.set_limit(5)
+        res  = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, args = cls._apply_filter(query, **res)
+
         return cls._run_query(query,
                               args,
                               lambda row: {'age_group': row['age_group'], 'age_group_count': row['age_group_count']})
 
     @classmethod
-    def trend_last_n_months(cls, n: int = 8, params: Optional[Params] = None, filter: Optional[Dict] = None):
+    def encounter_trend_last_n_months(cls, params: Params, n: int = 8):
         if n < 0:
             raise ValidationError("Invalid month range")
 
@@ -1163,24 +1114,10 @@ class DashboardServices(BaseServices):
             FROM encounters  as ec
             JOIN facility as f on f.id = ec.facility_id
         '''
-        and_filter = [('ec.date', start_date, '>=')]
-        if filter:
-            for key, val in filter.items():
-                if key.lower() == 'local government':
-                    and_filter.append(
-                        ('f.local_government', val[0].lower(), val[1]))
-                elif key.lower() == 'scheme':
-                    and_filter.append(('ec.scheme', val[0], val[1]))
-                elif key.lower() == 'facility':
-                    and_filter.append(('ec.facility_id', val[0], val[1]))
-
-        if params:
-            params.group(Encounter, 'date')
-            res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
-            query, args = cls._apply_filter(query, **res)
-        else:
-            query, args = cls._apply_filter(query, and_filter=and_filter,
-                                        group_by=['ec.date'])
+        params = params.where(Encounter, 'date', '>=', start_date)
+        params = params.group(Encounter, 'date')
+        res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, args = cls._apply_filter(query, **res)
 
         db = get_db()
         rows = db.execute(query, args).fetchall()
