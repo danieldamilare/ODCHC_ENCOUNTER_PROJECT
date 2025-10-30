@@ -1119,6 +1119,52 @@ class DashboardServices(BaseServices):
         trend['date'] = trend['date'].astype(str)
         return trend.to_json(orient="records")
 
+    @classmethod
+    def get_encounter_per_scheme(cls, params: Params):
+        query = '''
+        SELECT
+            COUNT(*) as encounter_count,
+            isc.scheme_name as encounter_scheme,
+            isc.color_scheme as color_scheme
+        FROM encounters as ec
+        JOIN insurance_scheme as isc on isc.id = ec.scheme
+        JOIN facility as fc on ec.facility_id = fc.id
+        '''
+
+        params = params.group(Encounter, 'scheme')
+        res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, args = cls._apply_filter(base_query= query, **res)
+        return cls._run_query(query=query,
+                        params=args,
+                        row_mapper = lambda row: {'scheme_name': row['encounter_scheme'],
+                                                  'color':  row['color_scheme'],
+                                                  'count': row['encounter_count']}
+                       )
+
+    @classmethod
+    def get_utilization_per_scheme(cls, params: Params):
+        query = '''
+        SELECT
+            COUNT(*) as encounter_count,
+            isc.scheme_name as encounter_scheme,
+            isc.color_scheme as color_scheme
+        FROM encounters as ec
+        JOIN encounters_diseases as ecd on ecd.encounter_id = ec.id
+        JOIN insurance_scheme as isc on isc.id = ec.scheme
+        JOIN facility as fc on ec.facility_id = fc.id
+        '''
+
+        params = params.group(Encounter, 'scheme')
+        res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, args = cls._apply_filter(base_query= query, **res)
+        return cls._run_query(query=query,
+                        params=args,
+                        row_mapper = lambda row: {'scheme_name': row['encounter_scheme'],
+                                                  'color':  row['color_scheme'],
+                                                  'count': row['encounter_count']}
+                       )
+
+
     # @classmethod
     # def motartility_trend_per_month(cls, n: int, filter = {}):
 
