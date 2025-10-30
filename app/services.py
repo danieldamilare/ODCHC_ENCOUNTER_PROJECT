@@ -15,6 +15,7 @@ from app import app
 from app.constants import ONDO_LGAS_LOWER
 from copy import copy
 from app.filter_parser import FilterParser, Params
+from dateutil.relativedelta import relativedelta
 
 
 def _legacy_to_params(**kwargs) -> Dict:
@@ -725,7 +726,6 @@ class EncounterServices(BaseServices):
                          gender: str,
                          age: int,
                          treatment: Optional[str],
-                         referral: bool,
                          doctor_name: Optional[str],
                          scheme: int,
                          outcome: int,
@@ -751,9 +751,9 @@ class EncounterServices(BaseServices):
         try:
 
             cur = db.execute(f'''INSERT INTO {cls.table_name} (facility_id, date, policy_number
-                   , client_name, gender, age, treatment, referral, doctor_name,
+                   , client_name, gender, age, treatment, doctor_name,
                    scheme, outcome, created_by, created_at) VALUES( ?, ?, ?, ?, ?, ?, ?,
-                   ?, ?, ?, ?, ?, ?)''', (facility_id, date, policy_number, client_name,
+                   ?, ?, ?, ?, ?)''', (facility_id, date, policy_number, client_name,
                                           gender, age, treatment, int(
                                               referral), doctor_name,
                                           scheme, outcome, created_by.id, created_at))
@@ -950,50 +950,28 @@ class DashboardServices(BaseServices):
 
     @classmethod
     def get_top_encounter_facilities(cls, params: Params):
-        subquery = '''
-            SELECT dis.name
-            FROM encounters AS ec2
-            LEFT JOIN encounters_diseases as ecd ON ec2.id = ecd.encounter_id
-            JOIN diseases AS dis ON ecd.disease_id = dis.id
-            WHERE ec2.facility_id = ec.facility_id
-        '''
-        temp_param = (Params()
-                      .sort(EncounterDiseases, 'disease_id', 'DESC')
-                      .set_limit(1))
-
-        temp_model = {**cls.MODEL_ALIAS_MAP}
-        temp_model[Encounter] = 'ec2'
-        res = FilterParser.parse_params(temp_param, temp_model)
-        # print("Printing Subquery")
-        subquery, args = cls._apply_filter(subquery, **res)
-        # print(subquery)
-
         query = f'''
         SELECT
             fc.name AS facility_name,
-            COUNT(ec.id) as encounter_count,
-            ({subquery}) AS top_disease,
-           MAX(ec.created_at) as last_submission
+            COUNT(ec.id) as encounter_count
            FROM encounters as ec
            JOIN facility as fc on ec.facility_id = fc.id
           '''
 
-        # print("Printing query")
-
-        params = params.group(Encounter, 'date')
+        params = params.group(Facility, 'id')
         params = params.sort(None, 'encounter_count', 'DESC')
         if not params.limit:
-            params.set_limit(5)
+            params = params.set_limit(5)
 
+        print("\n\n\n",params.limit, "\n\n\n")
         res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
-        query, args = cls._apply_filter(base_query=query, base_arg=args, **res)
-        # print('query', query, args)
+        query, args = cls._apply_filter(base_query=query, **res)
+        print('query', query, args)
 
         return cls._run_query(query, args,
                               lambda row: {'facility_name': row['facility_name'],
                                            'encounter_count': row['encounter_count'],
-                                           'top_disease': row['top_disease'],
-                                           'last_submission': row['last_submission']})
+                                           })
 
     @classmethod
     def _validate_date(cls, start_date, end_date, limit):
@@ -1029,10 +1007,11 @@ class DashboardServices(BaseServices):
         params = params.group(Disease, 'id')
         params = params.sort(None, 'disease_count', 'DESC')
         if not params.limit:
-            params.set_limit(10)
+            params = params.set_limit(10)
 
         res:Dict = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         query, args = cls._apply_filter(query, **res)
+        print(query, args)
 
         return cls._run_query(query,
                               args,
@@ -1053,7 +1032,7 @@ class DashboardServices(BaseServices):
         '''
         params = params.group(Encounter, 'gender')
         if not params.limit:
-            params.set_limit(5)
+            params = params.set_limit(5)
 
         res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         query, args = cls._apply_filter(query, **res)
@@ -1061,6 +1040,7 @@ class DashboardServices(BaseServices):
         res = cls._run_query(query,
                              args,
                              lambda row: {'gender': row['gender'], 'gender_count': row['gender_count']})
+        print(res)
         male_count = 0
         female_count = 0
 
@@ -1088,8 +1068,6 @@ class DashboardServices(BaseServices):
         '''
 
         params = params.group(Encounter, 'age_group')
-        if not params.limit:
-            params.set_limit(5)
         res  = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         query, args = cls._apply_filter(query, **res)
 
@@ -1097,42 +1075,47 @@ class DashboardServices(BaseServices):
                               args,
                               lambda row: {'age_group': row['age_group'], 'age_group_count': row['age_group_count']})
 
-    @classmethod
-    def encounter_trend_last_n_months(cls, params: Params, n: int = 8):
-        if n < 0:
-            raise ValidationError("Invalid month range")
 
-        today = datetime.today().date()
-        month = today.month
-        month = month - 8
-        if month < 0:
-            month += 12
-        start_date = today.replace(month=month)
+    @classmethod
+    def encounter_trend_last_n_months(cls, params: Params, start_date, end_date):
+        # ensure at least 6 months range
+        start_date = start_date.replace(day=1)
+        supposed_start = (end_date.replace(day=1) - relativedelta(months=6))
+        if start_date > supposed_start:
+            start_date = supposed_start
 
         query = '''
-            SELECT date, COUNT(date) as date_count
-            FROM encounters  as ec
-            JOIN facility as f on f.id = ec.facility_id
+            SELECT ec.date, COUNT(*) AS date_count
+            FROM encounters AS ec
+            JOIN facility AS f ON f.id = ec.facility_id
         '''
+
         params = params.where(Encounter, 'date', '>=', start_date)
+        params = params.where(Encounter, 'date', '<=', end_date)
         params = params.group(Encounter, 'date')
+
         res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         query, args = cls._apply_filter(query, **res)
+        print(query, args)
 
         db = get_db()
         rows = db.execute(query, args).fetchall()
-        df = pd.DataFrame(rows, columns=['date', 'date_count'])
+        df = pd.DataFrame([dict(row) for row in rows])
 
         if df.empty:
             return pd.DataFrame(columns=['date', 'date_count']).to_json(orient="records")
+
         df['date'] = pd.to_datetime(df['date'])
         df['date'] = df['date'].dt.to_period('M')
-        trend: pd.DataFrame = df.groupby(
-            df['date'])["date_count"].sum().reset_index()
-        all_months = pd.period_range(start=start_date, end=today, freq='M')
-        trend = trend.set_index('date').reindex(
-            all_months, fill_value=0).reset_index()
-        trend.rename(columns={'index': 'date'}, inplace=True)
+
+        trend = df.groupby('date')['date_count'].sum().reset_index()
+
+        # Fill missing months
+        all_months = pd.period_range(start=start_date, end=end_date, freq='M')
+        trend = trend.set_index('date').reindex(all_months, fill_value=0)
+        trend.index.name = 'date'
+        trend = trend.reset_index()
+
         trend['date'] = trend['date'].astype(str)
         return trend.to_json(orient="records")
 
