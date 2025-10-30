@@ -1166,7 +1166,449 @@ class DashboardServices(BaseServices):
 
 
     # @classmethod
-    # def motartility_trend_per_month(cls, n: int, filter = {}):
+    # def get_top_facility_utilization(cls, params: Params):
+        # query = '''
+            # SELECT
+        # '''
+
+    @classmethod
+    def get_treatment_outcome_distribution(cls, params: Params):
+        query = '''
+        SELECT
+            tc.name as outcome,
+            COUNT(*) as outcome_count
+        FROM encounters as ec
+        JOIN treatment_outcome as tc ON tc.id = ec.outcome
+        '''
+        params = params.group(Encounter, 'outcome')
+        res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, args = cls._apply_filter(base_query = query, **res)
+        return cls._run_query(query =query,
+                      params = args,
+                      row_mapper = lambda row: {'outcome': row['outcome'],
+                                                'count': row['outcome_count']})
+
+
+    @classmethod
+    def get_referral_count(cls, params: Params):
+        query = '''
+        SELECT
+            COUNT(*) as referral_count
+        FROM encounters as ec
+        JOIN facility as fc on fc.id = ec.facility_id
+        JOIN treatment_outcome as tc on tc.id = ec.outcome
+        '''
+        params = params.where(TreatmentOutcome, 'name', '=', 'Referral')
+        res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, args =  cls._apply_filter(query, **res)
+        db = get_db()
+        row = db.execute(query, args).fetchone()
+        return row['referral_count'] if row else 0
+
+    @classmethod
+    def get_total_encounters(cls, params: Params, start_date, end_date):
+        diff = end_date - start_date
+        prev_start_date = start_date - diff
+        prev_end_date = start_date - timedelta(days=1)
+
+        query = '''
+        SELECT
+            SUM(CASE WHEN ec.date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS current_count,
+            SUM(CASE WHEN ec.date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS prev_count
+        FROM encounters AS ec
+        JOIN facility AS fc ON fc.id = ec.facility_id
+        '''
+
+        res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, filter_args = cls._apply_filter(query, **res)
+
+        args = [start_date, end_date, prev_start_date, prev_end_date] + filter_args
+
+        db = get_db()
+        row = db.execute(query, args).fetchone()
+        current = row['current_count'] if row else 0
+        prev = row['prev_count'] if row else 0
+        print(current, prev)
+
+        pct_change = 0.0
+        if prev:
+            pct_change = ((current - prev) / prev) * 100
+        else:
+            pct_change = 100.0 if current else 0.0
+
+        return current, pct_change
+
+
+    @classmethod
+    def encounter_distribution_across_lga(cls, params: Params):
+        query = '''
+        SELECT
+            fc.local_government as lga,
+            COUNT(*) as count
+        FROM encounters as ec
+        JOIN facility as fc on fc.id = ec.facility_id
+        '''
+        params = params.group(Facility, 'local_government')
+        params = params.sort(None, 'count', 'DESC')
+        res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, args = cls._apply_filter(query, **res)
+        db = get_db()
+        rows = db.execute(query, args).fetchall()
+        result = dict.fromkeys([x.upper() for x in ONDO_LGAS_LOWER], 0)
+        for row in rows:
+            result[row['lga'].upper()] = row['count']
+        return sorted([{'lga': key, 'count': value} for key, value in result.items()], key = lambda row: row['count'])
+
+
+    @classmethod
+    def utilization_distribution_across_lga(cls, params: Params):
+        query = '''
+        SELECT
+            fc.local_government as lga,
+            COUNT(*) as count
+        FROM encounters as ec
+        LEFT JOIN encounters_diseases as ecd on ecd.encounter_id = ec.id
+        JOIN facility as fc on fc.id = ec.facility_id
+        '''
+        params = params.group(Facility, 'local_government')
+        params = params.sort(Facility, 'local_government', 'DESC')
+        res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, args = cls._apply_filter(query, **res)
+        db = get_db()
+        rows = db.execute(query, args).fetchall()
+        result = dict.fromkeys([x.upper() for x in ONDO_LGAS_LOWER], 0)
+        for row in rows:
+            result[row['lga'].upper()] = row['count']
+        return sorted([{'lga': key, 'count': value} for key, value in result.items()], key = lambda row: row['count'])
+
+
+    @classmethod
+    def total_utilization_by_scheme_grouped(cls, params: Params, start_date, end_date):
+        query = '''
+        SELECT
+            ec.date,
+            isc.scheme_name,
+            isc.color_scheme
+        FROM encounters as ec
+        LEFT JOIN encounters_diseases as ecd on ecd.encounter_id = ec.id
+        JOIN insurance_scheme as isc on isc.id = ec.scheme
+        JOIN facility as fc on fc.id = ec.facility_id
+        '''
+        if (end_date - start_date).days < (365 * 5): #minumum of 5 display years
+            start_date = end_date.replace(day=1, month=1, year = end_date.year - 5)
+        print(start_date, end_date)
+
+        params = params.where(Encounter, 'date', '>=', start_date)
+        params = params.where(Encounter, 'date', '<=', end_date)
+        # params = params.group(Encounter, 'date').group(InsuranceScheme, 'scheme_name')\
+                # .group(InsuranceScheme, 'color_scheme')
+
+        res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, args = cls._apply_filter(query, **res)
+        print(query, args)
+
+        db = get_db()
+        rows = db.execute(query, args).fetchall()
+        df = pd.DataFrame([dict(row) for row in rows])
+        print(df)
+        df['date'] =  pd.to_datetime(df['date'])
+        df['date'] = df['date'].dt.to_period('Y')
+        df.sort_values('date')
+        df = df.groupby(['date', 'scheme_name', 'color_scheme']).size().reset_index(name='count')
+        all_schemes = df[['scheme_name', 'color_scheme']].drop_duplicates()
+        all_years = pd.period_range(start_date, end_date, freq='Y')
+        full_index = []
+        for year in all_years:
+            for scheme in all_schemes.itertuples(name=None, index=False):
+                full_index.append((year, *scheme))
+        df = (
+            df.set_index(['date', 'scheme_name', 'color_scheme'])
+            .reindex(full_index, fill_value=0)
+            .reset_index()
+        )
+        df['date'] = df['date'].astype('str')
+        return df.to_dict(orient="records")
+
+    @classmethod
+    def mortality_distribution_by_type(cls, params: Params):
+        query = '''
+        SELECT
+            tc.name,
+            COUNT(*) as count
+        FROM encounters as ec
+        JOIN facility as fc ON ec.facility_id = fc.id
+        JOIN treatment_outcome as tc on tc.id = ec.outcome
+        '''
+        params = params.where(TreatmentOutcome, 'type', '=', 'Death')
+        params = params.group(TreatmentOutcome, 'name')
+        res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, args = cls._apply_filter(query, **res)
+        return cls._run_query(query, args,
+                            lambda row: {'death_type': row['name'], 'count': row['count']})
+
+    @classmethod
+    def mortality_distribution_by_age_group(cls, params: Params):
+        query = '''
+        SELECT
+            ec.age_group,
+            COUNT(*) as count
+        FROM encounters as ec
+        JOIN facility as fc ON ec.facility_id = fc.id
+        JOIN treatment_outcome as tc on tc.id = ec.outcome
+        '''
+        params = params.group(Encounter, 'age_group')
+        params = params.where(TreatmentOutcome, 'type', '=', 'Death')
+        res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, args = cls._apply_filter(query, **res)
+        return cls._run_query(query, args,
+                              lambda row: {'age_group': row['age_group'], 'count': row['count']})
+
+    @classmethod
+    def get_top_cause_of_mortality(cls, params: Params):
+        query = '''
+        SELECT
+            dis.name as disease_name,
+            COUNT(dis.name) AS count
+        FROM encounters as ec
+        JOIN encounters_diseases as ecd on ecd.encounter_id = ec.id
+        JOIN diseases as dis on ecd.disease_id = dis.id
+        JOIN facility as fc on fc.id = ec.facility_id
+        JOIN treatment_outcome as tc on tc.id = ec.outcome
+        '''
+        params = params.where(TreatmentOutcome, 'type', '=', 'Death')
+        params = params.sort(None, 'count', 'DESC')
+        params = params.group(Disease, 'id')
+
+        if not params.limit:
+            params = params.set_limit(10)
+
+        res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, args = cls._apply_filter(query, **res)
+        return cls._run_query(query, args,
+                              lambda row: {'disease_name': row['disease_name'], 'count': row['count']})
+
+    @classmethod
+    def get_mortality_distribution_by_gender(cls, params: Params):
+        query = '''
+        SELECT
+            CASE
+                WHEN ec.gender = 'M' THEN 'Male'
+                WHEN ec.gender = 'F' THEN 'Female'
+            END as gender,
+            COUNT(ec.id) as count
+        FROM encounters as ec
+        JOIN facility as fc on fc.id = ec.facility_id
+        JOIN treatment_outcome as tc on tc.id = ec.outcome
+        '''
+        params = params.where(TreatmentOutcome, 'type', '=', 'Death')
+        params = params.group(Encounter, 'gender')
+        res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, args = cls._apply_filter(query, **res)
+        return cls._run_query(query, args,
+                lambda row: {'gender': row['gender'], 'count': row['count']})
+
+    @classmethod
+    def total_encounter_by_scheme_grouped(cls, params: Params, start_date, end_date):
+        query = '''
+        SELECT
+            ec.date,
+            isc.scheme_name,
+            isc.color_scheme
+        FROM encounters as ec
+        JOIN insurance_scheme as isc on isc.id = ec.scheme
+        JOIN facility as fc on fc.id = ec.facility_id
+        '''
+        params = params.where(Encounter, 'date', '>=', start_date)
+        params = params.where(Encounter, 'date', '<=', end_date)
+        # params = params.group(Encounter, 'date').group(InsuranceScheme, 'scheme_name')\
+                # .group(InsuranceScheme, 'color_scheme')
+
+        res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, args = cls._apply_filter(query, **res)
+        print(query, args)
+
+        db = get_db()
+        rows = db.execute(query, args).fetchall()
+        df = pd.DataFrame([dict(row) for row in rows])
+        print(df)
+        df['date'] =  pd.to_datetime(df['date'])
+        df['date'] = df['date'].dt.to_period('Y')
+        df.sort_values('date')
+        df = df.groupby(['date', 'scheme_name', 'color_scheme']).size().reset_index(name='count')
+        all_schemes = df[['scheme_name', 'color_scheme']].drop_duplicates()
+        all_years = pd.period_range(start_date, end_date, freq='Y')
+        full_index = []
+        for year in all_years:
+            for scheme in all_schemes.itertuples(name=None, index=False):
+                full_index.append((year, *scheme))
+        df = (
+            df.set_index(['date', 'scheme_name', 'color_scheme'])
+            .reindex(full_index, fill_value=0)
+            .reset_index()
+        )
+        df['date'] = df['date'].astype('str')
+        return df.to_dict(orient='records')
+
+    @classmethod
+    def get_mortality_count_per_facility(cls, params: Params):
+        query = '''
+            SELECT
+                fc.name as facility_name,
+                COUNT(*) as count
+            FROM encounters as ec
+            JOIN facility as fc on ec.facility_id = fc.id
+            JOIN treatment_outcome as tc on tc.id = ec.outcome
+        '''
+        params = params.where(TreatmentOutcome, 'type', '=', 'Death')
+        params = params.group(Facility, 'id')
+        params = params.sort(None, 'count', 'desc')
+        if not params.limit:
+            params = params.set_limit(10)
+
+        res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, args = cls._apply_filter(query, **res)
+        return cls._run_query(query,
+                              args,
+                              lambda row: {'facility_name': row['facility_name'],
+                                            'count': row['count']})
+
+
+    @classmethod
+    def get_mortality_trend(cls, params: Params, start_date, end_date):
+        query = '''
+        SELECT
+            ec.date,
+            tc.name as death_type,
+            COUNT(ec.id) as death_count
+        FROM encounters as ec
+        JOIN facility as fc on fc.id = ec.facility_id
+        JOIN treatment_outcome as tc on tc.id = ec.outcome
+        '''
+        params = params.where(TreatmentOutcome, 'type', '=', 'Death')
+        params = params.where(Encounter, 'date', '>=', start_date)
+        params = params.where(Encounter, 'date', '<=', end_date)
+        params = params.group(Encounter, 'date')
+        params = params.group(TreatmentOutcome, 'name')
+
+        res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, args = cls._apply_filter(query, **res)
+
+        db = get_db()
+        rows = db.execute(query, args).fetchall()
+        df = pd.DataFrame([dict(row) for row in rows])
+        df['date'] = pd.to_datetime(df['date'])
+        df['date'] = df['date'].dt.to_period(freq='M')
+        rows =  db.execute('SELECT tc.name  as death_type from \
+                                  treatment_outcome as tc where tc.type = "Death"').fetchall()
+        death_type = [ row['death_type'] for row in rows]
+        all_month = list(pd.period_range(start=start_date, end=end_date, freq='M'))
+
+        df = df.set_index(['date', 'death_type'])
+        df = df.reindex(pd.MultiIndex.from_product([all_month, death_type]), fill_value=0).reset_index()
+        pivot = df.pivot_table(
+            index = 'date',
+            columns = 'death_type',
+            values= 'death_count',\
+            aggfunc= 'sum',
+        ).reset_index()
+        pivot['total'] = pivot.drop('date', axis=1).sum(axis=1)
+        return pivot.to_dict(orient='records')
+
+
+    @classmethod
+    def get_mortality_by_lga(cls, params: Params):
+        query = '''
+        SELECT
+            fc.local_government as lga,
+            COUNT(*) as count
+        FROM encounters as ec
+        JOIN facility as fc on ec.facility_id = fc.id
+        JOIN treatment_outcome as tc on tc.id = ec.outcome
+        '''
+        params = params.where(TreatmentOutcome, 'type', '=', 'Death')
+        params = params.group(Facility, 'local_government')
+        params = params.sort(Facility, 'local_government', 'DESC')
+        res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, args = cls._apply_filter(query, **res)
+        db = get_db()
+        rows = db.execute(query, args)
+        result = dict.fromkeys([lga.upper() for lga in ONDO_LGAS_LOWER], 0)
+        for row in rows:
+            result[row['lga'].upper()] = row['count']
+        return [{'lga': key, 'count': value} for key, value in result.items()]
+
+    @classmethod
+    def get_average_encounter_per_day(cls, params: Params, start_date, end_date):
+        query = '''
+        SELECT
+            COUNT(*) * 1.0/ COUNT(DISTINCT ec.date) as count
+        FROM encounters as ec
+        JOIN facility as fc on fc.id = ec.facility_id
+        '''
+        params = params.where(Encounter, 'date', '>=', start_date)\
+                        .where(Encounter, 'date', "<=", end_date)
+
+        res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, args = cls._apply_filter(query, **res)
+        db = get_db()
+        row = db.execute(query, args).fetchone()
+        res = row['count'] if row else 0
+        return res
+
+
+    @classmethod
+    def get_total_death_outcome(cls, params: Params, start_date, end_date):
+        ''''
+        Return total death outcome and the percentage difference based on the prevous month
+        Params should not filter based on date. but instead parse the start_date and end_date
+        '''
+
+        diff = end_date - start_date
+        prev_start_date = start_date - diff
+        prev_end_date = start_date - timedelta(days=1)
+        query = '''
+        SELECT
+            SUM(CASE WHEN ec.date >= ? and ec.date <= ? THEN 1 ELSE 0 END)  as prev_count,
+            SUM(CASE WHEN ec.date >= ? and ec.date <= ? THEN 1 ELSE 0 END)  as current_count
+        FROM encounters as ec
+        JOIN facility as fc on ec.facility_id = fc.id
+        JOIN treatment_outcome as tc on ec.outcome = tc.id
+        '''
+        params = params.where(TreatmentOutcome, 'type', '=', 'Death')
+        db = get_db()
+        res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+
+        query, args = cls._apply_filter(base_query= query, **res)
+        args = [prev_start_date, prev_end_date, start_date, end_date] + args
+        print(query, args)
+        row = db.execute(query, args).fetchone()
+
+        prev = row['prev_count'] if row else 0
+        current = row['current_count'] if row else 0
+        print(prev, current)
+        pct_change = 0
+
+        if prev:
+            pct_change =  ((current - prev)/prev) * 100
+        elif current:
+            pct_change = 100
+        return (current, pct_change)
+
+
+    @classmethod
+    def get_active_encounter_facility(cls, params: Params):
+        query = '''
+        SELECT
+            COUNT (DISTINCT fc.id) as facility_count
+        FROM encounters as ec
+        JOIN facility as fc on fc.id = ec.facility_id
+        '''
+        res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, args = cls._apply_filter(query, **res)
+        db = get_db()
+        row = db.execute(query, args).fetchone()
+        return row['facility_count'] if row else 0
+
 
 
 class ReportServices(BaseServices):
@@ -1208,7 +1650,7 @@ class ReportServices(BaseServices):
                 ec.gender,
                 ec.age_group
             FROM encounters AS ec
-            JOIN encounters_diseases as ed on ed.encounter_id = ec.id
+            LEFT JOIN encounters_diseases as ed on ed.encounter_id = ec.id
             JOIN diseases as dis on dis.id = ed.disease_id
             WHERE ec.date >= ? and ec.date <= ?
             AND ec.facility_id = ?
@@ -1315,7 +1757,7 @@ class ReportServices(BaseServices):
               f.name as facility_name
             FROM encounters as ec
             JOIN facility as f on ec.facility_id = f.id
-            JOIN encounters_diseases as ed on ed.encounter_id = ec.id
+            LEFT JOIN encounters_diseases as ed on ed.encounter_id = ec.id
             JOIN diseases as dis on dis.id = ed.disease_id
             JOIN diseases_category as cg on cg.id = dis.category_id
             WHERE ec.date >= ? AND ec.date <= ?
