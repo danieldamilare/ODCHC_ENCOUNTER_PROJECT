@@ -82,7 +82,7 @@ class FilterParser:
         if and_filter := params.and_filter:
             result['and_filter'] = cls.parse_filters(and_filter, model_map)
         if or_filter := params.or_filter:
-            result[ 'or_filter' ] = cls.parse_filters(or_filter, model_map)
+            result[ 'or_filter' ] = cls.parse_filters(or_filter, model_map, is_and=False)
         if group_by := params.group_by:
             result[ 'group_by' ] = cls.parse_groupby(group_by, model_map)
         if order_by := params.order_by:
@@ -95,9 +95,10 @@ class FilterParser:
 
     @classmethod
     def parse_filters(cls, filters: List[Filter],
-                      model_map: Dict) -> List[Tuple]:
+                      model_map: Dict, is_and = True) -> List[Tuple]:
         result = []
         save = {}
+        print(filters)
         for fil in filters:
             model = fil.model
             op = fil.op
@@ -107,17 +108,18 @@ class FilterParser:
                 if not model.validate_col(col):
                     raise QueryParameterError(f"Column {col} not in table {model.get_name()}")
                 if not model in model_map:
-                    print(fil)
+                    # print(fil)
                     raise QueryParameterError(f"Model {model} not in Model map")
                 col = f'{model_map[model]}.{col}'
 
             if not op in cls.ALLOWED_OPERATORS:
                 raise QueryParameterError(f"Operator {op} not allowed")
-            if (col, op) in save:
-                save[(col, op)] = (col, value, op)
+            if is_and and (col, op) in save: #reuse latest and filter or can have multiple
+                result[save[(col, op)]] = (col, value, op)
             else:
                 save[(col, op)] = len(result)
                 result.append((col, value, op))
+        print(result)
         return result
 
     @classmethod
@@ -155,7 +157,7 @@ class FilterParser:
                 if not model.validate_col(col):
                     raise QueryParameterError(f"Column {col} not in table {model.get_name()}")
                 if not model in model_map:
-                    print(fil)
+                    # print(fil)
                     raise QueryParameterError(f"Model {model} not in Model map")
                 col = f'{model_map[model]}.{col}'
 
