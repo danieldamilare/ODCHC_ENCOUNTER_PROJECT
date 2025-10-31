@@ -645,13 +645,49 @@ def admin_overview(): #overview don't need facility_filter
         end_date = g['end_date']
     )
 
-    if scheme:
-        filters = filters.where(Encounter, 'scheme', '=', int(scheme))
 
-    if gender:
-        filters = filters.where(Encounter, 'gender', '=', gender)
+@app.route('/dashboard/utilization')
+@admin_required
+def admin_utilization():
+    start_date, end_date = parse_date()
+    g['start_date'] = start_date
+    g['end_date'] = end_date
+    form = AdminDashboardFilterForm(request.args)
+    if not form.validate():
+        flash("Invalid Filter Parameters", "error")
+        return redirect(url_for('admin_utilization'))
 
-    return filters
+    base_list = ['period', 'start_date', 'end_date']
+    all_filters = build_filter(base_list + ['scheme_id' , 'lga' , 'gender' ,'facility_id'])
+    without_facility_filters = build_filter(base_list + ['scheme_id' , 'lga' , 'gender'])
+    without_gender_filters = build_filter(base_list + ['scheme_id' , 'lga' , 'facility_id'])
+    without_lgas_filters = build_filter(base_list + ['scheme_id' , 'gender' , 'facility_id'])
+    without_scheme_filters = build_filter(base_list + ['lga' , 'gender' , 'facility_id'])
+    without_date_filters = build_filter(['lga', 'gender', 'scheme_id', 'facility_id'])
+
+    utilization_per_scheme = DashboardServices.get_utilization_per_scheme(all_filters)
+    utilization_per_lga = DashboardServices.utilization_distribution_across_lga(without_lgas_filters)
+    top_diseases = DashboardServices.top_diseases(all_filters)
+    average_daily_utilization = DashboardServices.get_average_utilization_per_day(without_date_filters, g['start_date'], g['end_date'])
+    total_utilization = DashboardServices.get_total_utilization(without_date_filters, g['start_date'], g['end_date'])
+    utilization_age_distribution = DashboardServices.utilization_age_group_distribution(all_filters)
+    top_utilized_facilities = DashboardServices.get_top_utilization_facilities(all_filters)
+    utilization_trend = DashboardServices.get_utilization_trend(without_date_filters, g['start_date'], g['end_date'])
+
+    return render_template(
+        'admin_encounters.html',
+        title = 'Dashboard - Utilization',
+        total_utilization = total_utilization,
+        utilization_per_scheme = utilization_per_scheme,
+        utilization_age_distribution = utilization_age_distribution,
+        top_diseases = top_diseases,
+        averaage_daily_utilization = average_daily_utilization,
+        utilization_trend = utilization_trend,
+        top_utilized_facilites = top_utilized_facilities,
+        utilization_per_lga = utilization_per_lga
+        start_date = g['start_date'],
+        end_date = g['end_date']
+        )
 
 
 @app.route('/dashboard')
