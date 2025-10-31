@@ -1574,6 +1574,51 @@ class DashboardServices(BaseServices):
         return cls._run_query(query, args,
                 lambda row: {'gender': row['gender'], 'count': row['count']})
 
+
+    @classmethod
+    def total_mortality_by_scheme_grouped(cls, params: Params, start_date, end_date):
+        query = '''
+        SELECT
+            ec.date,
+            isc.scheme_name,
+            isc.color_scheme
+        FROM encounters as ec
+        JOIN insurance_scheme as isc on isc.id = ec.scheme
+        JOIN facility as fc on fc.id = ec.facility_id
+        JOIN treatment_outcome as tc on tc.id = ec.outcome
+        '''
+        params = params.where(Encounter, 'date', '>=', start_date)
+        params = params.where(Encounter, 'date', '<=', end_date)
+        params = params.where(TreatmentOutcome, 'type', '=', 'death')
+
+        res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, args = cls._apply_filter(query, **res)
+        print(query, args)
+
+        db = get_db()
+        rows = db.execute(query, args).fetchall()
+        df = pd.DataFrame([dict(row) for row in rows])
+        print(df)
+        df['date'] =  pd.to_datetime(df['date'])
+        df['date'] = df['date'].dt.to_period('Y')
+        df.sort_values('date')
+        df = df.groupby(['date', 'scheme_name', 'color_scheme']).size().reset_index(name='count')
+        all_schemes = df[['scheme_name', 'color_scheme']].drop_duplicates()
+        all_years = pd.period_range(start_date, end_date, freq='Y')
+        full_index = []
+        for year in all_years:
+            for scheme in all_schemes.itertuples(name=None, index=False):
+                full_index.append((year, *scheme))
+        df = (
+            df.set_index(['date', 'scheme_name', 'color_scheme'])
+            .reindex(full_index, fill_value=0)
+            .reset_index()
+        )
+        df['date'] = df['date'].astype('str')
+        return df.to_dict(orient='records')
+
+
+
     @classmethod
     def total_encounter_by_scheme_grouped(cls, params: Params, start_date, end_date):
         query = '''
@@ -1705,6 +1750,25 @@ class DashboardServices(BaseServices):
         return [{'lga': key, 'count': value} for key, value in result.items()]
 
     @classmethod
+    def get_average_mortality_per_day(cls, params: Params, start_date, end_date):
+        query = '''
+        SELECT
+            COUNT(*) * 1.0/ COUNT(DISTINCT ec.date) as count
+        FROM encounters as ec
+        JOIN facility as fc on fc.id = ec.facility_id
+        JOIN treatment_outcome as tc on tc.id = ec.outcome
+        '''
+        params = params.where(Encounter, 'date', '>=', start_date)\
+                        .where(Encounter, 'date', "<=", end_date)
+        params = params.where(TreatmentOutcome, 'type', '=', 'Death')
+        res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, args = cls._apply_filter(query, **res)
+        db = get_db()
+        row = db.execute(query, args).fetchone()
+        res = row['count'] if row else 0
+        return res
+
+    @classmethod
     def get_average_encounter_per_day(cls, params: Params, start_date, end_date):
         query = '''
         SELECT
@@ -1721,6 +1785,27 @@ class DashboardServices(BaseServices):
         row = db.execute(query, args).fetchone()
         res = row['count'] if row else 0
         return res
+
+
+    @classmethod
+    def get_average_utilization_per_day(cls, params: Params, start_date, end_date):
+        query = '''
+        SELECT
+            COUNT(*) * 1.0/ COUNT(DISTINCT ec.date) as count
+        FROM encounters as ec
+        JOIN facility as fc on fc.id = ec.facility_id
+        JOIN encounters_diseases as ecd on ec.id =  ecd.encounter_id
+        '''
+        params = params.where(Encounter, 'date', '>=', start_date)\
+                        .where(Encounter, 'date', "<=", end_date)
+
+        res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, args = cls._apply_filter(query, **res)
+        db = get_db()
+        row = db.execute(query, args).fetchone()
+        res = row['count'] if row else 0
+        return res
+
 
 
     @classmethod
