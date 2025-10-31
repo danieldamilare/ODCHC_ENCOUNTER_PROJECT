@@ -9,14 +9,14 @@ from app.exceptions import InvalidReferenceError, DuplicateError
 from urllib.parse import urlparse
 from app.config import Config
 from app.utils import form_to_dict, admin_required, humanize_datetime_filter
-from app.forms import LoginForm, AddEncounterForm, AddFacilityForm, EditFacilityForm, AddDiseaseForm, ExcelUploadForm
-from app.forms import AddUserForm, AddCategoryForm, DeleteUserForm, EditUserForm, EditDiseaseForm, EncounterFilterForm
+from app.forms import LoginForm, AddEncounterForm, AddFacilityForm, EditFacilityForm, AddDiseaseForm, ExcelUploadForm, DashboardFilterForm
+from app.forms import AddUserForm, AddCategoryForm, DeleteUserForm, EditUserForm, EditDiseaseForm, EncounterFilterForm, AdminDashboardFilterForm
 from app.constants import ONDO_LGAS_LIST
 from app.filter_parser import Params
 from flask_wtf import FlaskForm
 from copy import copy
 from app.services import DashboardServices, ReportServices
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime, date, timedelta
 from typing import Any
 import json
@@ -25,14 +25,14 @@ import arrow
 import pandas as pd
 from openpyxl import load_workbook
 from openpyxl.styles import Font, Alignment
-
+from flask import g
+from app.filter_map import filter_config
 
 @app.route('/')
 @app.route('/index')
 @login_required
 def index():
-    return redirect(url_for('admin'))
-
+    return redirect(url_for('admin_overview'))
 
 @app.route('/auth/login', methods=['GET', 'POST'])
 def login() -> Any:
@@ -496,10 +496,10 @@ def encounters():
     if filter_form.end_date.data:
         end_date = datetime.strptime(
             filter_form.end_date.data, '%Y-%m-%d').date()
-        filters = filters.where(Encounter, 'date', '>=', start_date)
+        filters = filters.where(Encounter, 'date', '<=', end_date)
 
     if user.role == Role.user:
-        filters = filters.where(Encounter, 'date', '>=', start_date)
+        filters = filters.where(Encounter, 'facility_id', '=', user.facility.id)
     else:
         if lga := filter_form.local_government.data:
             filters = filters.where(Facility, 'local_government', '=', lga)
@@ -511,7 +511,7 @@ def encounters():
 
     pagination_args = {**request.args, "page": page + 1}
     next_url = (url_for('encounters', **pagination_args)
-                if EncounterServices.has_next_page(page) else None)
+                if EncounterServices.has_next_page(page, params=filters) else None)
 
     pagination_args['page'] = page - 1
     prev_url = None if page == 1 else url_for('encounters', **pagination_args)
@@ -541,36 +541,26 @@ def view_encounter(pid: int):
                            title=f"Encounter Details: {encounter_view.client_name}",
                            encounter=encounter_view)
 
-
-def build_filter():
-    period = request.args.get('period', 'this_month')
-    facility_id = request.args.get('facility_id', None)
-    scheme = request.args.get('scheme_id', None)
-    local_government = request.args.get('lga', None)
-    gender = request.args.get('gender', None)
-
-    if (user := get_current_user()).role.name != 'admin':
-        facility_id = user.facility.id
+def parse_date(period: str = None):
+    """Parse period string into start_date and end_date."""
+    if not period:
+        period = 'this_month'
 
     today = date.today()
     start_date = today.replace(day=1)
     end_date = today
+
     if period == 'this_month':
         start_date = today.replace(day=1)
     elif period == 'last_3_months':
         start_date = today - timedelta(days=90)
     elif period == 'last_year':
         start_date = today.replace(year=today.year - 1)
-    elif not period:
-        start_date = today.replace(day=1)
     else:
-        raise ValueError(f"Invalid Period selected {period}", 'error')
+        raise ValueError(f"Invalid Period selected: {period}")
 
-    filters = Params()
+    return start_date, end_date
 
-    if start_date:
-        filters = filters.where(Encounter, 'date', '>=', start_date)
-    filters = filters.where(Encounter, 'date', '<=', end_date)
 
     if facility_id:
         filters = filters.where(Encounter, 'facility_id', '=', int(facility_id))
