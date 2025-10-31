@@ -1861,7 +1861,40 @@ class DashboardServices(BaseServices):
         row = db.execute(query, args).fetchone()
         return row['facility_count'] if row else 0
 
+    @classmethod
+    def get_top_facilities_summaries(cls, params: Params, start_date, end_date,):
+        query = '''
+        SELECT
+            fc.name AS facility_name,
+            COUNT(ec.id) as encounter_count,
+            (
+                SELECT dis.name
+                FROM encounters AS ec2
+                JOIN encounters_diseases as ecd ON ec2.id = ecd.encounter_id
+                JOIN diseases AS dis ON ecd.disease_id = dis.id
+                WHERE ec2.facility_id = ec.facility_id
+                 GROUP BY ecd.disease_id
+                 ORDER BY COUNT(ecd.disease_id) DESC
+                 LIMIT 1
+            ) AS top_disease,
+           MAX(ec.created_at) as last_submission
+           FROM encounters as ec
+            JOIN facility as fc on ec.facility_id = fc.id
+          '''
+        params = (params.where(Encounter, 'date', '>=', start_date)
+                        .where(Encounter, 'date', '<=', end_date)
+                        .group(ncounter, 'facility_id')
+                        .sort(None, 'encounter_count', 'DESC'))
+        if not params.limit:
+            params = params.set_limit(10)
+        res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, args = cls._apply_filter(query,  **res)
 
+        return cls._run_query(query, args,
+                              lambda row: {'facility_name': row['facility_name'],
+                                           'encounter_count': row['encounter_count'],
+                                           'top_disease': row['top_disease'],
+                                           'last_submission': row['last_submission']})
 
 class ReportServices(BaseServices):
 
