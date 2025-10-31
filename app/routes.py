@@ -690,86 +690,185 @@ def admin_utilization():
         )
 
 
-@app.route('/dashboard')
-@login_required
-def admin():
-    try:
-        filters = build_filter()
+@app.route('/dashboard/encounters')
+@admin_required
+def admin_encounters():
+    start_date, end_date = parse_date()
+    g['start_date'] = start_date
+    g['end_date'] = end_date
 
-        active_facilities = len(list(EncounterServices.get_all(
-            params= filters.group(Encounter, 'facility_id'))))
+    form = AdminDashboardFilterForm(request.args)
+    if not form.validate():
+        flash("Invalid Filter Parameters", "error")
+        return redirect(url_for('admin_encounters'))
 
-        top_diseases_data = DashboardServices.top_diseases(
-            params= filters.set_limit(5))
+    base_list = ['period', 'start_date', 'end_date']
+    all_filters = build_filter(base_list + ['scheme_id' , 'lga' , 'gender' ,'facility_id'])
+    without_facility_filters = build_filter(base_list + ['scheme_id' , 'lga' , 'gender'])
+    without_gender_filters = build_filter(base_list + ['scheme_id' , 'lga' , 'facility_id'])
+    without_lgas_filters = build_filter(base_list + ['scheme_id' , 'gender' , 'facility_id'])
+    without_scheme_filters = build_filter(base_list + ['lga' , 'gender' , 'facility_id'])
+    without_date_filters = build_filter(['lga', 'gender', 'scheme_id', 'facility_id'])
 
-        male_perc, female_perc = DashboardServices.gender_distribution(params=filters)
-        # For charts
-        monthly_trend_raw = json.loads(
-            DashboardServices.trend_last_n_months(params=filters))
-        age_distribution = DashboardServices.age_group_distribution(
-            params=filters.set_limit(5))
-        top_facilities_raw = list(DashboardServices.get_top_facilities(
-            params= filters.set_limit(5)))
-        total_encounters = len(
-            list(EncounterServices.get_all(params=filters)))
-
-        formatted_top_facilities = []
-        for facility in top_facilities_raw:
-            if facility['last_submission']:
-                try:
-                    dt_obj = arrow.get(facility['last_submission']).to(
-                        'local')  # Convert to local timezone if needed
-                    facility['last_submission_formatted'] = dt_obj.strftime(
-                        '%b %d, %Y %I:%M %p')  # e.g., Oct 23, 2025 08:15 AM
-                except Exception:
-                    facility['last_submission_formatted'] = str(
-                        facility['last_submission'])  # Fallback
-            else:
-                facility['last_submission_formatted'] = 'N/A'
-            formatted_top_facilities.append(facility)
-    except ValueError as e:
-        flash(f"Error occur in your filtering {e}")
+    total_encounter = DashboardServices.get_total_encounters(without_date_filters, g['start_date'], g['end_date'])
+    encounter_gender_distribution = DashboardServices.encounter_gender_distribution(without_gender_filters)
+    encounter_age_distribution = DashboardServices.encounter_age_group_distribution(all_filters)
+    encounter_per_scheme = DashboardServices.get_encounter_per_scheme(without_scheme_filters)
+    treatment_outcome_distribution = DashboardServices.get_treatment_outcome_distribution(all_filters)
+    top_encounter_facilities = DashboardServices.get_top_encounter_facilities(all_filters)
+    average_daily_encounter = DashboardServices.get_average_encounter_per_day(all_filters, g['start_date'], g['end_date'])
+    encounter_trend = DashboardServices.get_encounter_trend(without_date_filters, g['start_date'], g['end_date'])
+    encounter_per_lga = DashboardServices.encounter_distribution_across_lga(without_lgas_filters)
 
 
-    scheme_list = (list(InsuranceSchemeServices.get_all())
-                   if get_current_user().role.name == 'admin' else get_current_user().facility.scheme)
+    return render_template(
+        'admin_encounters.html',
+        title = 'Dashboard - Encounter',
+        total_encounter = total_encounter,
+        encounter_gender_distribution = encounter_gender_distribution,
+        encounter_age_distribution = encounter_age_distribution,
+        treatment_outcome_distribution = treatment_outcome_distribution,
+        top_encounter_facilitties = top_encounter_facilities,
+        average_daily_encounter = average_daily_encounter,
+        encounter_trend = encounter_trend,
+        encounter_per_lga = encounter_per_lga,
+        start_date = g['start_date'],
+        end_date = g['end_date']
+    )
 
-    local_government_list = ONDO_LGAS_LIST
+
+@app.route('/dashboard/mortality')
+@admin_required
+def admin_mortality():
+    start_date, end_date = parse_date()
+    g['start_date'] = start_date
+    g['end_date'] = end_date
+
+    form = AdminDashboardFilterForm(request.args)
+    if not form.validate():
+        flash("Invalid Filter Parameters", 'error')
+        return redirect(url_for('admin_mortality'))
 
 
-    # For dropdown
-    all_facilities = sorted(FacilityServices.get_all(), key=lambda x: x.name)
+    base_list = ['period', 'start_date', 'end_date']
+    all_filters = build_filter(base_list + ['scheme_id' , 'lga' , 'gender' ,'facility_id'])
+    without_facility_filters = build_filter(base_list + ['scheme_id' , 'lga' , 'gender'])
+    without_gender_filters = build_filter(base_list + ['scheme_id' , 'lga' , 'facility_id'])
+    without_lgas_filters = build_filter(base_list + ['scheme_id' , 'gender' , 'facility_id'])
+    without_scheme_filters = build_filter(base_list + ['lga' , 'gender' , 'facility_id'])
+    without_date_filters = build_filter(['lga', 'gender', 'scheme_id', 'facility_id'])
 
-    return render_template('admin.html',
-                           # Filters for UI
-                           title='Dashboard',
-                           all_facilities=all_facilities,
-                           current_period=request.args.get('period'),
-                           current_facility_id=request.args.get('facility_id'),
+    mortality_type_distribution  = DashboardServices.mortality_distribution_by_type(all_filters)
+    mortality_age_group_distribution = DashboardServices.mortality_distribution_by_age_group(all_filters)
+    mortality_facility_distribution = DashboardServices.get_mortality_count_per_facility(without_facility_filters)
+    mortality_gender_distribution = DashboardServices.get_mortality_distribution_by_gender(without_gender_filters)
+    mortality_scheme_distribution = DashboardServices.get_mortality_per_scheme(without_scheme_filters)
+    mortality_trend = DashboardServices.get_mortality_trend(all_filters, g['start_date'], g['end_date'])
+    mortality_per_lga = DashboardServices.get_mortality_by_lga(without_lgas_filters)
+    average_daily_mortality = DashboardServices.get_average_mortality_per_day(without_date_filters, g['start_date'], g['end_date'])
+    top_cause = DashboardServices.get_top_cause_of_mortality(all_filters)
+    total_death = DashboardServices.get_total_death_outcome(without_date_filters, start_date = g['start_date'], end_date = g['end_date'])
+    case_fatality = DashboardServices.case_fatality(all_filters)
 
-                           # KPI Cards
-                           total_encounters=total_encounters,
-                           active_facilities=active_facilities,
-                           top_disease=top_diseases_data[0] if top_diseases_data else None,
-                           male_perc=round(male_perc, 1),
-                           scheme_list=scheme_list,
-                           lga_list=local_government_list,
-                           female_perc=round(female_perc, 1),
+    return render_template(
+        'admin_mortality.html',
+        title = 'Dashboard - Mortality',
+        mortality_type_distribution = mortality_type_distribution,
+        mortality_age_group_distribution = mortality_age_group_distribution,
+        mortality_facility_distribution = mortality_facility_distribution,
+        mortality_gender_distribution = mortality_gender_distribution,
+        mortality_scheme_distribution = mortality_scheme_distribution,
+        mortality_trend_distribution = mortality_trend,
+        mortality_per_lga = mortality_per_lga,
+        mortality_top_cause = top_cause,
+        total_death =  total_death,
+        case_fatality = case_fatality,
+        form = form,
+        start_date = g['start_date'],
+        end_date = g['end_date']
+    )
 
-                           # Chart Data
-                           monthly_trend_raw=monthly_trend_raw,
-                           top_diseases=top_diseases_data,
-                           top_facilities=top_facilities_raw,
-                           age_distribution=age_distribution,
 
-                           current_scheme_id=request.args.get(
-                               'scheme_id', 'all'),
-                           current_gender=request.args.get('gender', 'all'),
-                           current_lga=request.args.get('lga', 'all'),
+# @app.route('/dashboard')
+# @login_required
+# def admin():
 
-                           # Table Data
-                           top_facilities_raw=formatted_top_facilities
-                           )
+#     try:
+
+#         active_facilities = len(list(EncounterServices.get_all(
+#             params= filters.group(Encounter, 'facility_id'))))
+
+#         top_diseases_data = DashboardServices.top_diseases(
+#             params= filters.set_limit(5))
+
+#         male_perc, female_perc = DashboardServices.encounter_gender_distribution(params=filters)
+#         # For charts
+#         monthly_trend_raw = json.loads(
+#             DashboardServices.get_encounter_trend(params=filters))
+#         age_distribution = DashboardServices.encounter_age_group_distribution(
+#             params=filters.set_limit(5))
+#         top_facilities_raw = list(DashboardServices.get_top_encounter_facilities(
+#             params= filters.set_limit(5)))
+#         total_encounters = len(
+#             list(EncounterServices.get_all(params=filters)))
+
+#         formatted_top_facilities = []
+#         for facility in top_facilities_raw:
+#             if facility['last_submission']:
+#                 try:
+#                     dt_obj = arrow.get(facility['last_submission']).to(
+#                         'local')  # Convert to local timezone if needed
+#                     facility['last_submission_formatted'] = dt_obj.strftime(
+#                         '%b %d, %Y %I:%M %p')  # e.g., Oct 23, 2025 08:15 AM
+#                 except Exception:
+#                     facility['last_submission_formatted'] = str(
+#                         facility['last_submission'])  # Fallback
+#             else:
+#                 facility['last_submission_formatted'] = 'N/A'
+#             formatted_top_facilities.append(facility)
+#     except ValueError as e:
+#         flash(f"Error occur in your filtering {e}")
+
+
+#     scheme_list = (list(InsuranceSchemeServices.get_all())
+#                    if get_current_user().role.name == 'admin' else get_current_user().facility.scheme)
+
+#     local_government_list = ONDO_LGAS_LIST
+
+
+#     # For dropdown
+#     all_facilities = sorted(FacilityServices.get_all(), key=lambda x: x.name)
+
+#     return render_template('admin.html',
+#                            # Filters for UI
+#                            title='Dashboard',
+#                            all_facilities=all_facilities,
+#                            current_period=request.args.get('period'),
+#                            current_facility_id=request.args.get('facility_id'),
+
+#                            # KPI Cards
+#                            total_encounters=total_encounters,
+#                            active_facilities=active_facilities,
+#                            top_disease=top_diseases_data[0] if top_diseases_data else None,
+#                            male_perc=round(male_perc, 1),
+#                            scheme_list=scheme_list,
+#                            lga_list=local_government_list,
+#                            female_perc=round(female_perc, 1),
+
+#                            # Chart Data
+#                            monthly_trend_raw=monthly_trend_raw,
+#                            top_diseases=top_diseases_data,
+#                            top_facilities=top_facilities_raw,
+#                            age_distribution=age_distribution,
+
+#                            current_scheme_id=request.args.get(
+#                                'scheme_id', 'all'),
+#                            current_gender=request.args.get('gender', 'all'),
+#                            current_lga=request.args.get('lga', 'all'),
+
+#                            # Table Data
+#                            top_facilities_raw=formatted_top_facilities
+#                            )
 
 
 @app.route('/admin/reports')
