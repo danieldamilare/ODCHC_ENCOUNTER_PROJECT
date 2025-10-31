@@ -1,6 +1,7 @@
 from wtforms import StringField, PasswordField, SubmitField, BooleanField, TextAreaField
 from wtforms import IntegerField, SelectField, DateField, FieldList, SelectMultipleField, FileField
 from wtforms.validators import DataRequired, Length, NumberRange, EqualTo, Optional, ValidationError
+from app.services import InsuranceSchemeServices, FacilityServices
 from wtforms import widgets
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileAllowed, FileRequired
@@ -160,3 +161,57 @@ class ExcelUploadForm(FlaskForm):
         FileAllowed(['xls', 'xlsx'], "Excel files only!")
     ])
     submit = SubmitField("Upload")
+
+
+class DashboardFilterForm(FlaskForm):
+    """Base filter form - shared across all dashboards"""
+
+    period = SelectField(
+        'Date Range',
+        choices=[
+            ('this_month', 'This Month'),
+            ('last_3_months', 'Last 3 Months'),
+            ('last_year', 'Last Year'),
+        ],
+        default='this_month',
+        validators=[Optional()]
+    )
+
+    scheme_id = SelectField(
+        'Insurance Scheme',
+        choices=[('', 'All Schemes')],  # Populated dynamically
+        coerce=lambda x: int(x) if x else None,
+        validators=[Optional()]
+    )
+
+    gender = SelectField(
+        'Gender',
+        choices=[
+            ('', 'All'),
+            ('M', 'Male'),
+            ('F', 'Female')
+        ],
+        validators=[Optional()]
+    )
+
+    def __init__(self, *args, **kwargs):
+        """Populate dynamic choices on form init"""
+        super().__init__(*args, **kwargs)
+
+        # Populate schemes from database
+        schemes = InsuranceSchemeServices.get_all()
+        self.scheme_id.choices = [('', 'All Schemes')] + [
+            (str(s.id), s.scheme_name.upper()) for s in schemes
+        ]
+
+class AdminDashboardFilterForm(DashboardFilterForm):
+    facility_id = SelectField('Facility',
+                              choices = [('', 'All Facilities')],
+                              validators = [Optional()])
+    lga =  SelectField('Facility',
+                    choices = [('', 'All LGAs')] + LGA_CHOICES[1:],
+                    validators = [Optional()])
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        facilities = [(f.id, f.name.upper()) for f in FacilityServices.get_all()]
+        self.facility_id.choices = [('', 'All Facilities')]  + facilities
