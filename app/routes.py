@@ -562,11 +562,88 @@ def parse_date(period: str = None):
     return start_date, end_date
 
 
-    if facility_id:
-        filters = filters.where(Encounter, 'facility_id', '=', int(facility_id))
+def build_filter(filters: List[str], base_params: Optional[Params] = None) -> Params:
+    params = Params() if not base_params else base_params
+    user = get_current_user()
 
-    if user.role.name == 'admin' and local_government:
-        filters = filters.where(Facility, 'local_government', '=', local_government)
+    for fil in filters:
+        model, col, op =filter_config[fil]
+
+        if fil == 'period' and (temp := request.args.get(fil)):
+            start_date, end_date = parse_date(temp)
+            params = params.where(Encounter, 'date', '>=', start_date)
+            params = params.where(Encounter, 'date', '<=', end_date)
+            g['start_date'] = start_date
+            g['end_date'] = end_date
+            g['period'] = temp
+
+        elif fil == 'facility_id':
+            if user.role.name != 'admin':
+                params = params.where(Encounter, 'facility_id', '=', user.facility.id)
+                g['facility_id'] = user.facility.id
+            elif temp := request.args.get(fil):
+                params = params.where(model, col, op, int(temp))
+                g['facility_id'] = temp
+
+        elif fil == 'local_government':
+            if user.role.name == 'admin' and (temp := request.args.get(fil)):
+                params = params.where(model, col, op, temp)
+                g['local_government'] = temp
+
+        elif temp := request.args.get(fil):
+            # Convert to int for ID fields
+            if col in ['scheme', 'outcome']:
+                temp = int(temp)
+            params = params.where(model, col, op, temp)
+            g[fil] = temp
+
+    return params
+
+@app.route('/dashboard/overview')
+@admin_required
+def admin_overview(): #overview don't need facility_filter
+    #date defualt to this month handle period where no date filter
+
+    start_date, end_date = parse_date()
+    g['start_date'] = start_date
+    g['end_date'] = end_date
+    form = DashboardFilterForm(request.args)
+    if not form.validate():
+        flash("Invalid Filter Parameters", 'error')
+        return redirect(url_for('admin_overview'))
+
+    all_filter = build_filter(['period', 'scheme_id', 'gender', 'start_date',
+                                'end_date'] )
+
+    total_facilities = FacilityServices.get_total(params = all_filter)
+    total_encounter = DashboardServices.get_total_encounters(params = all_filter,
+                                                    start_date = g['start_date'], end_date = g['end_date'])
+    total_death = DashboardServices.get_total_death_outcome(all_filter, g['start_date'], g['end_date'])
+    facilities_summary = DashboardServices.get_top_facilities_summaries(all_filter, g['start_date'], g['end_date'])
+    referral_count = DashboardServices.get_referral_count(all_filter)
+    encounter_scheme_grouped = DashboardServices.total_encounter_by_scheme_grouped(all_filter, g['start_date'],
+                                                                                   g['end_date'])
+
+    utilization_scheme_grouped = DashboardServices.total_utilization_by_scheme_grouped(all_filter, g['start_date'],
+                                                                                       g['end_date'])
+    mortality_scheme_grouped = DashboardServices.total_mortality_by_scheme_grouped(all_filter, g['start_date'],
+                                                                                       g['end_date'])
+
+    return render_template(
+        'dashboard_overview.html',
+        title = 'Dashboard - Executive',
+        total_facilities = total_facilities,
+        total_encounter = total_encounter,
+        total_death = total_death,
+        facilities_summary = facilities_summary,
+        referral_count = referral_count,
+        encounter_scheme_grouped = encounter_scheme_grouped,
+        utilization_scheme_grouped = utilization_scheme_grouped,
+        mortality_scheme_grouped = mortality_scheme_grouped,
+        form = form,
+        start_date = g['start_date'],
+        end_date = g['end_date']
+    )
 
     if scheme:
         filters = filters.where(Encounter, 'scheme', '=', int(scheme))
