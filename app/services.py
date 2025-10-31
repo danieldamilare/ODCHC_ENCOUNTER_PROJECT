@@ -974,6 +974,34 @@ class DashboardServices(BaseServices):
                                            })
 
     @classmethod
+    def get_top_utilization_facilities(cls, params: Params):
+        query = f'''
+        SELECT
+            fc.name AS facility_name,
+            COUNT(ec.id) as encounter_count
+           FROM encounters as ec
+           JOIN encounters_diseases as ecd ON ec.id = ecd.encounter_id
+           JOIN facility as fc on ec.facility_id = fc.id
+          '''
+
+        params = params.group(Facility, 'id')
+        params = params.sort(None, 'encounter_count', 'DESC')
+        if not params.limit:
+            params = params.set_limit(5)
+
+        print("\n\n\n",params.limit, "\n\n\n")
+        res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, args = cls._apply_filter(base_query=query, **res)
+        print('query', query, args)
+
+        return cls._run_query(query, args,
+                              lambda row: {'facility_name': row['facility_name'],
+                                           'encounter_count': row['encounter_count'],
+                                           })
+
+
+
+    @classmethod
     def _validate_date(cls, start_date, end_date, limit):
         today = datetime.today().date()
         start_date = start_date or today.replace(day=1)
@@ -1077,7 +1105,72 @@ class DashboardServices(BaseServices):
 
 
     @classmethod
-    def encounter_trend_last_n_months(cls, params: Params, start_date, end_date):
+    def utilization_age_group_distribution(cls,
+                               params:Params):
+
+        query = '''
+            SELECT age_group, COUNT(*) as age_group_count
+            FROM encounters as ec
+            JOIN encounters_diseases as ecd on ecd.encounter_id = ec.id
+            JOIN facility as f ON f.id = ec.facility_id
+        '''
+
+        params = params.group(Encounter, 'age_group')
+        res  = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, args = cls._apply_filter(query, **res)
+
+        return cls._run_query(query,
+                              args,
+                              lambda row: {'age_group': row['age_group'], 'age_group_count': row['age_group_count']})
+
+    @classmethod
+    def get_utilization_trend(cls, params: Params, start_date, end_date):
+        # ensure at least 6 months range
+        start_date = start_date.replace(day=1)
+        supposed_start = (end_date.replace(day=1) - relativedelta(months=6))
+        if start_date > supposed_start:
+            start_date = supposed_start
+
+        query = '''
+            SELECT ec.date, COUNT(*) AS date_count
+            FROM encounters AS ec
+            JOIN encounters_diseases as ecd on ecd.encounter_id = ec.id
+            JOIN facility AS f ON f.id = ec.facility_id
+        '''
+
+        params = params.where(Encounter, 'date', '>=', start_date)
+        params = params.where(Encounter, 'date', '<=', end_date)
+        params = params.group(Encounter, 'date')
+
+        res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, args = cls._apply_filter(query, **res)
+        print(query, args)
+
+        db = get_db()
+        rows = db.execute(query, args).fetchall()
+        df = pd.DataFrame([dict(row) for row in rows])
+
+        if df.empty:
+            return pd.DataFrame(columns=['date', 'date_count']).to_json(orient="records")
+
+        df['date'] = pd.to_datetime(df['date'])
+        df['date'] = df['date'].dt.to_period('M')
+
+        trend = df.groupby('date')['date_count'].sum().reset_index()
+
+        # Fill missing months
+        all_months = pd.period_range(start=start_date, end=end_date, freq='M')
+        trend = trend.set_index('date').reindex(all_months, fill_value=0)
+        trend.index.name = 'date'
+        trend = trend.reset_index()
+
+        trend['date'] = trend['date'].astype(str)
+        return trend.to_json(orient="records")
+
+
+
+    @classmethod
+    def get_encounter_trend(cls, params: Params, start_date, end_date):
         # ensure at least 6 months range
         start_date = start_date.replace(day=1)
         supposed_start = (end_date.replace(day=1) - relativedelta(months=6))
