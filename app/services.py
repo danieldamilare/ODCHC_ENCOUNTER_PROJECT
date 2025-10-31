@@ -1234,6 +1234,45 @@ class DashboardServices(BaseServices):
                                                   'count': row['encounter_count']}
                        )
 
+
+    @classmethod
+    def get_mortality_per_scheme(cls, params: Params):
+        query = '''
+        SELECT
+            COUNT(*) as encounter_count,
+            isc.scheme_name as encounter_scheme,
+            isc.color_scheme as color_scheme
+        FROM encounters as ec
+        JOIN insurance_scheme as isc on isc.id = ec.scheme
+        JOIN facility as fc on ec.facility_id = fc.id
+        JOIN treatment_outcome as tc on tc.id = ec.outcome
+        '''
+        params = params.where(TreatmentOutcome, 'type', '=', 'Death')
+        params = params.group(Encounter, 'scheme')
+        res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, args = cls._apply_filter(base_query= query, **res)
+        return cls._run_query(query=query,
+                        params=args,
+                        row_mapper = lambda row: {'scheme_name': row['encounter_scheme'],
+                                                  'color':  row['color_scheme'],
+                                                  'count': row['encounter_count']}
+                       )
+    @classmethod
+    def case_fatality(cls, params: Params):
+        query = '''
+        SELECT
+            (SUM(CASE WHEN LOWER(tc.type) = 'death' THEN 1 ELSE 0 END) * 1.0/
+            COUNT(ec.id)) * 100.0 as fatality_count
+        FROM encounters as ec
+        JOIN facility as fc on ec.facility_id = fc.id
+        JOIN treatment_outcome as tc on tc.id = ec.outcome
+        '''
+        res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, args = cls._apply_filter(query, **res)
+        db = get_db()
+        row = db.execute(query, args).fetchone()
+        return row['fatality_count'] if row else 0.0
+
     @classmethod
     def get_utilization_per_scheme(cls, params: Params):
         query = '''
@@ -1297,6 +1336,41 @@ class DashboardServices(BaseServices):
         db = get_db()
         row = db.execute(query, args).fetchone()
         return row['referral_count'] if row else 0
+
+    @classmethod
+    def get_total_utilization(cls, params: Params, start_date, end_date):
+        diff = end_date - start_date
+        prev_start_date = start_date - diff
+        prev_end_date = start_date - timedelta(days=1)
+
+        query = '''
+        SELECT
+            SUM(CASE WHEN ec.date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS current_count,
+            SUM(CASE WHEN ec.date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS prev_count
+        FROM encounters AS ec
+        JOIN encounters_diseases as ecd on ecd.encounter_id = ec.id
+        JOIN facility AS fc ON fc.id = ec.facility_id
+        '''
+
+        res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, filter_args = cls._apply_filter(query, **res)
+
+        args = [start_date, end_date, prev_start_date, prev_end_date] + filter_args
+
+        db = get_db()
+        row = db.execute(query, args).fetchone()
+        current = row['current_count'] if row else 0
+        prev = row['prev_count'] if row else 0
+        print(current, prev)
+
+        pct_change = 0.0
+        if prev:
+            pct_change = ((current - prev) / prev) * 100
+        else:
+            pct_change = 100.0 if current else 0.0
+
+        return current, pct_change
+
 
     @classmethod
     def get_total_encounters(cls, params: Params, start_date, end_date):
