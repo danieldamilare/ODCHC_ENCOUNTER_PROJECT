@@ -98,7 +98,7 @@ class FilterParser:
                       model_map: Dict, is_and = True) -> List[Tuple]:
         result = []
         save = {}
-        print(filters)
+        # print(filters)
         for fil in filters:
             model = fil.model
             op = fil.op
@@ -119,7 +119,7 @@ class FilterParser:
             else:
                 save[(col, op)] = len(result)
                 result.append((col, value, op))
-        print(result)
+        # print(result)
         return result
 
     @classmethod
@@ -135,7 +135,7 @@ class FilterParser:
                 if not model.validate_col(col):
                     raise QueryParameterError(f"Column {col} not in table {model.get_name()}")
                 if not model in model_map:
-                    print(fil)
+                    # print(fil)
                     raise QueryParameterError(f"Model {model} not in Model map")
                 col = (f'{model_map[model]}.{col}')
             if col not in save:

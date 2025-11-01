@@ -1,4 +1,4 @@
-import sqlite3
+
 from datetime import timedelta
 from datetime import datetime, date
 from collections import defaultdict
@@ -116,7 +116,6 @@ class BaseServices:
 
             mapper = {cls.model: cls.table_name}
             res = FilterParser.parse_params(params, model_map=mapper)
-            # print(res)
         else:
             res = _legacy_to_params(**kwargs)
 
@@ -125,7 +124,6 @@ class BaseServices:
             base_arg=[],
             **res
         )
-        # print("In get_total\n", query, args)
         db = get_db()
         res =db.execute(query, args).fetchone()
         if res:
@@ -815,24 +813,19 @@ class EncounterServices(BaseServices):
         '''
 
         if params:
-            # print(params)
             res =FilterParser.parse_params(params,cls.MODEL_ALIAS_MAP)
         else:
             res = _legacy_to_params(**kwargs)
 
-        # print("In get_encounter, res", res)
 
         query, args = cls._apply_filter(
             base_query=query,
             base_arg=[],
             **res
         )
-        # print(query, args)
-        # print('encounter query', query, args)
 
         db = get_db()
         encounters_rows = db.execute(query, args).fetchall()
-        # print("Encounter rows", encounters_rows)
 
         encounter_ids = [row['id'] for row in encounters_rows]
 
@@ -963,10 +956,8 @@ class DashboardServices(BaseServices):
         if not params.limit:
             params = params.set_limit(5)
 
-        print("\n\n\n",params.limit, "\n\n\n")
         res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         query, args = cls._apply_filter(base_query=query, **res)
-        print('query', query, args)
 
         return cls._run_query(query, args,
                               lambda row: {'facility_name': row['facility_name'],
@@ -989,14 +980,12 @@ class DashboardServices(BaseServices):
         if not params.limit:
             params = params.set_limit(5)
 
-        print("\n\n\n",params.limit, "\n\n\n")
         res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         query, args = cls._apply_filter(base_query=query, **res)
-        print('query', query, args)
 
         return cls._run_query(query, args,
                               lambda row: {'facility_name': row['facility_name'],
-                                           'encounter_count': row['encounter_count'],
+                                           'count': row['encounter_count'],
                                            })
 
 
@@ -1039,11 +1028,10 @@ class DashboardServices(BaseServices):
 
         res:Dict = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         query, args = cls._apply_filter(query, **res)
-        print(query, args)
 
         return cls._run_query(query,
                               args,
-                              lambda row: {'disease_name': row['disease_name'], 'disease_count': row['disease_count']})
+                              lambda row: {'disease_name': row['disease_name'], 'count': row['disease_count']})
 
     @classmethod
     def encounter_gender_distribution(cls,
@@ -1064,26 +1052,10 @@ class DashboardServices(BaseServices):
 
         res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         query, args = cls._apply_filter(query, **res)
-        # print('query', query)
-        res = cls._run_query(query,
+        return cls._run_query(query,
                              args,
-                             lambda row: {'gender': row['gender'], 'gender_count': row['gender_count']})
-        print(res)
-        male_count = 0
-        female_count = 0
+                             lambda row: {'gender': row['gender'], 'count': row['gender_count']})
 
-        for item in res:
-            if item['gender'] == 'Male':
-                male_count = item['gender_count']
-            elif item['gender'] == 'Female':
-                female_count = item['gender_count']
-
-        total_gender = male_count + female_count
-        male_perc = (male_count / total_gender *
-                     100) if total_gender > 0 else 0
-        female_perc = (female_count / total_gender *
-                       100) if total_gender > 0 else 0
-        return (male_perc, female_perc)
 
     @classmethod
     def encounter_age_group_distribution(cls,
@@ -1101,7 +1073,7 @@ class DashboardServices(BaseServices):
 
         return cls._run_query(query,
                               args,
-                              lambda row: {'age_group': row['age_group'], 'age_group_count': row['age_group_count']})
+                              lambda row: {'age_group': row['age_group'], 'count': row['age_group_count']})
 
 
     @classmethod
@@ -1121,7 +1093,7 @@ class DashboardServices(BaseServices):
 
         return cls._run_query(query,
                               args,
-                              lambda row: {'age_group': row['age_group'], 'age_group_count': row['age_group_count']})
+                              lambda row: {'age_group': row['age_group'], 'count': row['age_group_count']})
 
     @classmethod
     def get_utilization_trend(cls, params: Params, start_date, end_date):
@@ -1144,7 +1116,6 @@ class DashboardServices(BaseServices):
 
         res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         query, args = cls._apply_filter(query, **res)
-        print(query, args)
 
         db = get_db()
         rows = db.execute(query, args).fetchall()
@@ -1165,7 +1136,8 @@ class DashboardServices(BaseServices):
         trend = trend.reset_index()
 
         trend['date'] = trend['date'].astype(str)
-        return trend.to_json(orient="records")
+        trend.rename(columns={'date_count': 'count'})
+        return trend.to_dict(orient="records")
 
 
 
@@ -1189,7 +1161,6 @@ class DashboardServices(BaseServices):
 
         res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         query, args = cls._apply_filter(query, **res)
-        print(query, args)
 
         db = get_db()
         rows = db.execute(query, args).fetchall()
@@ -1210,7 +1181,7 @@ class DashboardServices(BaseServices):
         trend = trend.reset_index()
 
         trend['date'] = trend['date'].astype(str)
-        return trend.to_json(orient="records")
+        return trend.to_dict(orient='records')
 
     @classmethod
     def get_encounter_per_scheme(cls, params: Params):
@@ -1261,8 +1232,11 @@ class DashboardServices(BaseServices):
     def case_fatality(cls, params: Params):
         query = '''
         SELECT
-            (SUM(CASE WHEN LOWER(tc.type) = 'death' THEN 1 ELSE 0 END) * 1.0/
-            COUNT(ec.id)) * 100.0 as fatality_count
+            CASE WHEN COUNT(ec.id) = 0 THEN 0
+            ELSE
+                (SUM(CASE WHEN LOWER(tc.type) = 'death' THEN 1 ELSE 0 END) * 1.0/
+                COUNT(ec.id)) * 100.0
+            END as fatality_count
         FROM encounters as ec
         JOIN facility as fc on ec.facility_id = fc.id
         JOIN treatment_outcome as tc on tc.id = ec.outcome
@@ -1305,17 +1279,18 @@ class DashboardServices(BaseServices):
 
     @classmethod
     def get_treatment_outcome_distribution(cls, params: Params):
-        query = '''
+        inner_query = '''
         SELECT
-            tc.name as outcome,
-            COUNT(*) as outcome_count
-        FROM encounters as ec
-        JOIN treatment_outcome as tc ON tc.id = ec.outcome
+            CASE WHEN tc.type = 'Death' THEN 'Death' ELSE tc.name END AS outcome
+        FROM encounters AS ec
+        JOIN facility as fc on fc.id = ec.facility_id
+        JOIN treatment_outcome AS tc ON tc.id = ec.outcome
         '''
-        params = params.group(Encounter, 'outcome')
         res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
-        query, args = cls._apply_filter(base_query = query, **res)
-        return cls._run_query(query =query,
+        query, args = cls._apply_filter(base_query = inner_query, **res)
+        new_query = f'SELECT outcome, COUNT(*) as outcome_count FROM ({query}) GROUP BY outcome'
+        # print(new_query, args)
+        return cls._run_query(query =new_query,
                       params = args,
                       row_mapper = lambda row: {'outcome': row['outcome'],
                                                 'count': row['outcome_count']})
@@ -1345,8 +1320,8 @@ class DashboardServices(BaseServices):
 
         query = '''
         SELECT
-            SUM(CASE WHEN ec.date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS current_count,
-            SUM(CASE WHEN ec.date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS prev_count
+            COALESCE(SUM(CASE WHEN ec.date BETWEEN ? AND ? THEN 1 ELSE 0 END), 0) AS current_count,
+            COALESCE(SUM(CASE WHEN ec.date BETWEEN ? AND ? THEN 1 ELSE 0 END), 0) AS prev_count
         FROM encounters AS ec
         JOIN encounters_diseases as ecd on ecd.encounter_id = ec.id
         JOIN facility AS fc ON fc.id = ec.facility_id
@@ -1361,7 +1336,6 @@ class DashboardServices(BaseServices):
         row = db.execute(query, args).fetchone()
         current = row['current_count'] if row else 0
         prev = row['prev_count'] if row else 0
-        print(current, prev)
 
         pct_change = 0.0
         if prev:
@@ -1380,8 +1354,8 @@ class DashboardServices(BaseServices):
 
         query = '''
         SELECT
-            SUM(CASE WHEN ec.date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS current_count,
-            SUM(CASE WHEN ec.date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS prev_count
+            COALESCE(SUM(CASE WHEN ec.date BETWEEN ? AND ? THEN 1 ELSE 0 END), 0) AS current_count,
+            COALESCE(SUM(CASE WHEN ec.date BETWEEN ? AND ? THEN 1 ELSE 0 END), 0) AS prev_count
         FROM encounters AS ec
         JOIN facility AS fc ON fc.id = ec.facility_id
         '''
@@ -1390,6 +1364,7 @@ class DashboardServices(BaseServices):
         query, filter_args = cls._apply_filter(query, **res)
 
         args = [start_date, end_date, prev_start_date, prev_end_date] + filter_args
+        print(query, args)
 
         db = get_db()
         row = db.execute(query, args).fetchone()
@@ -1463,7 +1438,6 @@ class DashboardServices(BaseServices):
         '''
         if (end_date - start_date).days < (365 * 5): #minumum of 5 display years
             start_date = end_date.replace(day=1, month=1, year = end_date.year - 5)
-        print(start_date, end_date)
 
         params = params.where(Encounter, 'date', '>=', start_date)
         params = params.where(Encounter, 'date', '<=', end_date)
@@ -1472,12 +1446,13 @@ class DashboardServices(BaseServices):
 
         res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         query, args = cls._apply_filter(query, **res)
-        print(query, args)
 
         db = get_db()
         rows = db.execute(query, args).fetchall()
         df = pd.DataFrame([dict(row) for row in rows])
-        print(df)
+        if df.empty:
+            return {}
+
         df['date'] =  pd.to_datetime(df['date'])
         df['date'] = df['date'].dt.to_period('Y')
         df.sort_values('date')
@@ -1579,7 +1554,7 @@ class DashboardServices(BaseServices):
     def total_mortality_by_scheme_grouped(cls, params: Params, start_date, end_date):
         query = '''
         SELECT
-            ec.date,
+            ec.date ,
             isc.scheme_name,
             isc.color_scheme
         FROM encounters as ec
@@ -1587,18 +1562,20 @@ class DashboardServices(BaseServices):
         JOIN facility as fc on fc.id = ec.facility_id
         JOIN treatment_outcome as tc on tc.id = ec.outcome
         '''
+        if (end_date - start_date).days < 365 * 5:
+            start_date = end_date.replace(year = end_date.year - 5, day = 1, month = 1)
         params = params.where(Encounter, 'date', '>=', start_date)
         params = params.where(Encounter, 'date', '<=', end_date)
-        params = params.where(TreatmentOutcome, 'type', '=', 'death')
+        params = params.where(TreatmentOutcome, 'type', '=', 'Death')
 
         res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         query, args = cls._apply_filter(query, **res)
-        print(query, args)
 
         db = get_db()
         rows = db.execute(query, args).fetchall()
         df = pd.DataFrame([dict(row) for row in rows])
-        print(df)
+        if df.empty:
+            return {}
         df['date'] =  pd.to_datetime(df['date'])
         df['date'] = df['date'].dt.to_period('Y')
         df.sort_values('date')
@@ -1630,6 +1607,8 @@ class DashboardServices(BaseServices):
         JOIN insurance_scheme as isc on isc.id = ec.scheme
         JOIN facility as fc on fc.id = ec.facility_id
         '''
+        if (end_date - start_date).days < 365 * 5:
+            start_date = end_date.replace(year = end_date.year - 5, day = 1, month = 1)
         params = params.where(Encounter, 'date', '>=', start_date)
         params = params.where(Encounter, 'date', '<=', end_date)
         # params = params.group(Encounter, 'date').group(InsuranceScheme, 'scheme_name')\
@@ -1637,12 +1616,13 @@ class DashboardServices(BaseServices):
 
         res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         query, args = cls._apply_filter(query, **res)
-        print(query, args)
 
         db = get_db()
         rows = db.execute(query, args).fetchall()
         df = pd.DataFrame([dict(row) for row in rows])
-        print(df)
+        if df.empty:
+            return  {}
+
         df['date'] =  pd.to_datetime(df['date'])
         df['date'] = df['date'].dt.to_period('Y')
         df.sort_values('date')
@@ -1696,6 +1676,8 @@ class DashboardServices(BaseServices):
         JOIN facility as fc on fc.id = ec.facility_id
         JOIN treatment_outcome as tc on tc.id = ec.outcome
         '''
+        if (end_date - start_date).days < 30 * 6:
+            start_date = end_date.replace(month = end_date.month - 6, day = 1)
         params = params.where(TreatmentOutcome, 'type', '=', 'Death')
         params = params.where(Encounter, 'date', '>=', start_date)
         params = params.where(Encounter, 'date', '<=', end_date)
@@ -1704,19 +1686,26 @@ class DashboardServices(BaseServices):
 
         res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         query, args = cls._apply_filter(query, **res)
-
+        # print(query, args)
         db = get_db()
         rows = db.execute(query, args).fetchall()
         df = pd.DataFrame([dict(row) for row in rows])
+        if df.empty:
+            return {}
+
+        # print(df)
         df['date'] = pd.to_datetime(df['date'])
         df['date'] = df['date'].dt.to_period(freq='M')
         rows =  db.execute('SELECT tc.name  as death_type from \
                                   treatment_outcome as tc where tc.type = "Death"').fetchall()
         death_type = [ row['death_type'] for row in rows]
-        all_month = list(pd.period_range(start=start_date, end=end_date, freq='M'))
-
+        all_month = list(set(pd.period_range(start=start_date, end=end_date, freq='M')))
+        df = df.groupby(['date', 'death_type'], as_index=False)['death_count'].sum()
         df = df.set_index(['date', 'death_type'])
-        df = df.reindex(pd.MultiIndex.from_product([all_month, death_type]), fill_value=0).reset_index()
+        df = df.reindex(pd.MultiIndex.from_product([all_month, death_type], names = ['date', 'death_type']),
+                        fill_value=0).reset_index()
+        df.date = df.date.astype(str)
+        # print(df)
         pivot = df.pivot_table(
             index = 'date',
             columns = 'death_type',
@@ -1739,7 +1728,7 @@ class DashboardServices(BaseServices):
         '''
         params = params.where(TreatmentOutcome, 'type', '=', 'Death')
         params = params.group(Facility, 'local_government')
-        params = params.sort(Facility, 'local_government', 'DESC')
+        params = params.sort(None, 'count', 'DESC')
         res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         query, args = cls._apply_filter(query, **res)
         db = get_db()
@@ -1747,13 +1736,15 @@ class DashboardServices(BaseServices):
         result = dict.fromkeys([lga.upper() for lga in ONDO_LGAS_LOWER], 0)
         for row in rows:
             result[row['lga'].upper()] = row['count']
-        return [{'lga': key, 'count': value} for key, value in result.items()]
+        return sorted([{'lga': key, 'count': value} for key, value in result.items()], key= lambda row: row['count'])
 
     @classmethod
     def get_average_mortality_per_day(cls, params: Params, start_date, end_date):
         query = '''
         SELECT
-            COUNT(*) * 1.0/ COUNT(DISTINCT ec.date) as count
+            CASE WHEN COUNT(DISTINCT ec.date) = 0 THEN 0
+            ELSE COUNT(*) * 1.0/ COUNT(DISTINCT ec.date)
+            END as count
         FROM encounters as ec
         JOIN facility as fc on fc.id = ec.facility_id
         JOIN treatment_outcome as tc on tc.id = ec.outcome
@@ -1766,13 +1757,15 @@ class DashboardServices(BaseServices):
         db = get_db()
         row = db.execute(query, args).fetchone()
         res = row['count'] if row else 0
-        return res
+        return res or 0
 
     @classmethod
     def get_average_encounter_per_day(cls, params: Params, start_date, end_date):
         query = '''
         SELECT
-            COUNT(*) * 1.0/ COUNT(DISTINCT ec.date) as count
+            CASE WHEN COUNT(DISTINCT ec.date) = 0 THEN 0
+            ELSE COUNT(*) * 1.0/ COUNT(DISTINCT ec.date)
+            END as count
         FROM encounters as ec
         JOIN facility as fc on fc.id = ec.facility_id
         '''
@@ -1784,14 +1777,16 @@ class DashboardServices(BaseServices):
         db = get_db()
         row = db.execute(query, args).fetchone()
         res = row['count'] if row else 0
-        return res
+        return res or 0
 
 
     @classmethod
     def get_average_utilization_per_day(cls, params: Params, start_date, end_date):
         query = '''
         SELECT
-            COUNT(*) * 1.0/ COUNT(DISTINCT ec.date) as count
+            CASE WHEN COUNT(DISTINCT ec.date) = 0 THEN 0
+            ELSE COUNT(*) * 1.0/ COUNT(DISTINCT ec.date)
+            END as count
         FROM encounters as ec
         JOIN facility as fc on fc.id = ec.facility_id
         JOIN encounters_diseases as ecd on ec.id =  ecd.encounter_id
@@ -1801,10 +1796,12 @@ class DashboardServices(BaseServices):
 
         res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         query, args = cls._apply_filter(query, **res)
+        print(query, args)
         db = get_db()
         row = db.execute(query, args).fetchone()
+        print( dict(row))
         res = row['count'] if row else 0
-        return res
+        return res or 0
 
 
 
@@ -1820,8 +1817,8 @@ class DashboardServices(BaseServices):
         prev_end_date = start_date - timedelta(days=1)
         query = '''
         SELECT
-            SUM(CASE WHEN ec.date >= ? and ec.date <= ? THEN 1 ELSE 0 END)  as prev_count,
-            SUM(CASE WHEN ec.date >= ? and ec.date <= ? THEN 1 ELSE 0 END)  as current_count
+            COALESCE(SUM(CASE WHEN ec.date >= ? and ec.date <= ? THEN 1 ELSE 0 END), 0)  as prev_count,
+            COALESCE(SUM(CASE WHEN ec.date >= ? and ec.date <= ? THEN 1 ELSE 0 END), 0)  as current_count
         FROM encounters as ec
         JOIN facility as fc on ec.facility_id = fc.id
         JOIN treatment_outcome as tc on ec.outcome = tc.id
@@ -1830,14 +1827,15 @@ class DashboardServices(BaseServices):
         db = get_db()
         res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
 
+        # print(res)
+
         query, args = cls._apply_filter(base_query= query, **res)
+        # print(query, args)
         args = [prev_start_date, prev_end_date, start_date, end_date] + args
-        print(query, args)
         row = db.execute(query, args).fetchone()
 
         prev = row['prev_count'] if row else 0
         current = row['current_count'] if row else 0
-        print(prev, current)
         pct_change = 0
 
         if prev:
@@ -1883,7 +1881,7 @@ class DashboardServices(BaseServices):
           '''
         params = (params.where(Encounter, 'date', '>=', start_date)
                         .where(Encounter, 'date', '<=', end_date)
-                        .group(ncounter, 'facility_id')
+                        .group(Encounter, 'facility_id')
                         .sort(None, 'encounter_count', 'DESC'))
         if not params.limit:
             params = params.set_limit(10)
@@ -2052,6 +2050,7 @@ class ReportServices(BaseServices):
         df = pd.DataFrame([dict(row) for row in rows])
         if df.empty:
             raise MissingError("No report available for the time frame")
+
         table = df.pivot_table(
             index='facility_name',
             values='policy_number',
