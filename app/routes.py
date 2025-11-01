@@ -541,6 +541,7 @@ def view_encounter(pid: int):
                            title=f"Encounter Details: {encounter_view.client_name}",
                            encounter=encounter_view)
 
+
 def parse_date(period: str = None):
     """Parse period string into start_date and end_date."""
     if not period:
@@ -562,40 +563,40 @@ def parse_date(period: str = None):
     return start_date, end_date
 
 
-def build_filter(filters: List[str], base_params: Optional[Params] = None) -> Params:
+def build_filter(form: FlaskForm, filters: List[str], base_params: Optional[Params] = None) -> Params:
     params = Params() if not base_params else base_params
     user = get_current_user()
 
     for fil in filters:
         model, col, op =filter_config[fil]
+        value = getattr(form, fil).data
 
-        if fil == 'period' and (temp := request.args.get(fil)):
-            start_date, end_date = parse_date(temp)
+        if fil == 'period' and value:
+            start_date, end_date = parse_date(value)
             params = params.where(Encounter, 'date', '>=', start_date)
             params = params.where(Encounter, 'date', '<=', end_date)
-            g['start_date'] = start_date
-            g['end_date'] = end_date
-            g['period'] = temp
+            g.start_date = start_date
+            g.end_date = end_date
+            g.period = value
 
         elif fil == 'facility_id':
             if user.role.name != 'admin':
                 params = params.where(Encounter, 'facility_id', '=', user.facility.id)
-                g['facility_id'] = user.facility.id
-            elif temp := request.args.get(fil):
-                params = params.where(model, col, op, int(temp))
-                g['facility_id'] = temp
+                g.facility_id = user.facility.id
+            elif  value:
+                params = params.where(model, col, op, int(value))
+                g.facility_id = value
 
         elif fil == 'local_government':
-            if user.role.name == 'admin' and (temp := request.args.get(fil)):
-                params = params.where(model, col, op, temp)
-                g['local_government'] = temp
+            if user.role.name == 'admin' and value:
+                params = params.where(model, col, op, value)
+                g.local_government = value
 
-        elif temp := request.args.get(fil):
+        elif value:
             # Convert to int for ID fields
             if col in ['scheme', 'outcome']:
-                temp = int(temp)
-            params = params.where(model, col, op, temp)
-            g[fil] = temp
+                value = int(value)
+            params = params.where(model, col, op, value)
 
     return params
 
@@ -605,29 +606,30 @@ def admin_overview(): #overview don't need facility_filter
     #date defualt to this month handle period where no date filter
 
     start_date, end_date = parse_date()
-    g['start_date'] = start_date
-    g['end_date'] = end_date
+    g.start_date = start_date
+    g.end_date = end_date
     form = DashboardFilterForm(request.args)
     if not form.validate():
         flash("Invalid Filter Parameters", 'error')
         return redirect(url_for('admin_overview'))
 
-    all_filter = build_filter(['period', 'scheme_id', 'gender', 'start_date',
-                                'end_date'] )
+    all_filter = build_filter(form, ['period', 'scheme_id', 'gender'] )
+    without_date_filter = build_filter(form, [ 'scheme_id', 'gender'] )
 
-    total_facilities = FacilityServices.get_total(params = all_filter)
-    total_encounter = DashboardServices.get_total_encounters(params = all_filter,
-                                                    start_date = g['start_date'], end_date = g['end_date'])
-    total_death = DashboardServices.get_total_death_outcome(all_filter, g['start_date'], g['end_date'])
-    facilities_summary = DashboardServices.get_top_facilities_summaries(all_filter, g['start_date'], g['end_date'])
+    total_facilities = DashboardServices.get_active_encounter_facility(all_filter)
+    total_encounter = DashboardServices.get_total_encounters(params = without_date_filter,
+                                                    start_date = g.start_date, end_date = g.end_date)
+    total_death = DashboardServices.get_total_death_outcome(without_date_filter, g.start_date, g.end_date)
+    facilities_summary = DashboardServices.get_top_facilities_summaries(all_filter, g.start_date, g.end_date)
     referral_count = DashboardServices.get_referral_count(all_filter)
-    encounter_scheme_grouped = DashboardServices.total_encounter_by_scheme_grouped(all_filter, g['start_date'],
-                                                                                   g['end_date'])
+    encounter_scheme_grouped = DashboardServices.total_encounter_by_scheme_grouped(all_filter, g.start_date,
+                                                                                   g.end_date)
 
-    utilization_scheme_grouped = DashboardServices.total_utilization_by_scheme_grouped(all_filter, g['start_date'],
-                                                                                       g['end_date'])
-    mortality_scheme_grouped = DashboardServices.total_mortality_by_scheme_grouped(all_filter, g['start_date'],
-                                                                                       g['end_date'])
+    utilization_scheme_grouped = DashboardServices.total_utilization_by_scheme_grouped(all_filter, g.start_date,
+                                                                                       g.end_date)
+    mortality_scheme_grouped = DashboardServices.total_mortality_by_scheme_grouped(all_filter, g.start_date,
+                                                                                       g.end_date)
+    print(f'total_facilities: {total_facilities}, total_death: {total_death} total_encounter: {total_encounter}')
 
     return render_template(
         'dashboard_overview.html',
@@ -641,8 +643,8 @@ def admin_overview(): #overview don't need facility_filter
         utilization_scheme_grouped = utilization_scheme_grouped,
         mortality_scheme_grouped = mortality_scheme_grouped,
         form = form,
-        start_date = g['start_date'],
-        end_date = g['end_date']
+        start_date = g.start_date,
+        end_date = g.end_date
     )
 
 
@@ -650,43 +652,44 @@ def admin_overview(): #overview don't need facility_filter
 @admin_required
 def admin_utilization():
     start_date, end_date = parse_date()
-    g['start_date'] = start_date
-    g['end_date'] = end_date
+    g.start_date = start_date
+    g.end_date = end_date
     form = AdminDashboardFilterForm(request.args)
     if not form.validate():
         flash("Invalid Filter Parameters", "error")
         return redirect(url_for('admin_utilization'))
 
-    base_list = ['period', 'start_date', 'end_date']
-    all_filters = build_filter(base_list + ['scheme_id' , 'lga' , 'gender' ,'facility_id'])
-    without_facility_filters = build_filter(base_list + ['scheme_id' , 'lga' , 'gender'])
-    without_gender_filters = build_filter(base_list + ['scheme_id' , 'lga' , 'facility_id'])
-    without_lgas_filters = build_filter(base_list + ['scheme_id' , 'gender' , 'facility_id'])
-    without_scheme_filters = build_filter(base_list + ['lga' , 'gender' , 'facility_id'])
-    without_date_filters = build_filter(['lga', 'gender', 'scheme_id', 'facility_id'])
+    base_list = ['period']
+    all_filters = build_filter(form, base_list + ['scheme_id' , 'lga' , 'gender' ,'facility_id'])
+    without_facility_filters = build_filter(form, base_list + ['scheme_id' , 'lga' , 'gender'])
+    without_gender_filters = build_filter(form, base_list + ['scheme_id' , 'lga' , 'facility_id'])
+    without_lgas_filters = build_filter(form, base_list + ['scheme_id' , 'gender' , 'facility_id'])
+    without_scheme_filters = build_filter(form, base_list + ['lga' , 'gender' , 'facility_id'])
+    without_date_filters = build_filter(form, ['lga', 'gender', 'scheme_id', 'facility_id'])
 
     utilization_per_scheme = DashboardServices.get_utilization_per_scheme(all_filters)
     utilization_per_lga = DashboardServices.utilization_distribution_across_lga(without_lgas_filters)
     top_diseases = DashboardServices.top_diseases(all_filters)
-    average_daily_utilization = DashboardServices.get_average_utilization_per_day(without_date_filters, g['start_date'], g['end_date'])
-    total_utilization = DashboardServices.get_total_utilization(without_date_filters, g['start_date'], g['end_date'])
+    average_daily_utilization = DashboardServices.get_average_utilization_per_day(without_date_filters, g.start_date, g.end_date)
+    total_utilization = DashboardServices.get_total_utilization(without_date_filters, g.start_date, g.end_date)
     utilization_age_distribution = DashboardServices.utilization_age_group_distribution(all_filters)
     top_utilized_facilities = DashboardServices.get_top_utilization_facilities(all_filters)
-    utilization_trend = DashboardServices.get_utilization_trend(without_date_filters, g['start_date'], g['end_date'])
+    utilization_trend = DashboardServices.get_utilization_trend(without_date_filters, g.start_date, g.end_date)
 
     return render_template(
-        'admin_encounters.html',
+        'dashboard_utilization.html',
         title = 'Dashboard - Utilization',
         total_utilization = total_utilization,
         utilization_per_scheme = utilization_per_scheme,
         utilization_age_distribution = utilization_age_distribution,
         top_diseases = top_diseases,
-        averaage_daily_utilization = average_daily_utilization,
+        average_daily_utilization = average_daily_utilization,
         utilization_trend = utilization_trend,
         top_utilized_facilites = top_utilized_facilities,
-        utilization_per_lga = utilization_per_lga
-        start_date = g['start_date'],
-        end_date = g['end_date']
+        utilization_per_lga = utilization_per_lga,
+        start_date = g.start_date,
+        end_date = g.end_date,
+        form = form
         )
 
 
@@ -694,46 +697,48 @@ def admin_utilization():
 @admin_required
 def admin_encounters():
     start_date, end_date = parse_date()
-    g['start_date'] = start_date
-    g['end_date'] = end_date
+    g.start_date = start_date
+    g.end_date = end_date
 
     form = AdminDashboardFilterForm(request.args)
     if not form.validate():
         flash("Invalid Filter Parameters", "error")
         return redirect(url_for('admin_encounters'))
 
-    base_list = ['period', 'start_date', 'end_date']
-    all_filters = build_filter(base_list + ['scheme_id' , 'lga' , 'gender' ,'facility_id'])
-    without_facility_filters = build_filter(base_list + ['scheme_id' , 'lga' , 'gender'])
-    without_gender_filters = build_filter(base_list + ['scheme_id' , 'lga' , 'facility_id'])
-    without_lgas_filters = build_filter(base_list + ['scheme_id' , 'gender' , 'facility_id'])
-    without_scheme_filters = build_filter(base_list + ['lga' , 'gender' , 'facility_id'])
-    without_date_filters = build_filter(['lga', 'gender', 'scheme_id', 'facility_id'])
+    base_list = ['period']
+    all_filters = build_filter(form, base_list + ['scheme_id' , 'lga' , 'gender' ,'facility_id'])
+    without_facility_filters = build_filter(form, base_list + ['scheme_id' , 'lga' , 'gender'])
+    without_gender_filters = build_filter(form, base_list + ['scheme_id' , 'lga' , 'facility_id'])
+    without_lgas_filters = build_filter(form, base_list + ['scheme_id' , 'gender' , 'facility_id'])
+    without_scheme_filters = build_filter(form, base_list + ['lga' , 'gender' , 'facility_id'])
+    without_date_filters = build_filter(form, ['lga', 'gender', 'scheme_id', 'facility_id'])
 
-    total_encounter = DashboardServices.get_total_encounters(without_date_filters, g['start_date'], g['end_date'])
+    total_encounter = DashboardServices.get_total_encounters(without_date_filters, g.start_date, g.end_date)
     encounter_gender_distribution = DashboardServices.encounter_gender_distribution(without_gender_filters)
     encounter_age_distribution = DashboardServices.encounter_age_group_distribution(all_filters)
     encounter_per_scheme = DashboardServices.get_encounter_per_scheme(without_scheme_filters)
     treatment_outcome_distribution = DashboardServices.get_treatment_outcome_distribution(all_filters)
     top_encounter_facilities = DashboardServices.get_top_encounter_facilities(all_filters)
-    average_daily_encounter = DashboardServices.get_average_encounter_per_day(all_filters, g['start_date'], g['end_date'])
-    encounter_trend = DashboardServices.get_encounter_trend(without_date_filters, g['start_date'], g['end_date'])
+    average_daily_encounter = DashboardServices.get_average_encounter_per_day(all_filters, g.start_date, g.end_date)
+    encounter_trend = DashboardServices.get_encounter_trend(without_date_filters, g.start_date, g.end_date)
     encounter_per_lga = DashboardServices.encounter_distribution_across_lga(without_lgas_filters)
 
 
     return render_template(
-        'admin_encounters.html',
+        'dashboard_encounters.html',
         title = 'Dashboard - Encounter',
         total_encounter = total_encounter,
         encounter_gender_distribution = encounter_gender_distribution,
         encounter_age_distribution = encounter_age_distribution,
         treatment_outcome_distribution = treatment_outcome_distribution,
-        top_encounter_facilitties = top_encounter_facilities,
+        encounter_per_scheme = encounter_per_scheme,
+        top_encounter_facilities = top_encounter_facilities,
         average_daily_encounter = average_daily_encounter,
         encounter_trend = encounter_trend,
         encounter_per_lga = encounter_per_lga,
-        start_date = g['start_date'],
-        end_date = g['end_date']
+        start_date = g.start_date,
+        end_date = g.end_date,
+        form = form
     )
 
 
@@ -741,8 +746,8 @@ def admin_encounters():
 @admin_required
 def admin_mortality():
     start_date, end_date = parse_date()
-    g['start_date'] = start_date
-    g['end_date'] = end_date
+    g.start_date = start_date
+    g.end_date = end_date
 
     form = AdminDashboardFilterForm(request.args)
     if not form.validate():
@@ -750,28 +755,28 @@ def admin_mortality():
         return redirect(url_for('admin_mortality'))
 
 
-    base_list = ['period', 'start_date', 'end_date']
-    all_filters = build_filter(base_list + ['scheme_id' , 'lga' , 'gender' ,'facility_id'])
-    without_facility_filters = build_filter(base_list + ['scheme_id' , 'lga' , 'gender'])
-    without_gender_filters = build_filter(base_list + ['scheme_id' , 'lga' , 'facility_id'])
-    without_lgas_filters = build_filter(base_list + ['scheme_id' , 'gender' , 'facility_id'])
-    without_scheme_filters = build_filter(base_list + ['lga' , 'gender' , 'facility_id'])
-    without_date_filters = build_filter(['lga', 'gender', 'scheme_id', 'facility_id'])
+    base_list = ['period']
+    all_filters = build_filter(form, base_list + ['scheme_id' , 'lga' , 'gender' ,'facility_id'])
+    without_facility_filters = build_filter(form, base_list + ['scheme_id' , 'lga' , 'gender'])
+    without_gender_filters = build_filter(form, base_list + ['scheme_id' , 'lga' , 'facility_id'])
+    without_lgas_filters = build_filter(form, base_list + ['scheme_id' , 'gender' , 'facility_id'])
+    without_scheme_filters = build_filter(form, base_list + ['lga' , 'gender' , 'facility_id'])
+    without_date_filters = build_filter(form, ['lga', 'gender', 'scheme_id', 'facility_id'])
 
     mortality_type_distribution  = DashboardServices.mortality_distribution_by_type(all_filters)
     mortality_age_group_distribution = DashboardServices.mortality_distribution_by_age_group(all_filters)
     mortality_facility_distribution = DashboardServices.get_mortality_count_per_facility(without_facility_filters)
     mortality_gender_distribution = DashboardServices.get_mortality_distribution_by_gender(without_gender_filters)
     mortality_scheme_distribution = DashboardServices.get_mortality_per_scheme(without_scheme_filters)
-    mortality_trend = DashboardServices.get_mortality_trend(all_filters, g['start_date'], g['end_date'])
+    mortality_trend = DashboardServices.get_mortality_trend(all_filters, g.start_date, g.end_date)
     mortality_per_lga = DashboardServices.get_mortality_by_lga(without_lgas_filters)
-    average_daily_mortality = DashboardServices.get_average_mortality_per_day(without_date_filters, g['start_date'], g['end_date'])
+    average_daily_mortality = DashboardServices.get_average_mortality_per_day(without_date_filters, g.start_date, g.end_date)
     top_cause = DashboardServices.get_top_cause_of_mortality(all_filters)
-    total_death = DashboardServices.get_total_death_outcome(without_date_filters, start_date = g['start_date'], end_date = g['end_date'])
+    total_death = DashboardServices.get_total_death_outcome(without_date_filters, start_date = g.start_date, end_date = g.end_date)
     case_fatality = DashboardServices.case_fatality(all_filters)
 
     return render_template(
-        'admin_mortality.html',
+        'dashboard_mortality.html',
         title = 'Dashboard - Mortality',
         mortality_type_distribution = mortality_type_distribution,
         mortality_age_group_distribution = mortality_age_group_distribution,
@@ -782,10 +787,11 @@ def admin_mortality():
         mortality_per_lga = mortality_per_lga,
         mortality_top_cause = top_cause,
         total_death =  total_death,
+        average_daily_mortality = average_daily_mortality,
         case_fatality = case_fatality,
         form = form,
-        start_date = g['start_date'],
-        end_date = g['end_date']
+        start_date = g.start_date,
+        end_date = g.end_date
     )
 
 

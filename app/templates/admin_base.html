@@ -118,7 +118,7 @@
                         </svg>
                     </button>
                 </div>
-                
+
                 <div class="flex-1 h-0 pt-6 pb-4 overflow-y-auto">
                     <div class="flex-shrink-0 flex items-center px-6 mb-8">
                         <div class="flex items-center space-x-3">
@@ -129,7 +129,7 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <nav class="px-3 space-y-1" aria-label="Main navigation">
                         {% include "admin_nav_links.html" %}
                     </nav>
@@ -165,7 +165,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
                     </svg>
                 </button>
-                
+
                 <div class="flex flex-1 justify-between px-4 sm:px-6">
                     <div class="flex items-center">
                         <h2 class="text-lg font-semibold text-slate-800">{{ title }}</h2>
@@ -182,7 +182,7 @@
                                 {{ current_user.username|first|upper }}
                                 <span class="sr-only">Open user menu</span>
                             </button>
-                            
+
                             <div id="user-menu-dropdown" class="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none hidden" role="menu" aria-orientation="vertical" tabindex="-1">
                                 <a href="{{ url_for('logout') }}" class="flex items-center gap-3 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 transition-colors group" role="menuitem" tabindex="-1">
                                     <svg class="h-5 w-5 text-slate-400 group-hover:text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -196,11 +196,11 @@
                     {% endif %}
                 </div>
             </header>
-            
+
             <main id="main-content" class="flex-1">
                 <div class="py-8">
                     <div class="px-4 sm:px-6 lg:px-8">
-                        
+
                         {% with messages = get_flashed_messages(with_categories=true) %}
                             {% if messages %}
                                 <div class="fixed top-20 right-4 z-50 space-y-3" id="toast-container">
@@ -239,8 +239,7 @@
             </main>
         </div>
     </div>
-
-    <script>
+<script>
         document.addEventListener('DOMContentLoaded', () => {
             // --- Mobile Sidebar ---
             const openSidebarBtn = document.getElementById('open-sidebar-btn');
@@ -274,27 +273,26 @@
             const userMenuButton = document.getElementById('user-menu-button');
             const userMenuDropdown = document.getElementById('user-menu-dropdown');
 
-            userMenuButton.addEventListener('click', () => {
-                const isHidden = userMenuDropdown.classList.contains('hidden');
-                userMenuDropdown.classList.toggle('hidden', !isHidden);
-                userMenuButton.setAttribute('aria-expanded', isHidden);
-            });
+            if (userMenuButton && userMenuDropdown) {
+                userMenuButton.addEventListener('click', () => {
+                    const isHidden = userMenuDropdown.classList.contains('hidden');
+                    userMenuDropdown.classList.toggle('hidden', !isHidden);
+                    userMenuButton.setAttribute('aria-expanded', isHidden);
+                });
 
-            // Click-away to close dropdown
-            document.addEventListener('click', (e) => {
-                if (userMenuButton && userMenuDropdown) { // Add null check
+                // Click-away to close dropdown
+                document.addEventListener('click', (e) => {
                     if (!userMenuButton.contains(e.target) && !userMenuDropdown.contains(e.target)) {
                         userMenuDropdown.classList.add('hidden');
                         userMenuButton.setAttribute('aria-expanded', 'false');
                     }
-                }
-            });
+                });
+            }
 
             // --- Toast Notifications ---
             const toastContainer = document.getElementById('toast-container');
-            
-            // Delegated event listener for toast close buttons
-            if(toastContainer) { // Add null check
+
+            if (toastContainer) {
                 toastContainer.addEventListener('click', (e) => {
                     const closeButton = e.target.closest('.toast-close-btn');
                     if (closeButton) {
@@ -316,6 +314,35 @@
                 setTimeout(() => removeToast(toast), 5000);
             });
 
+            // --- Dashboard Dropdown Toggle ---
+            const dashboardDropdowns = document.querySelectorAll('.dashboard-dropdown');
+
+            dashboardDropdowns.forEach(dropdown => {
+                const button = dropdown.querySelector('button');
+                const submenu = dropdown.querySelector('#dashboard-submenu');
+                const chevron = button.querySelector('svg:last-child');
+
+                if (button && submenu && chevron) {
+                    button.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const isHidden = submenu.classList.contains('hidden');
+
+                        // Toggle submenu
+                        submenu.classList.toggle('hidden');
+
+                        // Rotate chevron
+                        if (isHidden) {
+                            chevron.style.transform = 'rotate(180deg)';
+                        } else {
+                            chevron.style.transform = 'rotate(0deg)';
+                        }
+
+                        // Update aria-expanded
+                        button.setAttribute('aria-expanded', isHidden);
+                    });
+                }
+            });
+
             // --- Keyboard Accessibility ---
             document.addEventListener('keydown', (e) => {
                 // Close mobile sidebar on Escape
@@ -323,7 +350,7 @@
                     closeSidebar();
                 }
                 // Close user dropdown on Escape
-                if (e.key === 'Escape' && userMenuDropdown && !userMenuDropdown.classList.contains('hidden')) { // Add null check
+                if (e.key === 'Escape' && userMenuDropdown && !userMenuDropdown.classList.contains('hidden')) {
                     userMenuDropdown.classList.add('hidden');
                     userMenuButton.setAttribute('aria-expanded', 'false');
                 }

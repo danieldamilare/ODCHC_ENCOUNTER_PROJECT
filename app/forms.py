@@ -165,6 +165,8 @@ class ExcelUploadForm(FlaskForm):
 
 class DashboardFilterForm(FlaskForm):
     """Base filter form - shared across all dashboards"""
+    class Meta:
+        csrf = False
 
     period = SelectField(
         'Date Range',
@@ -208,10 +210,10 @@ class AdminDashboardFilterForm(DashboardFilterForm):
     facility_id = SelectField('Facility',
                               choices = [('', 'All Facilities')],
                               validators = [Optional()])
-    lga =  SelectField('Facility',
+    lga =  SelectField('Local Government',
                     choices = [('', 'All LGAs')] + LGA_CHOICES[1:],
                     validators = [Optional()])
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        facilities = [(f.id, f.name.upper()) for f in FacilityServices.get_all()]
+        facilities = [(str( f.id ), f.name.upper()) for f in FacilityServices.get_all()]
         self.facility_id.choices = [('', 'All Facilities')]  + facilities
