@@ -1,0 +1,658 @@
+{% extends "admin_base.html" %}
+
+{% block content %}
+<style>
+    /* Print Styles */
+    @media print {
+        body { background: white; }
+        .no-print { display: none !important; }
+        .print-full-width { width: 100% !important; max-width: 100% !important; }
+        .shadow-lg, .shadow-md, .shadow-sm { box-shadow: none !important; }
+        .border { border: 1px solid #e5e7eb !important; }
+        .chart-container { page-break-inside: avoid; }
+        h1, h2, h3 { page-break-after: avoid; }
+    }
+
+    /* Power BI Style Card Shadows */
+    .powerbi-card {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .powerbi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    }
+
+    /* Chart Container */
+    .chart-wrapper {
+        position: relative;
+        height: 300px;
+    }
+
+    @media (max-width: 768px) {
+        .chart-wrapper {
+            height: 260px;
+        }
+    }
+
+    /* Power BI Header Style */
+    .powerbi-header {
+        background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+        color: white;
+    }
+
+    /* Pulse Animation for KPIs */
+    @keyframes pulse-glow {
+        0%, 100% { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); }
+        50% { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15); }
+    }
+
+    .kpi-animate {
+        animation: pulse-glow 3s ease-in-out infinite;
+    }
+
+    /* No Data State */
+    .no-data-message {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        min-height: 200px;
+    }
+</style>
+
+<div class="space-y-6">
+
+    <!-- Page Header - Power BI Style -->
+    <div class="powerbi-header rounded-xl p-6 no-print shadow-lg">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+                <h1 class="text-2xl sm:text-3xl font-bold text-white">🏥 Encounter Analytics</h1>
+                <p class="text-sm sm:text-base text-gray-300 mt-1">
+                    <svg class="inline h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                    {{ start_date.strftime('%b %d, %Y') }} - {{ end_date.strftime('%b %d, %Y') }}
+                </p>
+            </div>
+            <button onclick="window.print()" class="inline-flex items-center px-4 py-2 bg-white text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors shadow">
+                <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                </svg>
+                Export
+            </button>
+        </div>
+    </div>
+
+    <!-- Filter Form - Power BI Style -->
+    <div class="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden no-print powerbi-card">
+        <div class="bg-gradient-to-r from-slate-50 to-white px-6 py-3 border-b border-gray-200">
+            <h2 class="text-base font-bold text-gray-800">🔍 Filters</h2>
+        </div>
+
+        <form id="filter-form" method="GET" class="p-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                <!-- Period -->
+                <div>
+                    {{ form.period.label(class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide") }}
+                    {{ form.period(class="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500") }}
+                </div>
+
+                <!-- Facility (Admin Only) -->
+                {% if current_user.role.name == 'admin' %}
+                <div>
+                    {{ form.facility_id.label(class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide") }}
+                    {{ form.facility_id(class="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500") }}
+                </div>
+                {% endif %}
+
+                <!-- Scheme -->
+                <div>
+                    {{ form.scheme_id.label(class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide") }}
+                    {{ form.scheme_id(class="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500") }}
+                </div>
+
+                <!-- Gender -->
+                <div>
+                    {{ form.gender.label(class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide") }}
+                    {{ form.gender(class="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500") }}
+                </div>
+
+                <!-- LGA (Admin Only) -->
+                {% if current_user.role.name == 'admin' %}
+                <div>
+                    {{ form.lga.label(class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide") }}
+                    {{ form.lga(class="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500") }}
+                </div>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    <!-- KPI Cards - Power BI Style -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <!-- Total Encounters -->
+        <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg p-5 text-white powerbi-card kpi-animate">
+            <div class="flex items-start justify-between mb-3">
+                <div class="p-2 bg-white bg-opacity-20 rounded-lg">
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                </div>
+                {% if total_encounter[1] != 0 %}
+                <div class="flex items-center gap-1 px-2 py-1 bg-white bg-opacity-20 rounded-md">
+                    {% if total_encounter[1] > 0 %}
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 10l7-7m0 0l7 7m-7-7v18"/>
+                    </svg>
+                    {% else %}
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
+                    </svg>
+                    {% endif %}
+                    <span class="text-sm font-bold">{{ "%.1f"|format(total_encounter[1]|abs) }}%</span>
+                </div>
+                {% endif %}
+            </div>
+            <p class="text-xs font-semibold text-white text-opacity-90 uppercase tracking-wide mb-1">Total Encounters</p>
+            <h3 class="text-3xl font-bold">{{ "{:,}".format(total_encounter[0]) }}</h3>
+        </div>
+
+        <!-- Average Daily Encounters -->
+        <div class="bg-gradient-to-br from-teal-500 to-teal-600 rounded-lg p-5 text-white powerbi-card">
+            <div class="flex items-start justify-between mb-3">
+                <div class="p-2 bg-white bg-opacity-20 rounded-lg">
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                </div>
+            </div>
+            <p class="text-xs font-semibold text-white text-opacity-90 uppercase tracking-wide mb-1">Avg Daily Encounters</p>
+            <h3 class="text-3xl font-bold">{{ "%.1f"|format(average_daily_encounter) }}</h3>
+        </div>
+    </div>
+
+    <!-- Row 1: Gender & Age Distribution -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <!-- Gender Distribution -->
+        <div class="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden powerbi-card">
+            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                <h3 class="text-sm font-bold text-gray-800">Encounters by Gender</h3>
+            </div>
+            <div class="p-4">
+                <div class="chart-wrapper">
+                    <canvas id="genderChart"></canvas>
+                    <div id="genderNoData" class="hidden no-data-message">
+                        <div class="text-center">
+                            <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                            <p class="mt-2 text-sm text-gray-500 font-medium">No data available</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Age Distribution -->
+        <div class="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden powerbi-card">
+            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                <h3 class="text-sm font-bold text-gray-800">Encounters by Age Group</h3>
+            </div>
+            <div class="p-4">
+                <div class="chart-wrapper">
+                    <canvas id="ageChart"></canvas>
+                    <div id="ageNoData" class="hidden no-data-message">
+                        <div class="text-center">
+                            <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                            <p class="mt-2 text-sm text-gray-500 font-medium">No data available</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 2: Encounter Trend (Full Width) -->
+    <div class="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden powerbi-card">
+        <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+            <h3 class="text-sm font-bold text-gray-800">Encounter Trend Over Time</h3>
+        </div>
+        <div class="p-4">
+            <div style="height: 320px; position: relative;">
+                <canvas id="trendChart"></canvas>
+                <div id="trendNoData" class="hidden no-data-message">
+                    <div class="text-center">
+                        <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                        </svg>
+                        <p class="mt-2 text-sm text-gray-500 font-medium">No trend data available</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 3: Treatment Outcomes & Scheme Distribution -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <!-- Treatment Outcomes -->
+        <div class="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden powerbi-card">
+            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                <h3 class="text-sm font-bold text-gray-800">Treatment Outcomes</h3>
+            </div>
+            <div class="p-4">
+                <div class="chart-wrapper">
+                    <canvas id="outcomeChart"></canvas>
+                    <div id="outcomeNoData" class="hidden no-data-message">
+                        <div class="text-center">
+                            <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 01-2 2v10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2zm10 0h-2a2 2 0 00-2 2v10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2z"/>
+                            </svg>
+                            <p class="mt-2 text-sm text-gray-500 font-medium">No outcome data available</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scheme Distribution -->
+        <div class="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden powerbi-card">
+            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                <h3 class="text-sm font-bold text-gray-800">Encounters by Scheme</h3>
+            </div>
+            <div class="p-4">
+                <div class="chart-wrapper">
+                    <canvas id="schemeChart"></canvas>
+                    <div id="schemeNoData" class="hidden no-data-message">
+                        <div class="text-center">
+                            <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                            </svg>
+                            <p class="mt-2 text-sm text-gray-500 font-medium">No scheme data available</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 4: Top Facilities & LGA Distribution -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <!-- Top Facilities -->
+        <div class="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden powerbi-card">
+            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                <h3 class="text-sm font-bold text-gray-800">Top 10 Facilities by Encounters</h3>
+            </div>
+            <div class="p-4">
+                <div style="height: 380px; position: relative;">
+                    <canvas id="facilityChart"></canvas>
+                    <div id="facilityNoData" class="hidden no-data-message">
+                        <div class="text-center">
+                            <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                            </svg>
+                            <p class="mt-2 text-sm text-gray-500 font-medium">No facility data available</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- LGA Distribution -->
+        <div class="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden powerbi-card">
+            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                <h3 class="text-sm font-bold text-gray-800">Encounters by LGA</h3>
+            </div>
+            <div class="p-4">
+                <div style="height: 380px; position: relative;">
+                    <canvas id="lgaChart"></canvas>
+                    <div id="lgaNoData" class="hidden no-data-message">
+                        <div class="text-center">
+                            <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            </svg>
+                            <p class="mt-2 text-sm text-gray-500 font-medium">No LGA data available</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Auto-submit form
+        const form = document.getElementById('filter-form');
+        const selects = form.querySelectorAll('select');
+        selects.forEach(select => {
+            select.addEventListener('change', () => form.submit());
+        });
+
+        // Chart data
+        const genderData = {{ encounter_gender_distribution|tojson }};
+        const ageData = {{ encounter_age_distribution|tojson }};
+        const outcomeData = {{ treatment_outcome_distribution|tojson }};
+        const schemeData = {{ encounter_per_scheme|tojson }};
+        const facilityData = {{ top_encounter_facilities|tojson }};
+        const lgaData = {{ encounter_per_lga|tojson }};
+        const trendData = {{ encounter_trend|tojson }};
+
+        // Power BI Color Palette
+        const powerBIColors = [
+            '#01B8AA', // Teal
+            '#FD625E', // Coral
+            '#F2C80F', // Yellow
+            '#5F6B6D', // Gray
+            '#8AD4EB', // Light Blue
+            '#FE9666', // Orange
+            '#A66999', // Purple
+            '#3599B8', // Blue
+            '#DFBFBF', // Pink
+            '#4AC5BB'  // Mint
+        ];
+
+        // Helper function to show/hide no data message
+        function handleEmptyData(canvasId, noDataId, hasData) {
+            const canvas = document.getElementById(canvasId);
+            const noDataDiv = document.getElementById(noDataId);
+
+            if (!hasData) {
+                canvas.style.display = 'none';
+                noDataDiv.classList.remove('hidden');
+            } else {
+                canvas.style.display = 'block';
+                noDataDiv.classList.add('hidden');
+            }
+        }
+
+        // Common chart options
+        const pieOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '65%',
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 12,
+                        color: '#374151',
+                        font: { size: 11, family: 'Inter, sans-serif', weight: '600' },
+                        usePointStyle: true,
+                        boxWidth: 8
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                    padding: 10,
+                    cornerRadius: 6,
+                    titleFont: { size: 13, weight: 'bold' },
+                    bodyFont: { size: 12 }
+                }
+            }
+        };
+
+        const barOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                    padding: 10,
+                    cornerRadius: 6
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#6B7280', font: { size: 10, family: 'Inter, sans-serif' } }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: '#E5E7EB' },
+                    ticks: { color: '#6B7280', font: { size: 10, family: 'Inter, sans-serif' } }
+                }
+            }
+        };
+
+        // 1. Gender Distribution
+        const ctxGender = document.getElementById('genderChart')?.getContext('2d');
+        if (ctxGender) {
+            const hasData = Array.isArray(genderData) && genderData.length > 0;
+            handleEmptyData('genderChart', 'genderNoData', hasData);
+
+            if (hasData) {
+                new Chart(ctxGender, {
+                    type: 'doughnut',
+                    data: {
+                        labels: genderData.map(d => d.gender === 'M' || d.gender === 'Male' ? 'Male' : 'Female'),
+                        datasets: [{
+                            data: genderData.map(d => d.count),
+                            backgroundColor: ['#3498DB', '#E74C3C'],
+                            borderColor: '#fff',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: pieOptions
+                });
+            }
+        }
+
+        // 2. Age Distribution
+        const ctxAge = document.getElementById('ageChart')?.getContext('2d');
+        if (ctxAge) {
+            const hasData = Array.isArray(ageData) && ageData.length > 0;
+            handleEmptyData('ageChart', 'ageNoData', hasData);
+
+            if (hasData) {
+                new Chart(ctxAge, {
+                    type: 'bar',
+                    data: {
+                        labels: ageData.map(d => d.age_group),
+                        datasets: [{
+                            data: ageData.map(d => d.count),
+                            backgroundColor: '#01B8AA',
+                            borderRadius: 4
+                        }]
+                    },
+                    options: barOptions
+                });
+            }
+        }
+
+        // 3. Treatment Outcomes
+        const ctxOutcome = document.getElementById('outcomeChart')?.getContext('2d');
+        if (ctxOutcome) {
+            const hasData = Array.isArray(outcomeData) && outcomeData.length > 0;
+            handleEmptyData('outcomeChart', 'outcomeNoData', hasData);
+
+            if (hasData) {
+                new Chart(ctxOutcome, {
+                    type: 'doughnut',
+                    data: {
+                        labels: outcomeData.map(d => d.outcome),
+                        datasets: [{
+                            data: outcomeData.map(d => d.count),
+                            backgroundColor: powerBIColors.slice(0, outcomeData.length),
+                            borderColor: '#fff',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: pieOptions
+                });
+            }
+        }
+
+        // 4. Scheme Distribution
+        const ctxScheme = document.getElementById('schemeChart')?.getContext('2d');
+        if (ctxScheme) {
+            const hasData = Array.isArray(schemeData) && schemeData.length > 0;
+            handleEmptyData('schemeChart', 'schemeNoData', hasData);
+
+            if (hasData) {
+                new Chart(ctxScheme, {
+                    type: 'doughnut',
+                    data: {
+                        labels: schemeData.map(d => d.scheme_name),
+                        datasets: [{
+                            data: schemeData.map(d => d.count),
+                            backgroundColor: schemeData.map(d => d.color || '#6B7280'),
+                            borderColor: '#fff',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: pieOptions
+                });
+            }
+        }
+
+        // 5. Top Facilities
+        const ctxFacility = document.getElementById('facilityChart')?.getContext('2d');
+        if (ctxFacility) {
+            const hasData = Array.isArray(facilityData) && facilityData.length > 0;
+            handleEmptyData('facilityChart', 'facilityNoData', hasData);
+
+            if (hasData) {
+                // Take top 10
+                const top10 = facilityData.slice(0, 10);
+                new Chart(ctxFacility, {
+                    type: 'bar',
+                    data: {
+                        labels: top10.map(d => d.facility_name),
+                        datasets: [{
+                            data: top10.map(d => d.encounter_count),
+                            backgroundColor: '#F2C80F',
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        ...barOptions,
+                        indexAxis: 'y',
+                        scales: {
+                            x: { beginAtZero: true, grid: { color: '#E5E7EB' }, ticks: { color: '#6B7280', font: { size: 10 } } },
+                            y: {
+                                grid: { display: false },
+                                ticks: {
+                                    color: '#6B7280',
+                                    font: { size: 9 },
+                                    callback: function(value) {
+                                        const label = this.getLabelForValue(value);
+                                        return label.length > 22 ? label.substr(0, 22) + '...' : label;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // 6. LGA Distribution
+        const ctxLga = document.getElementById('lgaChart')?.getContext('2d');
+        if (ctxLga) {
+            const hasData = Array.isArray(lgaData) && lgaData.length > 0;
+            handleEmptyData('lgaChart', 'lgaNoData', hasData);
+
+            if (hasData) {
+                new Chart(ctxLga, {
+                    type: 'bar',
+                    data: {
+                        labels: lgaData.map(d => d.lga),
+                        datasets: [{
+                            data: lgaData.map(d => d.count),
+                            backgroundColor: '#FD625E',
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        ...barOptions,
+                        scales: {
+                            ...barOptions.scales,
+                            x: {
+                                ...barOptions.scales.x,
+                                ticks: {
+                                    ...barOptions.scales.x.ticks,
+                                    maxRotation: 45,
+                                    minRotation: 45
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // 7. Encounter Trend
+        const ctxTrend = document.getElementById('trendChart')?.getContext('2d');
+        if (ctxTrend) {
+            const hasData = Array.isArray(trendData) && trendData.length > 0;
+            handleEmptyData('trendChart', 'trendNoData', hasData);
+
+            if (hasData) {
+                new Chart(ctxTrend, {
+                    type: 'line',
+                    data: {
+                        datasets: [{
+                            label: 'Encounters',
+                            data: trendData.map(d => ({ x: d.date + '-01', y: d.date_count })),
+                            borderColor: '#3498DB',
+                            backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                            tension: 0.4,
+                            fill: true,
+                            borderWidth: 3,
+                            pointRadius: 5,
+                            pointHoverRadius: 8,
+                            pointBackgroundColor: '#3498DB',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                                padding: 12,
+                                cornerRadius: 6
+                            }
+                        },
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: {
+                                    unit: 'month',
+                                    tooltipFormat: 'MMM yyyy',
+                                    displayFormats: { month: 'MMM yy' }
+                                },
+                                grid: { display: false },
+                                ticks: { color: '#6B7280', font: { size: 10, family: 'Inter, sans-serif' } }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: '#E5E7EB' },
+                                ticks: { color: '#6B7280', font: { size: 10, family: 'Inter, sans-serif' } }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+    });
+</script>
+{% endblock %}

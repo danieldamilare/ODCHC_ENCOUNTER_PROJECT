@@ -1,0 +1,758 @@
+{% extends "admin_base.html" %}
+
+{% block content %}
+<style>
+    /* Print Styles */
+    @media print {
+        body { background: white; }
+        .no-print { display: none !important; }
+        .print-full-width { width: 100% !important; max-width: 100% !important; }
+        .shadow-lg, .shadow-md, .shadow-sm { box-shadow: none !important; }
+        .border { border: 1px solid #e5e7eb !important; }
+        .chart-container { page-break-inside: avoid; }
+        h1, h2, h3 { page-break-after: avoid; }
+    }
+
+    /* Power BI Style Card Shadows */
+    .powerbi-card {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .powerbi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    }
+
+    /* Chart Container */
+    .chart-wrapper {
+        position: relative;
+        height: 300px;
+    }
+
+    @media (max-width: 768px) {
+        .chart-wrapper {
+            height: 260px;
+        }
+    }
+
+    /* Power BI Header Style */
+    .powerbi-header {
+        background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+        color: white;
+    }
+
+    /* No Data State */
+    .no-data-message {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        min-height: 200px;
+    }
+</style>
+
+<div class="space-y-6">
+
+    <!-- Page Header - Power BI Style -->
+    <div class="powerbi-header rounded-xl p-6 no-print shadow-lg">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+                <h1 class="text-2xl sm:text-3xl font-bold text-white">📊 Mortality Analytics</h1>
+                <p class="text-sm sm:text-base text-gray-300 mt-1">
+                    <svg class="inline h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                    {{ start_date.strftime('%b %d, %Y') }} - {{ end_date.strftime('%b %d, %Y') }}
+                </p>
+            </div>
+            <button onclick="window.print()" class="inline-flex items-center px-4 py-2 bg-white text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors shadow">
+                <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                </svg>
+                Export
+            </button>
+        </div>
+    </div>
+
+    <!-- Filter Form - Power BI Style -->
+    <div class="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden no-print powerbi-card">
+        <div class="bg-gradient-to-r from-slate-50 to-white px-6 py-3 border-b border-gray-200">
+            <h2 class="text-base font-bold text-gray-800">🔍 Filters</h2>
+        </div>
+
+        <form id="filter-form" method="GET" class="p-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                <!-- Period -->
+                <div>
+                    {{ form.period.label(class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide") }}
+                    {{ form.period(class="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500") }}
+                </div>
+
+                <!-- Facility (Admin Only) -->
+                {% if current_user.role.name == 'admin' %}
+                <div>
+                    {{ form.facility_id.label(class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide") }}
+                    {{ form.facility_id(class="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500") }}
+                </div>
+                {% endif %}
+
+                <!-- Scheme -->
+                <div>
+                    {{ form.scheme_id.label(class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide") }}
+                    {{ form.scheme_id(class="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500") }}
+                </div>
+
+                <!-- Gender -->
+                <div>
+                    {{ form.gender.label(class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide") }}
+                    {{ form.gender(class="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500") }}
+                </div>
+
+                <!-- LGA (Admin Only) -->
+                {% if current_user.role.name == 'admin' %}
+                <div>
+                    {{ form.lga.label(class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide") }}
+                    {{ form.lga(class="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500") }}
+                </div>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+
+    <!-- KPI Cards - Power BI Style -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Total Deaths -->
+        <div class="bg-gradient-to-br from-red-500 to-red-600 rounded-lg p-5 text-white powerbi-card">
+            <div class="flex items-start justify-between mb-3">
+                <div class="p-2 bg-white bg-opacity-20 rounded-lg">
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                </div>
+                {% if total_death[1] != 0 %}
+                <div class="flex items-center gap-1 px-2 py-1 bg-white bg-opacity-20 rounded-md">
+                    {% if total_death[1] > 0 %}
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 10l7-7m0 0l7 7m-7-7v18"/>
+                    </svg>
+                    {% else %}
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
+                    </svg>
+                    {% endif %}
+                    <span class="text-sm font-bold">{{ "%.1f"|format(total_death[1]|abs) }}%</span>
+                </div>
+                {% endif %}
+            </div>
+            <p class="text-xs font-semibold text-white text-opacity-90 uppercase tracking-wide mb-1">Total Deaths</p>
+            <h3 class="text-3xl font-bold">{{ "{:,}".format(total_death[0]) }}</h3>
+        </div>
+
+        <!-- Average Daily Mortality -->
+        <div class="bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg p-5 text-white powerbi-card">
+            <div class="flex items-start justify-between mb-3">
+                <div class="p-2 bg-white bg-opacity-20 rounded-lg">
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                </div>
+            </div>
+            <p class="text-xs font-semibold text-white text-opacity-90 uppercase tracking-wide mb-1">Avg Daily Mortality</p>
+            <h3 class="text-3xl font-bold">{{ "%.1f"|format(average_daily_mortality) }}</h3>
+        </div>
+
+        <!-- Case Fatality Rate -->
+        <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg p-5 text-white powerbi-card">
+            <div class="flex items-start justify-between mb-3">
+                <div class="p-2 bg-white bg-opacity-20 rounded-lg">
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                </div>
+            </div>
+            <p class="text-xs font-semibold text-white text-opacity-90 uppercase tracking-wide mb-1">Case Fatality Rate</p>
+            <h3 class="text-3xl font-bold">{{ "%.2f"|format(case_fatality) }}%</h3>
+        </div>
+
+        <!-- Top Cause -->
+        <div class="bg-gradient-to-br from-amber-500 to-amber-600 rounded-lg p-5 text-white powerbi-card">
+            <div class="flex items-start justify-between mb-3">
+                <div class="p-2 bg-white bg-opacity-20 rounded-lg">
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                </div>
+            </div>
+            <p class="text-xs font-semibold text-white text-opacity-90 uppercase tracking-wide mb-1">Top Cause</p>
+            <h3 class="text-lg font-bold truncate" title="{{ mortality_top_cause[0].disease_name if mortality_top_cause else 'N/A' }}">
+                {{ mortality_top_cause[0].disease_name if mortality_top_cause else 'N/A' }}
+            </h3>
+            <p class="text-sm font-semibold mt-1">{{ "{:,}".format(mortality_top_cause[0].count) if mortality_top_cause else 0 }} cases</p>
+        </div>
+    </div>
+
+    <!-- Row 1: 3 Donut Charts -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- Mortality Type -->
+        <div class="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden powerbi-card">
+            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                <h3 class="text-sm font-bold text-gray-800">Mortality by Type</h3>
+            </div>
+            <div class="p-4">
+                <div class="chart-wrapper">
+                    <canvas id="mortalityTypeChart"></canvas>
+                    <div id="typeNoData" class="hidden no-data-message">
+                        <div class="text-center">
+                            <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                            </svg>
+                            <p class="mt-2 text-sm text-gray-500 font-medium">No mortality type data available</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mortality Gender -->
+        <div class="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden powerbi-card">
+            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                <h3 class="text-sm font-bold text-gray-800">Mortality by Gender</h3>
+            </div>
+            <div class="p-4">
+                <div class="chart-wrapper">
+                    <canvas id="mortalityGenderChart"></canvas>
+                    <div id="genderNoData" class="hidden no-data-message">
+                        <div class="text-center">
+                            <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                            </svg>
+                            <p class="mt-2 text-sm text-gray-500 font-medium">No gender data available</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mortality Scheme -->
+        <div class="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden powerbi-card">
+            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                <h3 class="text-sm font-bold text-gray-800">Mortality by Scheme</h3>
+            </div>
+            <div class="p-4">
+                <div class="chart-wrapper">
+                    <canvas id="mortalitySchemeChart"></canvas>
+                    <div id="schemeNoData" class="hidden no-data-message">
+                        <div class="text-center">
+                            <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                            </svg>
+                            <p class="mt-2 text-sm text-gray-500 font-medium">No scheme data available</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 2: Mortality Trend (Full Width) -->
+    <div class="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden powerbi-card">
+        <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+            <h3 class="text-sm font-bold text-gray-800">Mortality Trend Over Time</h3>
+        </div>
+        <div class="p-4">
+            <div style="height: 320px; position: relative;">
+                <canvas id="mortalityTrendChart"></canvas>
+                <div id="trendNoData" class="hidden no-data-message">
+                    <div class="text-center">
+                        <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                        </svg>
+                        <p class="mt-2 text-sm text-gray-500 font-medium">No trend data available</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 3: 2 Bar Charts -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <!-- Age Group -->
+        <div class="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden powerbi-card">
+            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                <h3 class="text-sm font-bold text-gray-800">Mortality by Age Group</h3>
+            </div>
+            <div class="p-4">
+                <div class="chart-wrapper">
+                    <canvas id="mortalityAgeChart"></canvas>
+                    <div id="ageNoData" class="hidden no-data-message">
+                        <div class="text-center">
+                            <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+                            </svg>
+                            <p class="mt-2 text-sm text-gray-500 font-medium">No age group data available</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Causes -->
+        <div class="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden powerbi-card">
+            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                <h3 class="text-sm font-bold text-gray-800">Top 10 Causes of Death</h3>
+            </div>
+            <div class="p-4">
+                <div class="chart-wrapper">
+                    <canvas id="topCauseChart"></canvas>
+                    <div id="causeNoData" class="hidden no-data-message">
+                        <div class="text-center">
+                            <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                            </svg>
+                            <p class="mt-2 text-sm text-gray-500 font-medium">No cause of death data available</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 4: Facility & LGA -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <!-- Facility -->
+        <div class="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden powerbi-card">
+            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                <h3 class="text-sm font-bold text-gray-800">Mortality by Facility</h3>
+            </div>
+            <div class="p-4">
+                <div style="height: 380px; position: relative;">
+                    <canvas id="mortalityFacilityChart"></canvas>
+                    <div id="facilityNoData" class="hidden no-data-message">
+                        <div class="text-center">
+                            <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                            </svg>
+                            <p class="mt-2 text-sm text-gray-500 font-medium">No facility data available</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- LGA -->
+        <div class="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden powerbi-card">
+            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                <h3 class="text-sm font-bold text-gray-800">Mortality by LGA</h3>
+            </div>
+            <div class="p-4">
+                <div style="height: 380px; position: relative;">
+                    <canvas id="mortalityLgaChart"></canvas>
+                    <div id="lgaNoData" class="hidden no-data-message">
+                        <div class="text-center">
+                            <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            </svg>
+                            <p class="mt-2 text-sm text-gray-500 font-medium">No LGA data available</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Auto-submit form
+        const form = document.getElementById('filter-form');
+        const selects = form.querySelectorAll('select');
+        selects.forEach(select => {
+            select.addEventListener('change', () => form.submit());
+        });
+
+        // Chart data
+        const mortalityTypeData = {{ mortality_type_distribution|tojson }};
+        const mortalityGenderData = {{ mortality_gender_distribution|tojson }};
+        const mortalitySchemeData = {{ mortality_scheme_distribution|tojson }};
+        const mortalityAgeData = {{ mortality_age_group_distribution|tojson }};
+        const mortalityFacilityData = {{ mortality_facility_distribution|tojson }};
+        const mortalityLgaData = {{ mortality_per_lga|tojson }};
+        const mortalityTopCauseData = {{ mortality_top_cause|tojson }};
+        const mortalityTrendData = {{ mortality_trend_distribution|tojson }};
+
+        // DISTINCT Power BI Colors
+        const distinctColors = [
+            '#E74C3C', // Bright Red
+            '#3498DB', // Bright Blue
+            '#F39C12', // Orange
+            '#9B59B6', // Purple
+            '#1ABC9C', // Teal
+            '#E67E22', // Dark Orange
+            '#2ECC71', // Green
+            '#34495E', // Dark Gray
+            '#D35400', // Burnt Orange
+            '#8E44AD'  // Dark Purple
+        ];
+
+        // Helper function to show/hide no data message
+        function handleEmptyData(canvasId, noDataId, hasData) {
+            const canvas = document.getElementById(canvasId);
+            const noDataDiv = document.getElementById(noDataId);
+
+            if (!hasData) {
+                canvas.style.display = 'none';
+                noDataDiv.classList.remove('hidden');
+            } else {
+                canvas.style.display = 'block';
+                noDataDiv.classList.add('hidden');
+            }
+        }
+
+        // Donut options
+        const donutOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '70%',
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 12,
+                        color: '#374151',
+                        font: { size: 11, family: 'Inter, sans-serif', weight: '600' },
+                        usePointStyle: true,
+                        boxWidth: 8
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                    padding: 10,
+                    cornerRadius: 6,
+                    titleFont: { size: 13, weight: 'bold' },
+                    bodyFont: { size: 12 }
+                }
+            }
+        };
+
+        // Bar options
+        const barOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                    padding: 10,
+                    cornerRadius: 6
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#6B7280', font: { size: 10, family: 'Inter, sans-serif' } }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: '#E5E7EB' },
+                    ticks: { color: '#6B7280', font: { size: 10, family: 'Inter, sans-serif' } }
+                }
+            }
+        };
+
+        // 1. Mortality Type
+        const ctxType = document.getElementById('mortalityTypeChart')?.getContext('2d');
+        if (ctxType) {
+            const hasData = Array.isArray(mortalityTypeData) && mortalityTypeData.length > 0;
+            handleEmptyData('mortalityTypeChart', 'typeNoData', hasData);
+
+            if (hasData) {
+                new Chart(ctxType, {
+                    type: 'doughnut',
+                    data: {
+                        labels: mortalityTypeData.map(d => d.death_type),
+                        datasets: [{
+                            data: mortalityTypeData.map(d => d.count),
+                            backgroundColor: distinctColors.slice(0, mortalityTypeData.length),
+                            borderColor: '#fff',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: donutOptions
+                });
+            }
+        }
+
+        // 2. Mortality Gender
+        const ctxGender = document.getElementById('mortalityGenderChart')?.getContext('2d');
+        if (ctxGender) {
+            const hasData = Array.isArray(mortalityGenderData) && mortalityGenderData.length > 0;
+            handleEmptyData('mortalityGenderChart', 'genderNoData', hasData);
+
+            if (hasData) {
+                new Chart(ctxGender, {
+                    type: 'doughnut',
+                    data: {
+                        labels: mortalityGenderData.map(d => d.gender === 'M' || d.gender === 'Male' ? 'Male' : 'Female'),
+                        datasets: [{
+                            data: mortalityGenderData.map(d => d.count),
+                            backgroundColor: ['#3498DB', '#E74C3C'],
+                            borderColor: '#fff',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: donutOptions
+                });
+            }
+        }
+
+        // 3. Mortality Scheme
+        const ctxScheme = document.getElementById('mortalitySchemeChart')?.getContext('2d');
+        if (ctxScheme) {
+            const hasData = Array.isArray(mortalitySchemeData) && mortalitySchemeData.length > 0;
+            handleEmptyData('mortalitySchemeChart', 'schemeNoData', hasData);
+
+            if (hasData) {
+                new Chart(ctxScheme, {
+                    type: 'doughnut',
+                    data: {
+                        labels: mortalitySchemeData.map(d => d.scheme_name),
+                        datasets: [{
+                            data: mortalitySchemeData.map(d => d.count),
+                            backgroundColor: mortalitySchemeData.map(d => d.color || '#6B7280'),
+                            borderColor: '#fff',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: donutOptions
+                });
+            }
+        }
+
+        // 4. Age Group
+        const ctxAge = document.getElementById('mortalityAgeChart')?.getContext('2d');
+        if (ctxAge) {
+            const hasData = Array.isArray(mortalityAgeData) && mortalityAgeData.length > 0;
+            handleEmptyData('mortalityAgeChart', 'ageNoData', hasData);
+
+            if (hasData) {
+                new Chart(ctxAge, {
+                    type: 'bar',
+                    data: {
+                        labels: mortalityAgeData.map(d => d.age_group),
+                        datasets: [{
+                            data: mortalityAgeData.map(d => d.count),
+                            backgroundColor: '#E74C3C',
+                            borderRadius: 4
+                        }]
+                    },
+                    options: barOptions
+                });
+            }
+        }
+
+        // 5. Top Causes
+        const ctxTopCause = document.getElementById('topCauseChart')?.getContext('2d');
+        if (ctxTopCause) {
+            const hasData = Array.isArray(mortalityTopCauseData) && mortalityTopCauseData.length > 0;
+            handleEmptyData('topCauseChart', 'causeNoData', hasData);
+
+            if (hasData) {
+                new Chart(ctxTopCause, {
+                    type: 'bar',
+                    data: {
+                        labels: mortalityTopCauseData.map(d => d.disease_name),
+                        datasets: [{
+                            data: mortalityTopCauseData.map(d => d.count),
+                            backgroundColor: '#F39C12',
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        ...barOptions,
+                        indexAxis: 'y',
+                        scales: {
+                            x: { beginAtZero: true, grid: { color: '#E5E7EB' }, ticks: { color: '#6B7280', font: { size: 10 } } },
+                            y: {
+                                grid: { display: false },
+                                ticks: {
+                                    color: '#6B7280',
+                                    font: { size: 9 },
+                                    callback: function(value) {
+                                        const label = this.getLabelForValue(value);
+                                        return label.length > 18 ? label.substr(0, 18) + '...' : label;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // 6. Facility
+        const ctxFacility = document.getElementById('mortalityFacilityChart')?.getContext('2d');
+        if (ctxFacility) {
+            const hasData = Array.isArray(mortalityFacilityData) && mortalityFacilityData.length > 0;
+            handleEmptyData('mortalityFacilityChart', 'facilityNoData', hasData);
+
+            if (hasData) {
+                new Chart(ctxFacility, {
+                    type: 'bar',
+                    data: {
+                        labels: mortalityFacilityData.map(d => d.facility_name),
+                        datasets: [{
+                            data: mortalityFacilityData.map(d => d.count),
+                            backgroundColor: '#9B59B6',
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        ...barOptions,
+                        indexAxis: 'y',
+                        scales: {
+                            x: { beginAtZero: true, grid: { color: '#E5E7EB' }, ticks: { color: '#6B7280', font: { size: 10 } } },
+                            y: {
+                                grid: { display: false },
+                                ticks: {
+                                    color: '#6B7280',
+                                    font: { size: 9 },
+                                    callback: function(value) {
+                                        const label = this.getLabelForValue(value);
+                                        return label.length > 22 ? label.substr(0, 22) + '...' : label;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // 7. LGA
+        const ctxLga = document.getElementById('mortalityLgaChart')?.getContext('2d');
+        if (ctxLga) {
+            const hasData = Array.isArray(mortalityLgaData) && mortalityLgaData.length > 0;
+            handleEmptyData('mortalityLgaChart', 'lgaNoData', hasData);
+
+            if (hasData) {
+                new Chart(ctxLga, {
+                    type: 'bar',
+                    data: {
+                        labels: mortalityLgaData.map(d => d.lga),
+                        datasets: [{
+                            data: mortalityLgaData.map(d => d.count),
+                            backgroundColor: '#1ABC9C',
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        ...barOptions,
+                        scales: {
+                            ...barOptions.scales,
+                            x: {
+                                ...barOptions.scales.x,
+                                ticks: {
+                                    ...barOptions.scales.x.ticks,
+                                    maxRotation: 45,
+                                    minRotation: 45
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // 8. Mortality Trend
+        const ctxTrend = document.getElementById('mortalityTrendChart')?.getContext('2d');
+        if (ctxTrend) {
+            const hasData = Array.isArray(mortalityTrendData) && mortalityTrendData.length > 0;
+            handleEmptyData('mortalityTrendChart', 'trendNoData', hasData);
+
+            if (hasData) {
+                const firstRow = mortalityTrendData[0];
+                const mortalityTypes = Object.keys(firstRow).filter(k => k !== 'date' && k !== 'total');
+
+                const typeColors = {
+                    'Infant Death': '#E74C3C',
+                    'Maternal Death (Pregnant women)': '#9B59B6',
+                    'Neonatal Death (0 - 28 days)': '#F39C12',
+                    'Other Death': '#34495E',
+                    'Under 5 deaths (1 - 5 years)': '#3498DB'
+                };
+
+                const datasets = mortalityTypes.map(type => ({
+                    label: type,
+                    data: mortalityTrendData.map(d => ({ x: d.date + '-01', y: d[type] })),
+                    borderColor: typeColors[type] || '#1ABC9C',
+                    backgroundColor: typeColors[type] || '#1ABC9C',
+                    tension: 0.3,
+                    fill: false,
+                    borderWidth: 4,
+                    pointRadius: 5,
+                    pointHoverRadius: 8,
+                    pointBackgroundColor: typeColors[type] || '#1ABC9C',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2
+                }));
+
+                new Chart(ctxTrend, {
+                    type: 'line',
+                    data: { datasets },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    padding: 15,
+                                    color: '#374151',
+                                    font: { size: 11, family: 'Inter, sans-serif', weight: '600' },
+                                    usePointStyle: true,
+                                    boxWidth: 10,
+                                    boxHeight: 10
+                                }
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                                padding: 12,
+                                cornerRadius: 6
+                            }
+                        },
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: {
+                                    unit: 'month',
+                                    tooltipFormat: 'MMM yyyy',
+                                    displayFormats: { month: 'MMM yy' }
+                                },
+                                grid: { display: false },
+                                ticks: { color: '#6B7280', font: { size: 10, family: 'Inter, sans-serif' } }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: '#E5E7EB' },
+                                ticks: { color: '#6B7280', font: { size: 10, family: 'Inter, sans-serif' } }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,662 @@
+{% extends "admin_base.html" %}
+
+{% block content %}
+<style>
+    /* Print Styles */
+    @media print {
+        body { background: white; }
+        .no-print { display: none !important; }
+        .print-full-width { width: 100% !important; max-width: 100% !important; }
+        .shadow-lg, .shadow-md, .shadow-sm { box-shadow: none !important; }
+        .border { border: 1px solid #e5e7eb !important; }
+        .chart-container { page-break-inside: avoid; }
+        h1, h2, h3 { page-break-after: avoid; }
+    }
+
+    /* Power BI Style Card Shadows */
+    .powerbi-card {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .powerbi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    }
+
+    /* PROPER Chart Heights - Power BI Style */
+    .chart-wrapper-small {
+        position: relative;
+        height: 350px;
+    }
+
+    .chart-wrapper-medium {
+        position: relative;
+        height: 400px;
+    }
+
+    .chart-wrapper-large {
+        position: relative;
+        height: 450px;
+    }
+
+    @media (max-width: 768px) {
+        .chart-wrapper-small { height: 300px; }
+        .chart-wrapper-medium { height: 350px; }
+        .chart-wrapper-large { height: 400px; }
+    }
+
+    /* Power BI Header Style */
+    .powerbi-header {
+        background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+        color: white;
+    }
+
+    /* No Data State */
+    .no-data-message {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        min-height: 200px;
+    }
+</style>
+
+<div class="space-y-6">
+
+    <!-- Page Header - Power BI Style -->
+    <div class="powerbi-header rounded-xl p-6 no-print shadow-lg">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+                <h1 class="text-2xl sm:text-3xl font-bold text-white">🏥 Service Utilization Dashboard</h1>
+                <p class="text-sm sm:text-base text-gray-300 mt-1">
+                    <svg class="inline h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                    {{ start_date.strftime('%b %d, %Y') }} - {{ end_date.strftime('%b %d, %Y') }}
+                </p>
+            </div>
+            <button onclick="window.print()" class="inline-flex items-center px-4 py-2 bg-white text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors shadow">
+                <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                </svg>
+                Export
+            </button>
+        </div>
+    </div>
+
+    <!-- Filter Form - Power BI Style -->
+    <div class="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden no-print powerbi-card">
+        <div class="bg-gradient-to-r from-slate-50 to-white px-6 py-3 border-b border-gray-200">
+            <h2 class="text-base font-bold text-gray-800">🔍 Filters</h2>
+        </div>
+
+        <form id="filter-form" method="GET" class="p-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                <!-- Period -->
+                <div>
+                    {{ form.period.label(class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide") }}
+                    {{ form.period(class="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500") }}
+                </div>
+
+                <!-- Facility (Admin Only) -->
+                {% if current_user.role.name == 'admin' %}
+                <div>
+                    {{ form.facility_id.label(class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide") }}
+                    {{ form.facility_id(class="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500") }}
+                </div>
+                {% endif %}
+
+                <!-- Scheme -->
+                <div>
+                    {{ form.scheme_id.label(class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide") }}
+                    {{ form.scheme_id(class="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500") }}
+                </div>
+
+                <!-- Gender -->
+                <div>
+                    {{ form.gender.label(class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide") }}
+                    {{ form.gender(class="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500") }}
+                </div>
+
+                <!-- LGA (Admin Only) -->
+                {% if current_user.role.name == 'admin' %}
+                <div>
+                    {{ form.lga.label(class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide") }}
+                    {{ form.lga(class="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500") }}
+                </div>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    <!-- KPI Cards - 3 Cards MAX per row -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Total Utilization -->
+        <div class="bg-gradient-to-br from-teal-500 to-teal-600 rounded-lg p-6 text-white powerbi-card">
+            <div class="flex items-start justify-between mb-4">
+                <div class="p-3 bg-white bg-opacity-20 rounded-lg">
+                    <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                </div>
+                {% if total_utilization[1] != 0 %}
+                <div class="flex items-center gap-1 px-2 py-1 bg-white bg-opacity-20 rounded-md">
+                    {% if total_utilization[1] > 0 %}
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 10l7-7m0 0l7 7m-7-7v18"/>
+                    </svg>
+                    {% else %}
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
+                    </svg>
+                    {% endif %}
+                    <span class="text-sm font-bold">{{ "%.1f"|format(total_utilization[1]|abs) }}%</span>
+                </div>
+                {% endif %}
+            </div>
+            <p class="text-sm font-semibold text-white text-opacity-90 uppercase tracking-wide mb-2">Total Utilization</p>
+            <h3 class="text-4xl font-bold">{{ "{:,}".format(total_utilization[0]) }}</h3>
+        </div>
+            <!-- Average Daily Utilization -->
+        <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg p-6 text-white powerbi-card">
+            <div class="flex items-start justify-between mb-4">
+                <div class="p-3 bg-white bg-opacity-20 rounded-lg">
+                    <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                </div>
+            </div>
+            <p class="text-sm font-semibold text-white text-opacity-90 uppercase tracking-wide mb-2">Avg Daily Utilization</p>
+            <h3 class="text-4xl font-bold">{{ "%.1f"|format(average_daily_utilization) }}</h3>
+        </div>
+
+        <!-- Top Disease -->
+        <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg p-6 text-white powerbi-card">
+            <div class="flex items-start justify-between mb-4">
+                <div class="p-3 bg-white bg-opacity-20 rounded-lg">
+                    <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                </div>
+            </div>
+            <p class="text-sm font-semibold text-white text-opacity-90 uppercase tracking-wide mb-2">Top Disease</p>
+            <h3 class="text-xl font-bold truncate" title="{{ top_diseases[0].disease_name if top_diseases else 'N/A' }}">
+                {{ top_diseases[0].disease_name if top_diseases else 'N/A' }}
+            </h3>
+            <p class="text-base font-semibold mt-2">{{ "{:,}".format(top_diseases[0].count) if top_diseases else 0 }} cases</p>
+        </div>
+    </div>
+
+    <!-- Row 1: 2 Charts ONLY -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Utilization by Scheme -->
+        <div class="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden powerbi-card">
+            <div class="bg-gray-50 px-5 py-4 border-b border-gray-200">
+                <h3 class="text-base font-bold text-gray-800">Utilization by Scheme</h3>
+            </div>
+            <div class="p-6">
+                <div class="chart-wrapper-small">
+                    <canvas id="utilizationSchemeChart"></canvas>
+                    <div id="schemeNoData" class="hidden no-data-message">
+                        <div class="text-center">
+                            <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                            </svg>
+                            <p class="mt-2 text-sm text-gray-500 font-medium">No scheme data available</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Utilization by Age Group -->
+        <div class="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden powerbi-card">
+            <div class="bg-gray-50 px-5 py-4 border-b border-gray-200">
+                <h3 class="text-base font-bold text-gray-800">Utilization by Age Group</h3>
+            </div>
+            <div class="p-6">
+                <div class="chart-wrapper-small">
+                    <canvas id="utilizationAgeChart"></canvas>
+                    <div id="ageNoData" class="hidden no-data-message">
+                        <div class="text-center">
+                            <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                            </svg>
+                            <p class="mt-2 text-sm text-gray-500 font-medium">No age group data available</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 2: Utilization Trend (Full Width) -->
+    <div class="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden powerbi-card">
+        <div class="bg-gray-50 px-5 py-4 border-b border-gray-200">
+            <h3 class="text-base font-bold text-gray-800">Utilization Trend Over Time</h3>
+        </div>
+        <div class="p-6">
+            <div class="chart-wrapper-medium">
+                <canvas id="utilizationTrendChart"></canvas>
+                <div id="trendNoData" class="hidden no-data-message">
+                    <div class="text-center">
+                        <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                        </svg>
+                        <p class="mt-2 text-sm text-gray-500 font-medium">No trend data available</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 3: 2 Bar Charts ONLY -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Top 10 Diseases -->
+        <div class="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden powerbi-card">
+            <div class="bg-gray-50 px-5 py-4 border-b border-gray-200">
+                <h3 class="text-base font-bold text-gray-800">Top 10 Diseases</h3>
+            </div>
+            <div class="p-6">
+                <div class="chart-wrapper-medium">
+                    <canvas id="topDiseasesChart"></canvas>
+                    <div id="diseasesNoData" class="hidden no-data-message">
+                        <div class="text-center">
+                            <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                            </svg>
+                            <p class="mt-2 text-sm text-gray-500 font-medium">No disease data available</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Utilized Facilities -->
+        <div class="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden powerbi-card">
+            <div class="bg-gray-50 px-5 py-4 border-b border-gray-200">
+                <h3 class="text-base font-bold text-gray-800">Top Utilized Facilities</h3>
+            </div>
+            <div class="p-6">
+                <div class="chart-wrapper-medium">
+                    <canvas id="topFacilitiesChart"></canvas>
+                    <div id="facilitiesNoData" class="hidden no-data-message">
+                        <div class="text-center">
+                            <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                            </svg>
+                            <p class="mt-2 text-sm text-gray-500 font-medium">No facility data available</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 4: Utilization by LGA (Full Width) -->
+    <div class="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden powerbi-card">
+        <div class="bg-gray-50 px-5 py-4 border-b border-gray-200">
+            <h3 class="text-base font-bold text-gray-800">Utilization by Local Government Area</h3>
+        </div>
+        <div class="p-6">
+            <div class="chart-wrapper-large">
+                <canvas id="utilizationLgaChart"></canvas>
+                <div id="lgaNoData" class="hidden no-data-message">
+                    <div class="text-center">
+                        <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                        </svg>
+                        <p class="mt-2 text-sm text-gray-500 font-medium">No LGA data available</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Auto-submit form
+        const form = document.getElementById('filter-form');
+        const selects = form.querySelectorAll('select');
+        selects.forEach(select => {
+            select.addEventListener('change', () => form.submit());
+        });
+
+        // Chart data
+        const utilizationSchemeData = {{ utilization_per_scheme|tojson }};
+        const utilizationAgeData = {{ utilization_age_distribution|tojson }};
+        const topDiseasesData = {{ top_diseases|tojson }};
+        const topFacilitiesData = {{ top_utilized_facilites|tojson }};
+        const utilizationTrendData = {{ utilization_trend|tojson }};
+        const utilizationLgaData = {{ utilization_per_lga|tojson }};
+
+        // Colors
+        const colors = {
+            teal: '#14b8a6',
+            blue: '#3b82f6',
+            purple: '#a855f7',
+            orange: '#f97316',
+            green: '#10b981',
+            red: '#ef4444',
+            amber: '#f59e0b',
+            gray: '#6b7280'
+        };
+
+        // Helper function to show/hide no data message
+        function handleEmptyData(canvasId, noDataId, hasData) {
+            const canvas = document.getElementById(canvasId);
+            const noDataDiv = document.getElementById(noDataId);
+
+            if (!hasData) {
+                canvas.style.display = 'none';
+                noDataDiv.classList.remove('hidden');
+            } else {
+                canvas.style.display = 'block';
+                noDataDiv.classList.add('hidden');
+            }
+        }
+
+        // Donut options
+        const donutOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '65%',
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 15,
+                        color: '#374151',
+                        font: { size: 13, family: 'Inter, sans-serif', weight: '600' },
+                        usePointStyle: true,
+                        boxWidth: 10
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                    padding: 12,
+                    cornerRadius: 6,
+                    titleFont: { size: 14, weight: 'bold' },
+                    bodyFont: { size: 13 }
+                }
+            }
+        };
+
+        // Bar options
+        const barOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                    padding: 12,
+                    cornerRadius: 6,
+                    titleFont: { size: 14, weight: 'bold' },
+                    bodyFont: { size: 13 }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { color: colors.gray, font: { size: 12, family: 'Inter, sans-serif' } }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: '#E5E7EB' },
+                    ticks: { color: colors.gray, font: { size: 12, family: 'Inter, sans-serif' } }
+                }
+            }
+        };
+
+        // 1. Utilization by Scheme (Donut)
+        const ctxScheme = document.getElementById('utilizationSchemeChart')?.getContext('2d');
+        if (ctxScheme) {
+            const hasData = Array.isArray(utilizationSchemeData) && utilizationSchemeData.length > 0;
+            handleEmptyData('utilizationSchemeChart', 'schemeNoData', hasData);
+
+            if (hasData) {
+                new Chart(ctxScheme, {
+                    type: 'doughnut',
+                    data: {
+                        labels: utilizationSchemeData.map(d => d.scheme_name),
+                        datasets: [{
+                            data: utilizationSchemeData.map(d => d.count),
+                            backgroundColor: utilizationSchemeData.map(d => d.color || colors.gray),
+                            borderColor: '#fff',
+                            borderWidth: 3
+                        }]
+                    },
+                    options: donutOptions
+                });
+            }
+        }
+
+        // 2. Utilization by Age Group (Bar)
+        const ctxAge = document.getElementById('utilizationAgeChart')?.getContext('2d');
+        if (ctxAge) {
+            const hasData = Array.isArray(utilizationAgeData) && utilizationAgeData.length > 0;
+            handleEmptyData('utilizationAgeChart', 'ageNoData', hasData);
+
+            if (hasData) {
+                new Chart(ctxAge, {
+                    type: 'bar',
+                    data: {
+                        labels: utilizationAgeData.map(d => d.age_group),
+                        datasets: [{
+                            data: utilizationAgeData.map(d => d.count),
+                            backgroundColor: colors.blue,
+                            borderRadius: 6
+                        }]
+                    },
+                    options: barOptions
+                });
+            }
+        }
+
+        // 3. Top 10 Diseases (Horizontal Bar)
+        const ctxDiseases = document.getElementById('topDiseasesChart')?.getContext('2d');
+        if (ctxDiseases) {
+            const hasData = Array.isArray(topDiseasesData) && topDiseasesData.length > 0;
+            handleEmptyData('topDiseasesChart', 'diseasesNoData', hasData);
+
+            if (hasData) {
+                new Chart(ctxDiseases, {
+                    type: 'bar',
+                    data: {
+                        labels: topDiseasesData.slice(0, 10).map(d => d.disease_name),
+                        datasets: [{
+                            data: topDiseasesData.slice(0, 10).map(d => d.count),
+                            backgroundColor: colors.purple,
+                            borderRadius: 6
+                        }]
+                    },
+                    options: {
+                        ...barOptions,
+                        indexAxis: 'y',
+                        scales: {
+                            x: {
+                                beginAtZero: true,
+                                grid: { color: '#E5E7EB' },
+                                ticks: { color: colors.gray, font: { size: 12 } }
+                            },
+                            y: {
+                                grid: { display: false },
+                                ticks: {
+                                    color: colors.gray,
+                                    font: { size: 11 },
+                                    callback: function(value) {
+                                        const label = this.getLabelForValue(value);
+                                        return label.length > 25 ? label.substr(0, 25) + '...' : label;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // 4. Top Facilities (Horizontal Bar)
+        const ctxFacilities = document.getElementById('topFacilitiesChart')?.getContext('2d');
+        if (ctxFacilities) {
+            const hasData = Array.isArray(topFacilitiesData) && topFacilitiesData.length > 0;
+            handleEmptyData('topFacilitiesChart', 'facilitiesNoData', hasData);
+
+            if (hasData) {
+                new Chart(ctxFacilities, {
+                    type: 'bar',
+                    data: {
+                        labels: topFacilitiesData.map(d => d.facility_name),
+                        datasets: [{
+                            data: topFacilitiesData.map(d => d.count),
+                            backgroundColor: colors.orange,
+                            borderRadius: 6
+                        }]
+                    },
+                    options: {
+                        ...barOptions,
+                        indexAxis: 'y',
+                        scales: {
+                            x: {
+                                beginAtZero: true,
+                                grid: { color: '#E5E7EB' },
+                                ticks: { color: colors.gray, font: { size: 12 } }
+                            },
+                            y: {
+                                grid: { display: false },
+                                ticks: {
+                                    color: colors.gray,
+                                    font: { size: 11 },
+                                    callback: function(value) {
+                                        const label = this.getLabelForValue(value);
+                                        return label.length > 30 ? label.substr(0, 30) + '...' : label;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // 5. Utilization Trend (Line with Fill)
+        const ctxTrend = document.getElementById('utilizationTrendChart')?.getContext('2d');
+        if (ctxTrend) {
+            let parsedData = utilizationTrendData;
+            if (typeof utilizationTrendData === 'string') {
+                parsedData = JSON.parse(utilizationTrendData);
+            }
+
+            const hasData = Array.isArray(parsedData) && parsedData.length > 0;
+            handleEmptyData('utilizationTrendChart', 'trendNoData', hasData);
+
+            if (hasData) {
+                const trendGradient = ctxTrend.createLinearGradient(0, 0, 0, 400);
+                trendGradient.addColorStop(0, colors.teal + '60');
+                trendGradient.addColorStop(1, colors.teal + '00');
+
+                const trendPoints = parsedData.map(d => ({
+                    x: d.date + '-01',
+                    y: d.date_count || d.count || 0
+                }));
+
+                new Chart(ctxTrend, {
+                    type: 'line',
+                    data: {
+                        datasets: [{
+                            label: 'Utilization',
+                            data: trendPoints,
+                            borderColor: colors.teal,
+                            backgroundColor: trendGradient,
+                            tension: 0.4,
+                            fill: true,
+                            pointBackgroundColor: colors.teal,
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2,
+                            pointRadius: 5,
+                            pointHoverRadius: 8,
+                            borderWidth: 3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                                padding: 12,
+                                cornerRadius: 6,
+                                titleFont: { size: 14, weight: 'bold' },
+                                bodyFont: { size: 13 }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: {
+                                    unit: 'month',
+                                    tooltipFormat: 'MMM yyyy',
+                                    displayFormats: { month: 'MMM yy' }
+                                },
+                                grid: { display: false },
+                                ticks: { color: colors.gray, font: { size: 12 } }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: '#E5E7EB' },
+                                ticks: { color: colors.gray, font: { size: 12 } }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // 6. Utilization by LGA (Vertical Bar)
+        const ctxLga = document.getElementById('utilizationLgaChart')?.getContext('2d');
+        if (ctxLga) {
+            const hasData = Array.isArray(utilizationLgaData) && utilizationLgaData.length > 0;
+            handleEmptyData('utilizationLgaChart', 'lgaNoData', hasData);
+
+            if (hasData) {
+                new Chart(ctxLga, {
+                    type: 'bar',
+                    data: {
+                        labels: utilizationLgaData.map(d => d.lga),
+                        datasets: [{
+                            data: utilizationLgaData.map(d => d.count),
+                            backgroundColor: colors.green,
+                            borderRadius: 6
+                        }]
+                    },
+                    options: {
+                        ...barOptions,
+                        scales: {
+                            ...barOptions.scales,
+                            x: {
+                                ...barOptions.scales.x,
+                                ticks: {
+                                    ...barOptions.scales.x.ticks,
+                                    maxRotation: 45,
+                                    minRotation: 45,
+                                    font: { size: 11 }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+    });
+</script>
+{% endblock %}
