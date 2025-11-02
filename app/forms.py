@@ -24,14 +24,16 @@ class AddEncounterForm(FlaskForm):
                               DataRequired(), Length(min=2)])
     age = IntegerField('Age', validators=[DataRequired(), NumberRange(
         0, 120, 'Age must be between 0 - 120 ')])
-    date = DateField('Date', format="%Y-%m-%d", validators=[DataRequired()])
+    date = DateField('Date Of Visit', format="%Y-%m-%d", validators=[DataRequired()])
     gender = SelectField('Gender', choices=[
                          ('M', 'Male'), ('F', 'Female')], validators=[DataRequired()])
+    nin = StringField('Nin', validators=[DataRequired(), Length(min = 10, max= 10, message="Invalid NiN number")])
     diseases = FieldList(SelectField('Disease/Diagnosis/Services',
                          validators=[DataRequired()], coerce=int), min_entries=1)
     facility = SelectField("Select Facility", coerce=int)
     outcome = SelectField('Treatment Outcome',  validators=[
                           Optional()], coerce=int, render_kw={'id': 'outcome-select'})
+    phone_number = StringField("Phone Number", validators = [DataRequired(), Length(min=11)])
     death_type = SelectField("Death Type", validators=[
                              Optional()], coerce=int, render_kw={'id': 'death-type-select'})
     submit = SubmitField('submit')
@@ -41,6 +43,10 @@ class AddEncounterForm(FlaskForm):
             if not disease.data or int(disease.data) == 0:
                 raise ValidationError(
                     "Please select a valid disease from the list")
+
+    def validate_gender(self, gender):
+        if gender.upper() not in ('M', 'F'):
+            raise ValidationError("Gender can only be male or female")
 
     def validate_facility(self, facility):
         user = get_current_user()

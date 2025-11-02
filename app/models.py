@@ -72,6 +72,9 @@ class Encounter(Model):
     age: int
     age_group: str
     scheme: int
+    nin: str
+    phone_number: str
+    enc_type: str
     treatment: Optional[str]
     outcome: str
     doctor_name: Optional[str]
@@ -138,6 +141,9 @@ class EncounterView:
     gender: str
     date: date
     age: int
+    nin: str
+    phone_number: str
+    enc_type: str
     treatment: Optional[str]
     doctor_name: Optional[str]
     treatment_outcome: TreatmentOutcome

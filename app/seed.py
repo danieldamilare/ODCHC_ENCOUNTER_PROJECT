@@ -146,14 +146,16 @@ outcome_ids = [r['id']
 
 encounters_data = []
 
-num_encounters = 5000
+num_encounters = 10000
 policy_start = ['AKS', 'AKN', 'OWO', 'IFE', 'KTP', 'ONW', 'ODG', 'ESE', 'ANW', 'ANE', 'IRL',
                 'ILJ', 'ASE', 'IDR', 'ONE', 'ASW']
 
+
 print("Generating encounter datas...")
-for _ in range(num_encounters):
+for m in range(num_encounters):
+    random.seed(datetime.now().timestamp() + m)
     facility_id = random.choice(facility_ids)
-    start_date = datetime(month=7, year=2025, day=1)
+    start_date = datetime(month=7, year=2021, day=1)
     date = fake.date_between(start_date=start_date, end_date="today")
     policy_number = f"{random.choice(policy_start)}/00{random.randint(1000, 99999)}/{random.randint(23, 26)}/C/{random.randint(0, 6)}"
     client_name = fake.name()
@@ -165,7 +167,6 @@ for _ in range(num_encounters):
     doctor_name = random.choice(["Dr. Owolabi", "Dr. Musa", "Dr. Adeola"])
     created_by = random.choice(user_ids)
     created_at = date
-
     encounters_data.append((
         facility_id, date, policy_number, client_name, gender,
         age, treatment, scheme, outcome, doctor_name, created_by, created_at

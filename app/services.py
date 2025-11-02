@@ -263,6 +263,7 @@ class UserServices(BaseServices):
             new_id: int = cursor.lastrowid
             return cls.get_by_id(new_id)
         except sqlite3.IntegrityError:
+            db.rollback()
             raise DuplicateError(
                 'Username exists! Please use another username')
 
@@ -288,6 +289,7 @@ class UserServices(BaseServices):
             row = db.execute(
                 f'SELECT * FROM {cls.table_name} where id = ?', (id,)).fetchone()
         except sqlite3.IntegrityError:
+            db.rollback()
             raise MissingError("User is not in the database")
         if row is None:
             raise MissingError("Username does not exist")
@@ -387,6 +389,7 @@ class UserServices(BaseServices):
                 f'UPDATE {cls.table_name} SET {",".join(field)} WHERE id = ?', values + [model.id])
             db.commit()
         except sqlite3.IntegrityError:
+            db.rollback()
             raise DuplicateError(
                 "You cannot a new user with the same username as another user")
         return model
@@ -580,6 +583,7 @@ class InsuranceSchemeServices(BaseServices):
             return cls.get_by_id(new_id)
 
         except sqlite3.IntegrityError:
+            db.rollback()
             raise DuplicateError(
                 "Insurance scheme already exists in the database")
 
@@ -588,6 +592,7 @@ class InsuranceSchemeServices(BaseServices):
         try:
             cls.update_data(scheme)
         except sqlite3.IntegrityError:
+            db.rollback()
             raise DuplicateError(
                 f"{scheme.scheme_name} already exists in database")
 
@@ -616,6 +621,7 @@ class DiseaseServices(BaseServices):
             new_id = cursor.lastrowid
             return cls.get_by_id(new_id)
         except sqlite3.IntegrityError:
+            db.rollback()
             raise DuplicateError(f'Disease {name} already exists')
 
     @classmethod
@@ -675,6 +681,7 @@ class DiseaseServices(BaseServices):
         try:
             DiseaseServices.update_data(disease)
         except DuplicateError:
+            db.rollback()
             raise DuplicateError("Disease name already exist")
         return disease
 
@@ -697,6 +704,7 @@ class DiseaseCategoryServices(BaseServices):
             new_id = cursor.lastrowid
             return cls.get_by_id(new_id)
         except sqlite3.IntegrityError:
+            db.rollback()
             raise DuplicateError(
                 f"Category {category_name} already exist in database")
 
@@ -726,35 +734,32 @@ class EncounterServices(BaseServices):
                          treatment: Optional[str],
                          doctor_name: Optional[str],
                          scheme: int,
+                         nin: str,
+                         phone_number: str,
+                         enc_type: str,
                          outcome: int,
                          created_by: int,
                          commit=True) -> Encounter:
         db = get_db()
-        gender = gender.upper()
-        if gender not in ('M', 'F'):
-            raise ValidationError("Gender can only be male or female")
-        if age < 0 or age > 120:
-            raise ValidationError("Age can only be between 0 and 120")
-        import re
-        if not re.match(r'^[A-Za-z]{3}/\d+/\d+/[A-Za-z]/[0-5]$', policy_number):
-            raise ValidationError('Invalid Policy number')
-
-        try:
-            FacilityServices.get_by_id(facility_id)
-        except MissingError:
-            raise InvalidReferenceError(
-                'You cannot add Encounter to a facility that does not exists')
+        gender = gender.upper().strip()
+        policy_number = policy_number.strip()
+        client_name = client_name.strip()
+        treatment = treatment.strip() if treatment else treatment
+        doctor_name = doctor_name .strip() if doctor_name else doctor_name
+        nin = nin.strip()
+        phone_number = phone_number.strip()
+        enc_type = enc_type.strip()
 
         created_at = datetime.now().date()
         try:
 
             cur = db.execute(f'''INSERT INTO {cls.table_name} (facility_id, date, policy_number
-                   , client_name, gender, age, treatment, doctor_name,
+                   , client_name, gender, age, treatment, doctor_name, nin, phone_number, enc_type
                    scheme, outcome, created_by, created_at) VALUES( ?, ?, ?, ?, ?, ?, ?,
-                   ?, ?, ?, ?, ?)''', (facility_id, date, policy_number, client_name,
-                                          gender, age, treatment, int(
-                                              referral), doctor_name,
-                                          scheme, outcome, created_by.id, created_at))
+                   ?, ?, ?, ?, ?, ?, ?, ?)''', (facility_id, date, policy_number, client_name,
+                                          gender, age, treatment, doctor_name, nin, phone_number,
+                                          enc_type, scheme, outcome, created_by, created_at))
+
             new_id = cur.lastrowid
 
             diseases_list = list(set((new_id, x) for x in diseases_id))
@@ -1802,8 +1807,6 @@ class DashboardServices(BaseServices):
         print( dict(row))
         res = row['count'] if row else 0
         return res or 0
-
-
 
     @classmethod
     def get_total_death_outcome(cls, params: Params, start_date, end_date):
