@@ -50,20 +50,20 @@ class Params:
         return replace(self,  _offset = offset)
 
     @property
-    def and_filter(self) -> List[Filter]:
-        return list(self._and_filter)
+    def and_filter(self) -> Tuple[Filter]:
+        return self._and_filter
 
     @property
-    def or_filter(self) -> List[Filter]:
-        return list(self._or_filter)
+    def or_filter(self) -> Tuple[Filter]:
+        return self._or_filter
 
     @property
-    def group_by(self) -> List[GroupBy]:
-        return list(self._group_by)
+    def group_by(self) -> Tuple[GroupBy]:
+        return self._group_by
 
     @property
-    def order_by(self) -> List[OrderBy]:
-        return list(self._order_by)
+    def order_by(self) -> Tuple[OrderBy]:
+        return self._order_by
 
     @property
     def limit(self) -> int:

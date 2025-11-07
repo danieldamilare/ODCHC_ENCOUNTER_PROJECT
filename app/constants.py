@@ -23,3 +23,5 @@ ONDO_LGAS_LIST = [lga.title() for lga in sorted(list(ONDO_LGAS_LOWER))]
 
 LGA_CHOICES = [('', 'Select Local Government')] + \
     [(lga, lga.title()) for lga in ONDO_LGAS_LIST]
+
+MODE_OF_DELIVERY = ['SVD', 'ASD', 'CS']
