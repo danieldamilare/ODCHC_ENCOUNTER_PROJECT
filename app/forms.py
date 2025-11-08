@@ -1,20 +1,19 @@
-from wtforms import StringField, PasswordField, SubmitField, BooleanField, TextAreaField
+from wtforms import StringField, PasswordField, SubmitField, BooleanField, TextAreaField, HiddenField
 from wtforms import IntegerField, SelectField, DateField, FieldList, SelectMultipleField, FileField
 from wtforms.validators import DataRequired, Length, NumberRange, EqualTo, Optional, ValidationError
-from app.services import InsuranceSchemeServices, FacilityServices
+from app.services import InsuranceSchemeServices, FacilityServices, TreatmentOutcomeServices
 from wtforms import widgets
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileAllowed, FileRequired
 from app.models import get_current_user
 from app.constants import LGA_CHOICES
-
+import re
 
 class LoginForm(FlaskForm):
     username = StringField('Enter Username: ', validators=[DataRequired()])
     password = PasswordField('Enter Password: ', validators=[DataRequired()])
     remember_me = BooleanField('Remember Me')
     submit = SubmitField('Sign in')
-
 
 class AddEncounterForm(FlaskForm):
     policy_number = StringField('Policy Number', validators=[DataRequired()])
@@ -27,13 +26,15 @@ class AddEncounterForm(FlaskForm):
     date = DateField('Date Of Visit', format="%Y-%m-%d", validators=[DataRequired()])
     gender = SelectField('Gender', choices=[
                          ('M', 'Male'), ('F', 'Female')], validators=[DataRequired()])
-    nin = StringField('Nin', validators=[DataRequired(), Length(min = 10, max= 10, message="Invalid NiN number")])
-    diseases = FieldList(SelectField('Disease/Diagnosis/Services',
-                         validators=[DataRequired()], coerce=int), min_entries=1)
+    nin = StringField('Nin', validators=[DataRequired(), Length(min = 11, max= 11, message="Invalid NiN number")])
+    diseases = FieldList(SelectField('Disease/Diagnosis',
+                         validators=[DataRequired()], coerce=int))
+    services = FieldList(SelectField("Services",
+                         validators=[DataRequired()], coerce=int))
     facility = SelectField("Select Facility", coerce=int)
     outcome = SelectField('Treatment Outcome',  validators=[
                           Optional()], coerce=int, render_kw={'id': 'outcome-select'})
-    phone_number = StringField("Phone Number", validators = [DataRequired(), Length(min=11)])
+    phone_number = StringField("Phone Number", validators = [DataRequired(), Length(min=11, "Invalid Phone Number")])
     death_type = SelectField("Death Type", validators=[
                              Optional()], coerce=int, render_kw={'id': 'death-type-select'})
     submit = SubmitField('submit')
@@ -43,6 +44,11 @@ class AddEncounterForm(FlaskForm):
             if not disease.data or int(disease.data) == 0:
                 raise ValidationError(
                     "Please select a valid disease from the list")
+
+    def validate_phone_number(self, phone_number):
+        pattern = re.compile(r'^(0\d{10}|\+234\d{10})$')
+        if not pattern.match(phone_number.data):
+            raise ValidationError("Invalid Nigerian phone number format")
 
     def validate_gender(self, gender):
         if gender.upper() not in ('M', 'F'):
@@ -55,20 +61,115 @@ class AddEncounterForm(FlaskForm):
                 "Admin User have to select a facility for encounter")
 
     def validate(self, extra_validators=None):
-        # First, run all the standard validators
-        if not super().validate(extra_validators):
+        valid = super().validate(extra_validators)
+        if not valid:
             return False
-
-        # Now, add your custom cross-field logic
-        # Assuming '5' is the ID for the 'Death' outcome
-        if self.outcome.data == -1 and not self.death_type.data:
-            self.death_type.errors.append(
-                "Please select a death type when the outcome is 'Death'.")
+        # Require either disease or service
+        if not any(d.data for d in self.diseases) and not any(s.data for s in self.services):
+            self.errors.setdefault('services', []).append("Please select at least one disease or service.")
             return False
-
-        # If all is good
+        # Require death type if outcome is death
+        if self.outcome.data and self.outcome.data == self.death_outcome_id and not self.death_type.data:
+            self.errors.setdefault('death_type', []).append("Please select a death type for 'Death' outcome.")
+            return False
         return True
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        outcome = TreatmentOutcomeServices.get_all()
+        self.outcome.choices = [(s.id, s.name) for s in outcome if outcome.type.lower() != 'death']
+        self.death_type.choices = [(s.id, s.name) for s in  outcome if outcome.type.lower() == 'death']
+
+class ANCEncounterForm(FlaskForm): #only for pregnant women scheme, other scheme with delivery will use the encounter form scheme
+    policy_number = StringField('ORIN', validators=[DataRequired(), Length(min=10, max=10)])
+    client_name = StringField('Client Name', validators=[DataRequired()])
+    treatment = TextAreaField('Treatment')
+    doctor_name = StringField('Doctor Name', validators=[
+                              DataRequired(), Length(min=2)])
+    age = IntegerField('Age', validators=[DataRequired(), NumberRange(
+        0, 60, 'Age must be between 0 - 120 ')])
+
+    date = DateField('Date Of Visit', format="%Y-%m-%d", validators=[DataRequired()])
+    gender = SelectField('Gender', choices=[
+                         ('M', 'Male'), ('F', 'Female')], validators=[DataRequired()])
+
+    date_of_issue = DateField("Date of Issue Of Kaadi Igbeayo", validators=[DataRequired()])
+    place_of_issue = StringField("Place of Issue of Kaadi Igbeayo", validators = [DataRequired()])
+
+    nin = StringField('Nin', validators=[DataRequired(), Length(min = 11, max= 11, message="Invalid NiN number")])
+    date_of_booking = DateField("Date of Booking", )
+    facility = SelectField("Select Facility", coerce=int)
+    outcome = SelectField('Treatment Outcome',  validators=[
+                          Optional()], coerce=int, render_kw={'id': 'outcome-select'})
+    death_type = SelectField("Death Type", validators=[
+                             Optional()], coerce=int, render_kw={'id': 'death-type-select'})
+    submit = SubmitField('submit')
+    phone_number = StringField("Phone Number", validators = [DataRequired(), Length(min=11)])
+    last_menstrual_period = DateField("Last Menstrual Period (in weeks)",
+                                   validators=[DataRequired()] )
+    expected_delivery_date = DateField("Expected Delivery Date",
+                                       validators=[DataRequired()])
+    expected_gestational_age = DateField("Expected Gestational Age",
+                                         validators = [DataRequired()])
+    parity = IntegerField("Number of Previous Baby",
+                          validators=[DataRequired()])
+    def validate_phone_number(self, phone_number):
+        pattern = re.compile(r'^(0\d{10}|\+234\d{10})$')
+        if not pattern.match(phone_number.data):
+            raise ValidationError("Invalid Nigerian phone number format")
+
+    def validate_facility(self, facility):
+        user = get_current_user()
+        if user.role.name == 'admin' and not facility.data:
+            raise ValidationError(
+                "Admin User have to select a facility for encounter")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        outcome = TreatmentOutcomeServices.get_all()
+        self.outcome.choices = [(s.id, s.name) for s in outcome if outcome.type.lower() != 'death']
+        self.death_type.choices = [(s.id, s.name) for s in  outcome if outcome.type.lower() == 'death']
+
+class DeliveryEncounterForm(ANCEncounterForm):
+    date_of_delivery = DateField("Date of Delivery", validators= [DataRequired()])
+    number_of_anc_visit = IntegerField("Number of ANC Visit", validators=[DataRequired()])
+    outcome = SelectField('Mother Outcome',  validators=[
+                          Optional()], coerce=int, render_kw={'id': 'outcome-select'})
+    death_type = SelectField("Death Type", validators=[
+                             Optional()], coerce=int, render_kw={'id': 'death-type-select'})
+    no_of_babies = IntegerField("Number of babies", coerce=int, validators=[DataRequired()], default=1)
+    mother_status = StringField("Mother Status", validators=[DataRequired()])
+    mode_of_delivery = SelectField("Mode of Delivery", validators=[DataRequired()])
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        outcome = TreatmentOutcomeServices.get_all()
+        self.outcome.choices = [(s.id, s.name) for s in outcome if outcome.type.lower() != 'death']
+        self.death_type.choices = [(s.id, s.name) for s in  outcome if outcome.type.lower() == 'death']
+
+class ChildHealthEncounterForm(FlaskForm):
+    client_name = StringField("Cient Name", validators=[DataRequired()])
+    dob = DateField("Date of Birth", validators = [DataRequired()])
+    policy_number = StringField("Orin", validators= [DataRequired()])
+    nin = StringField("Mother NIN",  validaors=[DataRequired(), Length(min=11, max=11, message="Invalid NIN Number")])
+    gender = SelectField("Gender", validators=[DataRequired()], choices=[('M', 'Male'), ('F', 'Female')])
+    address = StringField("Parent's Address", validators=[DataRequired()])
+    guardian_name = StringField("Parent/Guardian's Name", validators=[DataRequired()])
+    phone_number = StringField("Parent/Guardian's Phone Number", validators=[DataRequired()])
+    diseases = FieldList(SelectField('Disease/Diagnosis',
+                         validators=[DataRequired()], coerce=int))
+    services = FieldList(SelectField("Services",
+                         validators=[DataRequired()], coerce=int))
+    outcome = SelectField('Treatment Outcome',  validators=[
+                          Optional()], coerce=int, render_kw={'id': 'outcome-select'})
+    death_type = SelectField("Death Type", validators=[
+                             Optional()], coerce=int, render_kw={'id': 'death-type-select'})
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        outcome = TreatmentOutcomeServices.get_all()
+        self.outcome.choices = [(s.id, s.name) for s in outcome if outcome.type.lower() != 'death']
+        self.death_type.choices = [(s.id, s.name) for s in  outcome if outcome.type.lower() == 'death']
 
 class AddFacilityForm(FlaskForm):
     name = StringField('Facility Name', validators=[DataRequired()])
@@ -114,16 +215,13 @@ class AddUserForm(FlaskForm):
                               DataRequired("You must enter a password"), EqualTo('password', )])
     submit = SubmitField('Add New User')
 
-
 class AddInsuranceSchemeForm(FlaskForm):
     name = StringField("Insurance SCheme Name",
                        validators=[DataRequired("Enter the name of scheme to add")])
     submit = SubmitField("Add Insurance Scheme")
 
-
 class DeleteUserForm(FlaskForm):
     submit = SubmitField("Delete User")
-
 
 class EditDiseaseForm(FlaskForm):
     name = StringField('Name', validators=[
@@ -131,7 +229,6 @@ class EditDiseaseForm(FlaskForm):
     category_id = SelectField('Category', validators=[
                               DataRequired('Please select a category')])
     submit = SubmitField("Update Disease")
-
 
 class EditUserForm(FlaskForm):
     username = StringField('Username', validators=[
@@ -144,7 +241,6 @@ class EditUserForm(FlaskForm):
 
 class EditFacilityForm(AddFacilityForm):
     pass
-
 
 class EncounterFilterForm(FlaskForm):
     start_date = DateField(
@@ -167,6 +263,14 @@ class ExcelUploadForm(FlaskForm):
         FileAllowed(['xls', 'xlsx'], "Excel files only!")
     ])
     submit = SubmitField("Upload")
+
+
+class OrinForm(FlaskForm):
+    orin = StringField("ORIN Number", validators=[DataRequired],
+                       Length(min=10, max=10))
+    service = HiddenField()
+    class Meta:
+        csrf = False
 
 
 class DashboardFilterForm(FlaskForm):

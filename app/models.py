@@ -95,7 +95,6 @@ class InsuranceScheme(Model):
     def get_name(cls) -> str:
         return "Insurance Scheme"
 
-
 @dataclass
 class TreatmentOutcome(Model):
     id: int
@@ -131,8 +130,15 @@ class DiseaseView:
     id: int
     name: str
     category: DiseaseCategory
-
-
+@dataclass
+class ServiceCategory:
+    id: int
+    name: str
+@dataclass
+class ServiceView:
+    id: int
+    name: str
+    category: ServiceCategory
 @dataclass
 class EncounterView:
     id: int
@@ -152,27 +158,69 @@ class EncounterView:
     insurance_scheme: InsuranceScheme
     facility: FacilityView
     diseases: List[DiseaseView]
+    services: List[ServiceView]
 
     @property
     def diseases_name(self):
         return ', '.join([disease.name for disease in self.diseases])
 
+    @property
+    def service_name(self):
+        return ', '.join([service.name for service in services])
 
+@dataclass
+class ANCEncounter:
+    id: int
+    orin: str
+    kia_date: str
+    booking_date: date
+    parity: int
+    place_of_issue: str
+    hospital_number: str
+    address: str
+    lmp: date
+    expected_delivery_date: date
+    anc_count: int
+@dataclass
+class DeliveryBaby:
+    id: int
+    gender: str
+    outcome: TreatmentOutcome
+
+@dataclass
+class ChildHealth:
+    id: int
+    orin: str
+    dob: date
+    address: str
+    guardian_name: str
+@dataclass
+class DeliveryEncounter:
+    id: int
+    anc: ANCEncounter
+    mode_of_delivery: str
+    babies: List[DeliveryBaby]
+@dataclass
+class ANCEncounterView(EncounterView):
+    anc: ANCEncounter
+@dataclass
+class DeliveryEncounterView(EncounterView):
+    delivery: DeliveryEncounter
+@dataclass
+class ChildHealthEncounterView(EncounterView):
+    health_details: ChildHealth
 @dataclass
 class UserView:
     id: int
     username: str
     role: Role
     facility: Optional[FacilityView]
-
-
 class AuthUser(UserMixin, UserView):
     def __init__(self, user: UserView):
         super().__init__(**user.__dict__)
 
     def get_id(self) -> str:
         return str(self.id)
-
 
 @login.user_loader
 def load_user(id: str) -> Optional[AuthUser]:
