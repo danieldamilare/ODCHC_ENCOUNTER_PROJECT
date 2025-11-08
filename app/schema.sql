@@ -70,14 +70,12 @@ CREATE TABLE services(
     id INTEGER  PRIMARY KEY,
     name TEXT NOT NULL,
     category_id INTEGER NOT NULL,
-    code TEXT,
     FOREIGN KEY (category_id) REFERENCES service_category(id)
 );
 
 CREATE TABLE service_category (
     id INTEGER PRIMARY KEY,
     name TEXT UNIQUE NOT NULL,
-    description TEXT
 );
 
 -- To be updated once the whole application is working
@@ -112,16 +110,14 @@ CREATE TABLE treatment_outcome(
 CREATE TABLE anc_registry(
     id INTEGER PRIMARY KEY,
     orin CHAR(10) NOT NULL CHECK(LENGTH(orin) = 10),
-    date_of_kia_issue date NOT NULL,
+    kia_date date NOT NULL,
     client_name TEXT NOT NULL COLLATE NOCASE,
     booking_date date NOT NULL,
     parity INTEGER NOT NULL,
-    encounter_id INTEGER NOT NULL,
     place_of_issue TEXT NOT NULL,
     hospital_number TEXT NOT NULL,
     address TEXT NOT NULL,
-    last_menstural_period date NOT NULL,
-    gestational_age INTEGER NOT NULL,
+    lmp date NOT NULL,
     expected_delivery_date DATE NOT NULL,
     anc_count INTEGER NOT NULL,
     status TEXT NOT NULL COLLATE NOCASE  CHECK(status IN ('active' , 'inactive')), --set to inactive after delivery
@@ -131,11 +127,9 @@ CREATE TABLE anc_registry(
 
 CREATE TABLE  child_health_encounter_details(
     id INTEGER PRIMARY KEY,
-    client_name TEXT NOT NULL,
     encounter_id INTEGER NOT NULL,
     orin CHAR(10) NOT NULL CHECK(LENGTH(orin) = 10),
     dob date NOT NULL,
-    gender CHAR(1) NOT NULL CHECK(gender IN ('M', 'F')),
     address TEXT NOT NULL,
     guardian_name TEXT NOT NULL,
     FOREIGN key(encounter_id) REFERENCES encounters(id)
@@ -144,12 +138,10 @@ CREATE TABLE  child_health_encounter_details(
 CREATE TABLE delivery_encounter(
     id INTEGER PRIMARY KEY,
     anc_id INTEGER NOT NULL,
-    orin CHAR(10) NOT NULL CHECK(LENGTH(orin) = 10),
-    date_of_delivery date NOT NULL,
     encounter_id INTEGER NOT NULL,
-    number_of_anc INTEGER NOT NULL,
+    anc_count INTEGER NOT NULL,
+    no_of_babies INTEGER NOT NULL,
     mode_of_delivery TEXT NOT NULL COLLATE NOCASE,
-    mother_outcome TEXT NOT NULL COLLATE NOCASE,
     FOREIGN KEY(encounter_id) REFERENCES encounters(id),
     FOREIGN KEY(anc_id) REFERENCES anc_registry(id)
 

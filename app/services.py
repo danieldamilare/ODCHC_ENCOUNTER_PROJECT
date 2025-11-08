@@ -1,14 +1,15 @@
-
 from datetime import timedelta
 from datetime import datetime, date
 from collections import defaultdict
 import pandas as pd
 from werkzeug.security import generate_password_hash, check_password_hash
-from typing import Optional, Type, TypeVar, Iterator, List, Tuple, Dict
+from typing import Optional, Type, TypeVar, Iterator, List, Tuple, Dict, Literal
 from app.db import get_db
 from app.models import (User, Facility, Disease, Encounter, TreatmentOutcome, DiseaseCategory, Role,
             InsuranceScheme, FacilityView, UserView, EncounterView, DiseaseView, FacilityScheme,
-            EncounterDiseases)
+            EncounterDiseases, ServiceCategory, ServiceView, ANCEncounterView, DeliveryEncounterView,
+            DeliveryBaby
+            )
 from app.exceptions import MissingError, InvalidReferenceError, DuplicateError, QueryParameterError
 from app.exceptions import ValidationError, AuthenticationError
 from app import app
@@ -725,7 +726,6 @@ class EncounterServices(BaseServices):
 
     @classmethod
     def create_encounter(cls, facility_id: int,
-                         diseases_id: List[int],
                          date: date,
                          policy_number: str,
                          client_name: str,
@@ -739,7 +739,9 @@ class EncounterServices(BaseServices):
                          enc_type: str,
                          outcome: int,
                          created_by: int,
-                         commit=True) -> Encounter:
+                         diseases_id: Optional[List[int]] = None,
+                         services_id: Optional[List[int]] = None,
+                         commit: bool=True) -> Encounter:
         db = get_db()
         gender = gender.upper().strip()
         policy_number = policy_number.strip()
@@ -754,17 +756,17 @@ class EncounterServices(BaseServices):
         try:
 
             cur = db.execute(f'''INSERT INTO {cls.table_name} (facility_id, date, policy_number
-                   , client_name, gender, age, treatment, doctor_name, nin, phone_number, enc_type
+                   , client_name, gender, age, treatment, doctor_name, nin, phone_number, enc_type,
                    scheme, outcome, created_by, created_at) VALUES( ?, ?, ?, ?, ?, ?, ?,
                    ?, ?, ?, ?, ?, ?, ?, ?)''', (facility_id, date, policy_number, client_name,
                                           gender, age, treatment, doctor_name, nin, phone_number,
                                           enc_type, scheme, outcome, created_by, created_at))
 
             new_id = cur.lastrowid
-
-            diseases_list = list(set((new_id, x) for x in diseases_id))
-            db.executemany('''INSERT into encounters_diseases(encounter_id, disease_id)
-                           VALUES(?, ?)''', diseases_list)
+            if diseases_id:
+                diseases_list = list(set((new_id, x) for x in diseases_id))
+                db.executemany('''INSERT into encounters_diseases(encounter_id, disease_id)
+                            VALUES(?, ?)''', diseases_list)
             if commit:
                 db.commit()
             return cls.get_by_id(new_id)
@@ -784,17 +786,156 @@ class EncounterServices(BaseServices):
                 raise InvalidReferenceError(f"Database error: {str(e)}")
 
     @classmethod
-    def get_all(cls,
+    def create_delivery_encounter(cls,
+                                facility_id: int,
+                                date: date,
+                                policy_number: str,
+                                client_name: str,
+                                gender: str,
+                                age: int,
+                                treatment: Optional[str],
+                                doctor_name: Optional[str],
+                                scheme: int,
+                                nin: str,
+                                phone_number: str,
+                                created_by: int,
+                                anc_id: int,
+                                anc_count: int,
+                                mode_of_delivery: str,
+                                mother_outcome: int,
+                                baby_details: List[Dict],
+                                commit: Bool = True
+                                  ):
+
+        db = get_db()
+        try:
+            new_enc = cls.create_encounter(
+                facility_id = facility_id,
+                date = date,
+                policy_number = policy_number,
+                client_name = client_name,
+                gender = gender,
+                age =  age,
+                treatment= treatment,
+                doctor_name = doctor_name,
+                scheme = scheme,
+                nin = nin,
+                phone_number = phone_number,
+                enc_type  = 'delivery',
+                outcome = mother_outcome,
+                created_by = created_by,
+                commit = False
+            )
+            cur = db.execute('''
+            INSERT INTO delivery_encounter(anc_id, encounter_id, anc_count,
+                              mode_of_delivery)
+            VALUES(?, ?, ?, ?)''',
+
+            (anc_id, new_enc.id, anc_count, mode_of_delivery))
+            row_id = new_enc.id
+
+            db.execute('''
+            UPDATE anc_registry SET status = "inactive" WHERE id = ?
+            ''', (anc_id,))
+
+            baby_list = [(new_enc.id, baby['gender'], baby['outcome']) for baby in baby_details]
+
+            db.executemany("""INSERT INTO delivery_babies(encounter_id, gender, outcome)
+                           VALUES (?, ?, ?)""", baby_list)
+            if commit:
+                db.commit()
+            return cls.get_by_id(id)
+        except Exception as e:
+            db.rollback()
+            raise ServiceError(str(e))
+
+
+
+    @classmethod
+    def create_anc_encounter(cls,
+                             lmp: date,
+                             policy_number: str,
+                             kia_date: date,
+                             client_name: str,
+                             booking_date: date,
+                             parity: int,
+                             place_of_issue: str,
+                             address: str,
+                             date: date,
+                             hospital_number: str,
+                             expected_delivery_date: date,
+                             anc_count: int,
+                             facility_id: int,
+                             gender: Literal["M", "F"],
+                             age: int,
+                             scheme: int,
+                             nin: str,
+                             phone_number: str,
+                             doctor_name: str,
+                             outcome: int,
+                             created_by: int,
+                             baby_details: List[Dict],
+                             treatment: Optional[str],
+                             commit: bool = True
+                             ):
+        db = get_db()
+        try:
+            new_enc = cls.create_encounter(
+                facility_id = facility_id,
+                date = date,
+                policy_number = policy_number,
+                client_name = client_name,
+                gender = gender,
+                age= age,
+                treatment= treatment,
+                doctor_name = doctor_name,
+                scheme = scheme,
+                nin = nin,
+                phone_number= phone_number,
+                enc_type = 'anc',
+                outcome = outcome,
+                created_by= created_by,
+                commit = False
+            )
+            existing = db.execute(
+                "SELECT id FROM anc_registry where orin = ? AND status = 'active'",
+                (policy_number, )).fetchone
+
+            if existing:
+                db.execute("UPDATE anc_registry SET anc_count = anc_count+1 WHERE id = ?",
+                           (existing['id'], ))
+            else:
+                cur = db.execute(
+                '''INSERT INTO anc_registry(orin, kia_date, client_name,
+                booking_date, parity, place_of_issue, hospital_number, address, lmp,
+                expected_delivery_date, anc_count, status) VALUES (
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                (policy_number, kia_date, client_name, booking_date, parity,
+                place_of_issue, hospital_number, address, lmp, expected_delivery_date,
+                anc_count, "active"))
+
+            new_id = new_enc.id
+            if commit:
+                db.commit()
+            return cls.get_by_id(new_id)
+        except Exception as e:
+            db.rollback()
+            raise ServiceError(str(e))
+
+    @classmethod
+    def _get_base_encounter(cls,
                 params: Optional[Params] = None,
                 **kwargs
-                ) -> Iterator:
-
+                ):
         query = '''
             SELECT
                 ec.id,
                 ec.client_name,
                 ec.gender,
                 ec.age,
+                ec.enc_type,
+                ec.nin,
+                ec.phone_number
                 ec.policy_number,
                 ec.date,
                 ec.facility_id ,
@@ -808,14 +949,43 @@ class EncounterServices(BaseServices):
                 fc.name as facility_name,
                 fc.facility_type,
                 fc.local_government as lga,
-                u.username AS created_by
+                u.username AS created_by,
+
+                --delivery_encounter details may be none
+                de.id as delivery_id,
+                de.anc_id as delivery_anc_id,
+                de.anc_count as delivery_anc_count,
+                de.no_of_babies as delivery_babies,
+                de.mode_of_delivery
+
+                --anc encounter_details
+                ar.id as anc_id,
+                ar.kia_date,
+                ar.booking_date,
+                ar.parity,
+                ar.place_of_issue,
+                ar.hospital_number,
+                ar.address,
+                ar.lmp,
+                ar.expected_delivery_date,
+                ae.anc_count as anc_current_count,
+                ae.status as anc_status
+
+                --child health services
+                che.id as child_health_id
+                che.dob,
+                che.address as child_address,
+                che.guardian_name
             FROM encounters AS ec
             JOIN insurance_scheme as isc on isc.id = ec.scheme
             JOIN facility as fc on ec.facility_id = fc.id
             JOIN treatment_outcome as tc on ec.outcome = tc.id
-            LEFT JOIN encounters_diseases as eds on eds.encounter_id = ec.id
             LEFT JOIN users AS u ON ec.created_by = u.id
-        '''
+            LEFT JOIN anc_encounter as ae on ae.encounter_id = ec.encounter_id
+            LEFT JOIN anc_registry as ar on ar.id = ae.anc_id
+            LEFT JOIN delivery_encounter as de on ec.id = de.encounter_id
+            LEFT JOIN child_health_encounter as che on che.encounter = ec.id
+        '''   #polymorphism for all encounters
 
         if params:
             res =FilterParser.parse_params(params,cls.MODEL_ALIAS_MAP)
@@ -830,12 +1000,11 @@ class EncounterServices(BaseServices):
         )
 
         db = get_db()
-        encounters_rows = db.execute(query, args).fetchall()
+        return db.execute(query, args).fetchall()
 
-        encounter_ids = [row['id'] for row in encounters_rows]
-
-        if not encounter_ids:
-            return
+    @classmethod
+    def _get_diseases_mapping(cls, encounter_ids: List):
+        db = get_db()
 
         placeholders = ','.join('?' * len(encounter_ids))
         diseases_query = f'''
@@ -868,36 +1037,176 @@ class EncounterServices(BaseServices):
                 category=category
             )
             diseases_by_encounter[encounter_id].append(disease)
+        return diseases_by_encounter
 
-        facility_ids = [row['facility_id'] for row in encounters_rows]
+    @classmethod
+    def _get_services_mapping(cls, encounter_ids: List):
+        db = get_db()
+        placeholders = ', '.join('?' * len(encounter_ids))
+        services_query = f'''
+            SELECT
+                ecs.encounter_id,
+                srv.id as service_id,
+                srv.name as service_name,
+                scg.id as category_id,
+                scg.category_name as category_name
+            FROM encounters_services as ecs
+            JOIN services as srv on srv.id = ecs.service_id
+            JOIN service_category as scg on scg.
+            WHERE ecs.id in ({placeholders})
+        '''
+        service_rows = db.execute(services_query, encounter_ids).fetchall()
+        services_by_encounter = defaultdict(list)
+        for row in service_rows:
+            encounter_id = row['encounter_id']
+            category = ServiceCategory(
+                id = row['category_id'],
+                name = row['category_name']
+            )
+            service = ServiceView(
+                id = row['service_id'],
+                name = row['service_name'],
+                category = category
+            )
+            services_by_encounter[encounter_id].append(service)
+        return services_by_encounter
 
-        scheme_map = FacilityServices.get_insurance_list(facility_ids)
+    @classmethod
+    def _get_babies_mapping(cls, delivery_ids: List):
+        if not delivery_ids:
+            return {}
+        placeholders = ', '.join('?' * len(delivery_ids))
+        db = get_db()
+        babies_query = f'''
+            SELECT
+                db.id as baby_id,
+                db.encounter_id as encounter_id,
+                db.gender,
+                db.outcome
+            FROM delivery_babies as db WHERE db.id in ({placeholders})
+        '''
+        babies_row = db.execute(babies_query, delivery_ids).fetchall()
+        babies_list = defaultdict(list)
 
-        for row in encounters_rows:
-            encounter = EncounterView(
+        for row in babies_row:
+            encounter_id = row['encounter_id']
+            babies_list[encounter_id].append(DeliveryBaby(
+                id = row['baby_id'],
+                gender = row['gender'],
+                outcome = row['outcome']
+            ))
+        return babies_list
+
+    @classmethod
+    def _create_general_encounter(cls,
+                                  facility: FacilityView,
+                                  isc: InsuranceScheme,
+                                  services_list: List,
+                                  diseases_list: List,
+                                  row: Dict):
+        encounter = EncounterView(
                 id=row['id'],
-                facility=FacilityView(
-                    id=row['facility_id'],
-                    name=row['facility_name'],
-                    lga=row['lga'],
-                    scheme=scheme_map[row['facility_id']],
-                    facility_type=row['facility_type']
-                ),
-                insurance_scheme=InsuranceScheme(id=row['scheme_id'],
-                                                 scheme_name=row['scheme_name'],
-                                                 color_scheme=row['color_scheme']),
-                diseases=diseases_by_encounter[row['id']],
+                facility= facility,
+                insurance_scheme= isc,
+                diseases=diseases_list,
+                services = services_list,
                 policy_number=row['policy_number'],
                 client_name=row['client_name'],
                 gender=row['gender'],
                 date=row['date'],
                 treatment_outcome=row['treatment_outcome'],
                 age=row['age'],
+                nin = row['nin'],
+                enc_type = row['enc_type'],
+                phone_number= row['phone_number'],
                 treatment=row['treatment'],
                 doctor_name=row['doctor_name'],
                 created_by=row['created_by'],
                 created_at=row['created_at']
             )
+        return encounter
+
+    @classmethod
+    def _create_anc_encounter(cls,
+                              facility: FacilityView,
+                              isc: InsuranceScheme,
+                              services_list: List,
+                              diseases_list: List,
+                              row: Dict):
+        pass
+
+
+    @classmethod
+    def _create_delivery_encounter(cls,
+                              facility: FacilityView,
+                              isc: InsuranceScheme,
+                              services_list: List,
+                              diseases_list: List,
+                              babies_list: List
+                              row: Dict):
+        pass
+
+    @classmethod
+    def get_all(cls,
+                params: Optional[Params] = None,
+                **kwargs
+                ) -> Iterator:
+
+        encounters_rows = cls._get_base_encounter(params, **kwargs)
+
+        encounter_ids = [row['id'] for row in encounters_rows]
+        delivery_ids = [row['id'] for row in encounters_rows if row['enc_type'] == 'delivery']
+
+        if not encounter_ids:
+            return []
+
+        diseases_by_encounter = cls._get_diseases_mapping(encounter_ids)
+        services_by_encounter = cls._get_services_mapping(encounter_ids=encounter_ids)
+        delivery_babies = cls._get_babies_mapping(delivery_ids=delivery_ids)
+
+        facility_ids = [row['facility_id'] for row in encounters_rows]
+        scheme_map = FacilityServices.get_insurance_list(facility_ids)
+
+        for row in encounters_rows:
+            facility=FacilityView(
+                id=row['facility_id'],
+                name=row['facility_name'],
+                lga=row['lga'],
+                scheme=scheme_map[row['facility_id']],
+                facility_type=row['facility_type']
+            )
+
+            insurance_scheme=InsuranceScheme(id=row['scheme_id'],
+                            scheme_name=row['scheme_name'],
+                            color_scheme=row['color_scheme'])
+
+            if  row['enc_type'] == 'anc':
+                encounter = cls._create_anc_encounter(
+                    facility = facility,
+                    isc = insurance_scheme,
+                    services_list = services_by_encounter.get(row['id'], []),
+                    diseases_list = diseases_by_encounter.get(row['id'], []),
+                    row = row
+                )
+            elif row['enc_type'] == 'delivery':
+                encounter = cls._create_delivery_encounter(
+                    facility = facility,
+                    isc = insurance_scheme,
+                    services_list = services_by_encounter.get(row['id'], []),
+                    diseases_list = diseases_by_encounter.get(row['id'], []),
+                    babies_list = delivery_babies,
+                    row = row
+                )
+
+            elif row['enc_type'] == 'general':
+                encounter = cls._create_general_encounter(
+                    facility = facility,
+                    isc = insurance_scheme,
+                    services_list = services_by_encounter.get(row['id'], []),
+                    diseases_list = diseases_by_encounter.get(row['id'], []),
+                    row = row
+                )
+
             yield encounter
 
     @classmethod
@@ -936,6 +1245,7 @@ class TreatmentOutcomeServices(BaseServices):
             db.rollback()
             raise ValidationError(
                 "Treatment Outcome already exist in the database")
+
 
 class DashboardServices(BaseServices):
     model = None
