@@ -1,17 +1,18 @@
 from app import app
 from flask import redirect, flash, url_for, request, render_template, abort
 from flask_login import login_required, login_user, logout_user
-from app.models import Role, is_logged_in, get_current_user, AuthUser, Facility, Encounter, User, Disease, TreatmentOutcome
-from app.services import UserServices, EncounterServices, FacilityServices, DiseaseServices, TreatmentOutcomeServices
-from app.services import DiseaseCategoryServices, InsuranceSchemeServices
+from app.models import Role, is_logged_in, get_current_user, AuthUser, Facility, Encounter, User, Disease, TreatmentOutcome, InsuranceScheme, ANCRegistry, Service
+from app.services import UserServices, EncounterServices, FacilityServices, DiseaseServices, TreatmentOutcomeServices, ServiceCategoryServices
+from app.services import DiseaseCategoryServices, InsuranceSchemeServices, ServiceServices
 from app.exceptions import AuthenticationError, MissingError, ValidationError
-from app.exceptions import InvalidReferenceError, DuplicateError
+from app.exceptions import InvalidReferenceError, DuplicateError, ServiceError
 from urllib.parse import urlparse
 from app.config import Config
-from app.utils import form_to_dict, admin_required, humanize_datetime_filter
-from app.forms import LoginForm, AddEncounterForm, AddFacilityForm, EditFacilityForm, AddDiseaseForm, ExcelUploadForm, DashboardFilterForm
-from app.forms import AddUserForm, AddCategoryForm, DeleteUserForm, EditUserForm, EditDiseaseForm, EncounterFilterForm, AdminDashboardFilterForm
-from app.constants import ONDO_LGAS_LIST
+from app.utils import form_to_dict, admin_required, humanize_datetime_filter, calculate_gestational_age, scheme_access_required
+from app.forms import LoginForm, AddEncounterForm, AddFacilityForm, EditFacilityForm, AddDiseaseForm, ExcelUploadForm, DashboardFilterForm, EncTypeForm, DeliveryEncounterForm, AddServiceForm
+from app.forms import AddUserForm, AddCategoryForm, DeleteUserForm, EditUserForm, EditDiseaseForm, EncounterFilterForm, AdminDashboardFilterForm, ANCEncounterForm, ChildHealthEncounterForm
+from app.constants import ONDO_LGAS_LIST, SchemeEnum, BabyOutcome
+
 from app.filter_parser import Params
 from flask_wtf import FlaskForm
 from copy import copy
@@ -58,7 +59,6 @@ def login() -> Any:
             flash(str(e), 'error')
         # except Exception as e:
             # abort(500)
-    # return "<h1>Hello, world</h1>"
     return render_template('login.html', title='Sign in', form=form)
 
 
@@ -67,7 +67,6 @@ def login() -> Any:
 def logout():
     logout_user()
     return redirect(url_for('login'))
-
 
 @app.route('/add_encounter', methods=['GET'])
 @login_required
@@ -85,6 +84,235 @@ def add_encounter():
                            title='Select Insurance Scheme',
                            schemes=schemes)
 
+@app.route("/add_encounter/amchis/child_health", methods=['GET', 'POST'])
+@login_required
+@scheme_access_required(SchemeEnum.AMCHIS)
+def add_child_health_encounter():
+    scheme = InsuranceSchemeServices.get_scheme_by_enum(SchemeEnum.AMCHIS)
+    if not (orin := request.args.get("orin")):
+        flash("Please provide Mother ORIN for AMCHIS CHILD HEALTH Services", "error")
+        return redirect(url_for('add_amchis_encounter'))
+
+    form = ChildHealthEncounterForm()
+    if request.method == 'GET':
+        form.policy_number.data = orin
+
+    disease_choices = [('0', 'Select a disease')] + sorted([(dis.id, str(dis.name).title())
+                                                            for dis in DiseaseServices.get_all()], key=lambda x: x[1])
+    service_choices = [('0', "Select a  Service")] + sorted([(srv.id, str(srv.name).title())
+                                                            for srv in ServiceServices.get_all()], key = lambda x: x[1])
+    for subfield in form.diseases:
+        subfield.choices = disease_choices
+    for subfield in form.services:
+        subfield.choices = service_choices
+
+    if form.validate_on_submit():
+        try:
+            res = form_to_dict(form, Encounter)
+            final_outcome = form.death_type.data if form.outcome.data == -1 else form.outcome.data
+            res['outcome'] = final_outcome
+            res['guardian_name'] = form.guardian_name.data
+            res['dob'] = form.dob.data
+            res['created_by'] = get_current_user().id
+            diseases = [disease.data for disease in form.diseases]
+            services = [service.data for service in form.services]
+            res['diseases_id'] = diseases
+            res['services_id'] = services
+            user = get_current_user()
+            res['created_by'] = user.id
+            if user.role.name != 'admin':
+                res['facility_id'] = user.facility.id
+            else:
+                res['facility_id'] = form.facility.data
+
+            res['scheme'] = scheme.id
+            EncounterServices.create_child_health_encounter(**res)
+            flash('Encounter has successfully been added', 'success')
+            return redirect(url_for('add_encounter'))
+        except (InvalidReferenceError, ValidationError, ServiceError, MissingError) as e:
+            flash(str(e), 'error')
+
+    return render_template('add_child_health_encounter.html',
+                           title = "Add Child Health Encounter",
+                           insurance_scheme = scheme,
+                           disease_choices = disease_choices[1:],
+                           service_choices = service_choices[1:],
+                           form = form)
+
+@app.route("/add_encounter/amchis/delivery", methods = ['GET', 'POST'])
+@login_required
+@scheme_access_required(SchemeEnum.AMCHIS)
+def add_delivery_encounter():
+    scheme = InsuranceSchemeServices.get_scheme_by_enum(SchemeEnum.AMCHIS)
+    registry_val = None
+    if not (orin := request.args.get('orin')):
+        flash("No ORIN provided for AMCHIS Scheme", 'error')
+        return redirect(url_for('add_amchis_encounter'))
+    try:
+        registry_val = EncounterServices.get_anc_record_by_registry(orin)
+    except MissingError:
+        pass
+    user = get_current_user()
+
+    form = DeliveryEncounterForm()
+    if registry_val and request.method == 'GET':
+        form.policy_number.data = registry_val.orin
+        form.client_name.data = registry_val.client_name
+        form.kia_date.data = registry_val.kia_date
+        form.booking_date.data = registry_val.booking_date
+        form.place_of_issue.data = registry_val.place_of_issue
+        form.hospital_number.data = registry_val.hospital_number
+        form.address.data = registry_val.address
+        form.parity.data = registry_val.parity
+        form.lmp.data = registry_val.lmp
+        form.expected_delivery_date.data = registry_val.expected_delivery_date
+        form.gestational_age.data = calculate_gestational_age(registry_val.lmp)
+    else:
+        form.policy_number.data = orin
+
+    if form.validate_on_submit():
+        try:
+            res = form_to_dict(form, Encounter)
+            if not registry_val:
+                registry_val = EncounterServices.create_anc_encounter(
+                    lmp = form.lmp.data,
+                    policy_number= form.policy_number.data,
+                    kia_date= form.kia_date.data,
+                    client_name= form.client_name.data,
+                    booking_date = form.booking_date.data,
+                    parity = form.parity.data,
+                    place_of_issue = form.place_of_issue.data,
+                    address= form.address.data,
+                    date = form.date.data,
+                    hospital_number = form.hospital_number.data,
+                    expected_delivery_date= form.expected_delivery_date.data,
+                    anc_count = 1,
+                    facility_id = user.facility.id,
+                    gender = form.gender.data,
+                    age = form.age.data,
+                    scheme = scheme.id,
+                    nin = form.nin.data,
+                    phone_number = form.phone_number.data,
+                    doctor_name= form.doctor_name.data,
+                    outcome= form.outcome.data,
+                    created_by= get_current_user().id,
+                    treatment = form.treatment.data
+                )
+
+            final_outcome = form.death_type.data if form.outcome.data == -1 else form.outcome.data
+            res['outcome'] = final_outcome
+            res['scheme'] = scheme.id
+
+            if user.role.name.lower() != 'admin':
+                res['facility_id'] = get_current_user().facility.id
+            else:
+                res['facility_id'] = form.facility.data
+
+            res['anc_count'] = registry_val.anc_count if registry_val else 1
+            res['mode_of_delivery'] = form.mode_of_delivery.data
+            res['baby_details'] = form.babies_data
+            res['anc_id'] = registry_val.id
+            res['created_by'] = get_current_user().id
+
+            print(res)
+            EncounterServices.create_delivery_encounter(**res)
+            flash("Delivery Encounter added successfully", "success")
+            return redirect(url_for("add_encounter"))
+
+        except (ServiceError, ValidationError, MissingError) as e:
+            flash(str(e), "error")
+            return redirect(url_for('add_amchis_encounter'))
+
+    baby_outcome_choices = [(b.value, b.value) for b in BabyOutcome]
+
+    return render_template("add_delivery_encounter.html",
+                           title = "Add Delivery Encounter",
+                           form = form,
+                           insurance_scheme = scheme,
+                           baby_outcome_choices = baby_outcome_choices)
+
+
+@app.route('/add_encounter/amchis/anc', methods = ['GET', 'POST'])
+@login_required
+@scheme_access_required(SchemeEnum.AMCHIS)
+def add_anc_encounter():
+    scheme = InsuranceSchemeServices.get_scheme_by_enum(SchemeEnum.AMCHIS)
+    registry_val = None
+    if not (orin := request.args.get('orin')):
+        flash("No ORIN provided for AMCHIS Scheme", 'error')
+        return redirect('add_encounter')
+
+    try:
+        registry_val = EncounterServices.get_anc_record_by_registry(orin = orin)
+    except MissingError:
+        pass
+    form = ANCEncounterForm()
+    user = get_current_user()
+
+    if registry_val and request.method == 'GET':
+        form.policy_number.data = registry_val.orin
+        form.client_name.data = registry_val.client_name
+        form.kia_date.data = registry_val.kia_date
+        form.booking_date.data = registry_val.booking_date
+        form.place_of_issue.data = registry_val.place_of_issue
+        form.hospital_number.data = registry_val.hospital_number
+        form.address.data = registry_val.address
+        form.parity.data = registry_val.parity
+        form.lmp.data = registry_val.lmp
+        form.expected_delivery_date.data = registry_val.expected_delivery_date
+        form.gestational_age.data = calculate_gestational_age(registry_val.lmp)
+    else:
+        form.policy_number.data = orin
+
+    if form.validate_on_submit():
+        try:
+            res =  form_to_dict(form, Encounter)
+            res.update(form_to_dict(form, ANCRegistry))
+            final_outcome = form.death_type.data if form.outcome.data == -1 else form.outcome.data
+            res['outcome'] = final_outcome
+            res['scheme'] = scheme.id
+            res['created_by'] = get_current_user().id
+            res['anc_count'] = (
+                registry_val.anc_count + 1 if registry_val
+                else 1)
+            if user.role.name.lower() != 'admin':
+                res['facility_id'] = get_current_user().facility.id
+            else:
+                res['facility_id'] = form.facility.data
+
+            EncounterServices.create_anc_encounter(**res)
+            flash("ANC Encounter added successfully", 'success')
+            return redirect(url_for("add_encounter"))
+        except (ServiceError, ValidationError, MissingError) as e:
+            flash(str(e), "error")
+
+    return render_template("add_anc_encounter.html",
+                            title = "Add ANC Encounter",
+                            insurance_scheme = scheme,
+                            form = form)
+
+@app.route('/add_encounter/amchis', methods=['GET', 'POST'])
+@login_required
+@scheme_access_required(SchemeEnum.AMCHIS)
+def add_amchis_encounter():
+    form: FlaskForm = EncTypeForm()
+    if form.validate_on_submit():
+        orin = form.orin.data
+        enc_type = form.enc_type.data
+        if enc_type.lower() == 'anc':
+            return redirect(url_for('add_anc_encounter', orin = orin))
+        elif enc_type.lower() == 'delivery':
+            return redirect(url_for('add_delivery_encounter', orin = orin))
+        elif enc_type.lower() == 'child health services':
+            return redirect(url_for('add_child_health_encounter', orin = orin))
+        else:
+            flash("Invalid Encounter Type Selection", 'error')
+            return redirect(url_for('add_encounter'))
+
+    return render_template('amchis_encounter.html',
+                           form = form,
+                           title = "Select AMCHIS ENCOUNTER")
+
 
 @app.route('/add_encounter/<int:scheme_id>', methods=['GET', 'POST'])
 @login_required
@@ -93,6 +321,7 @@ def add_scheme_encounter(scheme_id) -> Any:
         insurance_scheme = InsuranceSchemeServices.get_by_id(
             scheme_id)  # check if scheme exist
         user = get_current_user()
+
         if user.role.name != 'admin':
             schemes = get_current_user().facility.scheme
             if scheme_id not in (sc.id for sc in schemes):
@@ -105,39 +334,44 @@ def add_scheme_encounter(scheme_id) -> Any:
         flash(str(e), "error")
         return redirect(url_for('add_encounter'))
 
+    from app.route_handler import Handler
+    if ((func := Handler.get_handler(insurance_scheme))):
+        return func()
+
     form: AddEncounterForm = AddEncounterForm()
-    form.facility.choices = [('0', 'Select Facility')] + \
-        [(f.id, f.name) for f in FacilityServices.get_all()]
     disease_choices = [('0', 'Select a disease')] + sorted([(dis.id, str(dis.name).title())
                                                             for dis in DiseaseServices.get_all()], key=lambda x: x[1])
+    service_choices = [('0', "Select a  Service")] + sorted([(srv.id, str(srv.name).title())
+                                                            for srv in ServiceServices.get_all()], key = lambda x: x[1])
     for subfield in form.diseases:
         subfield.choices = disease_choices
-    treatment_outcomes = list(TreatmentOutcomeServices.get_all())
-    form.outcome.choices = ([('0', 'Select treatment outcome')] +
-                            [(t.id, t.name) for t in treatment_outcomes if t.type.lower() != 'death'] +
-                            [('-1', 'Death')])
 
-    form.death_type.choices = ([('0', 'Select death type')] +
-                               [(t.id, t.name) for t in treatment_outcomes if t.type.lower() == 'death'])
+    for subfield in form.services:
+        subfield.choices = service_choices
 
     if form.validate_on_submit():
-        res = form_to_dict(form, Encounter)
-        final_outcome = form.death_type.data if form.outcome.data == -1 else form.outcome.data
-        res['outcome'] = final_outcome
-        # for the purpose of the demo deadline use the first disease and ignore others
-        diseases = [disease.data for disease in form.diseases]
-        res['diseases_id'] = diseases
-        user = get_current_user()
-        res['created_by'] = user.id
-        res['facility_id'] = form.facility.data
-        if user.role.name != 'admin':
-            res['facility_id'] = user.facility.id
-        res['scheme'] = scheme_id
         try:
+            res = form_to_dict(form, Encounter)
+            final_outcome = form.death_type.data if form.outcome.data == -1 else form.outcome.data
+            res['outcome'] = final_outcome
+            diseases = [disease.data for disease in form.diseases]
+            services = [service.data for service in form.services]
+            res['diseases_id'] = diseases
+            res['services_id'] = services
+            user = get_current_user()
+            res['created_by'] = user.id
+            if user.role.name != 'admin':
+                res['facility_id'] = user.facility.id
+            else:
+                if not form.facility.data:
+                    raise ValidationError("Please select a facility", "error")
+                res['facility_id'] = form.facility.data
+
+            res['scheme'] = scheme_id
             EncounterServices.create_encounter(**res)
             flash('Encounter has successfully been added', 'success')
             return redirect(url_for('add_encounter'))
-        except (InvalidReferenceError, ValidationError) as e:
+        except (InvalidReferenceError, ValidationError, ServiceError, MissingError) as e:
             flash(str(e), 'error')
         # except:
             # abort(500)
