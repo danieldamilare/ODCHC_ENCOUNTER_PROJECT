@@ -1,0 +1,166 @@
+{% if current_user.role.name == 'admin' %}
+    {% extends 'admin_base.html' %}
+{% else %}
+    {% extends "base.html" %}
+{% endif %}
+
+{% block page_header %}
+<div class="mb-4">
+    <nav class="text-sm font-medium text-slate-500 mb-3" aria-label="Breadcrumb">
+        <ol class="list-none p-0 flex items-center gap-1.5">
+            {% if current_user.role.name == 'admin' %}
+            <li><a href="{{ url_for('admin') }}" class="hover:text-blue-600 transition-colors">Admin</a></li>
+            {% else %}
+            <li><a href="{{ url_for('encounters') }}" class="hover:text-blue-600 transition-colors">Encounters</a></li>
+            {% endif %}
+            <li><svg class="h-4 w-4 text-slate-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg></li>
+            <li><a href="{{ url_for('add_encounter') }}" class="hover:text-blue-600 transition-colors">Select Scheme</a></li>
+            <li><svg class="h-4 w-4 text-slate-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg></li>
+            <li class="text-slate-900 font-semibold" aria-current="page">{{ title }}</li>
+        </ol>
+    </nav>
+</div>
+{% endblock %}
+
+{% block content %}
+<style>
+    .form-field input:focus,
+    .form-field select:focus {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(14, 165, 233, 0.15);
+    }
+
+    .form-field.error input,
+    .form-field.error select {
+        border-color: #ef4444;
+        background-color: #fef2f2;
+    }
+
+    .submit-btn:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px rgba(14, 165, 233, 0.3);
+    }
+</style>
+
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <div class="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+
+        <div class="bg-gradient-to-r from-blue-600 to-cyan-600 px-8 py-6 text-white">
+            <div class="flex items-center gap-4">
+                <div class="w-14 h-14 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl flex items-center justify-center flex-shrink-0">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold">AMCHIS Data Entry</h1>
+                    <p class="text-blue-100 text-xs font-medium uppercase tracking-wide mt-0.5 mb-2 opacity-90">
+                        (Abiyamo Mother and Child Health Insurance Scheme)
+                    </p>
+                    <p class="text-blue-50 text-sm leading-relaxed opacity-90">
+                        Please provide the Mother's ORIN and select the specific service type for this encounter.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <form action="" method="post" novalidate id="amchisForm" class="p-8">
+            {{ form.hidden_tag() }}
+
+            <div class="space-y-6">
+                <div class="form-field {% if form.orin.errors %}error{% endif %}">
+                    <label for="{{ form.orin.id }}" class="block text-sm font-semibold text-slate-700 mb-2">
+                        {{ form.orin.label.text }}
+                        <span class="text-red-500">*</span>
+                    </label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"/></svg>
+                        </div>
+                        {{ form.orin(
+                            class="block w-full pl-10 pr-4 py-3 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-primary-500 transition-all text-slate-900",
+                            placeholder="Enter 10-digit ORIN"
+                        ) }}
+                    </div>
+                    {% if form.orin.errors %}
+                        <div class="mt-2 flex items-center gap-2 text-red-600">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <span class="text-sm font-medium">{{ form.orin.errors[0] }}</span>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="form-field {% if form.enc_type.errors %}error{% endif %}">
+                    <label for="{{ form.enc_type.id }}" class="block text-sm font-semibold text-slate-700 mb-2">
+                        {{ form.enc_type.label.text }}
+                        <span class="text-red-500">*</span>
+                    </label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                            </svg>
+                        </div>
+                        {{ form.enc_type(
+                            class="block w-full pl-10 pr-10 py-3 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-primary-500 transition-all text-slate-900 appearance-none bg-white"
+                        ) }}
+                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </div>
+                    </div>
+                    {% if form.enc_type.errors %}
+                        <div class="mt-2 flex items-center gap-2 text-red-600">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <span class="text-sm font-medium">{{ form.enc_type.errors[0] }}</span>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="flex items-center gap-3 pt-4 border-t border-slate-200">
+                    <button type="submit"
+                            class="submit-btn flex-1 sm:flex-none inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold rounded-xl shadow-lg transition-all">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 9l3 3m0 0l-3 3m3-3H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <span id="submitText">{{ form.submit.label.text }}</span>
+                        <span id="loadingText" class="hidden">Loading...</span>
+                    </button>
+                    <a href="{{ url_for('add_encounter') }}"
+                       class="flex-1 sm:flex-none inline-flex items-center justify-center px-6 py-3 bg-white border-2 border-slate-300 text-slate-700 font-semibold rounded-xl hover:bg-slate-50 hover:border-slate-400 transition-all">
+                        Cancel
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('amchisForm');
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const submitText = document.getElementById('submitText');
+    const loadingText = document.getElementById('loadingText');
+
+    // Handle form submission
+    form.addEventListener('submit', function() {
+        submitBtn.disabled = true;
+        submitText.classList.add('hidden');
+        loadingText.classList.remove('hidden');
+    });
+
+    // Auto-focus first field
+    const firstInput = form.querySelector('input[type="text"]');
+    if (firstInput && !firstInput.value) {
+        firstInput.focus();
+    }
+});
+</script>
+{% endblock %}
