@@ -681,12 +681,22 @@
                 const firstRow = mortalityTrendData[0];
                 const mortalityTypes = Object.keys(firstRow).filter(k => k !== 'date' && k !== 'total');
 
+                // High-contrast, distinct colors for better readability
                 const typeColors = {
-                    'Infant Death': '#E74C3C',
-                    'Maternal Death (Pregnant women)': '#9B59B6',
-                    'Neonatal Death (0 - 28 days)': '#F39C12',
-                    'Other Death': '#34495E',
-                    'Under 5 deaths (1 - 5 years)': '#3498DB'
+                    'Infant Death': '#DC2626',              // Bright Red
+                    'Maternal Death (Pregnant women)': '#7C3AED', // Vivid Purple
+                    'Neonatal Death (0 - 28 days)': '#EA580C',    // Bright Orange
+                    'Other Death': '#059669',               // Emerald Green
+                    'Under 5 deaths (1 - 5 years)': '#2563EB'     // Bright Blue
+                };
+
+                // Optional: Add line dash patterns for additional distinction
+                const lineDashPatterns = {
+                    'Infant Death': [],                     // Solid
+                    'Maternal Death (Pregnant women)': [8, 4],    // Dashed
+                    'Neonatal Death (0 - 28 days)': [],     // Solid
+                    'Other Death': [2, 2],                  // Dotted
+                    'Under 5 deaths (1 - 5 years)': []      // Solid
                 };
 
                 const datasets = mortalityTypes.map(type => ({
@@ -694,14 +704,16 @@
                     data: mortalityTrendData.map(d => ({ x: d.date + '-01', y: d[type] })),
                     borderColor: typeColors[type] || '#1ABC9C',
                     backgroundColor: typeColors[type] || '#1ABC9C',
-                    tension: 0.3,
+                    tension: 0,                             // Sharp lines, no curves
                     fill: false,
-                    borderWidth: 4,
-                    pointRadius: 5,
-                    pointHoverRadius: 8,
+                    borderWidth: 3,                         // Thinner than before, still visible
+                    borderDash: lineDashPatterns[type] || [],
+                    pointRadius: 6,                         // Larger points for visibility
+                    pointHoverRadius: 9,
                     pointBackgroundColor: typeColors[type] || '#1ABC9C',
                     pointBorderColor: '#fff',
-                    pointBorderWidth: 2
+                    pointBorderWidth: 2,
+                    pointHoverBorderWidth: 3
                 }));
 
                 new Chart(ctxTrend, {
@@ -716,20 +728,42 @@
                         },
                         plugins: {
                             legend: {
+                                display: true,
                                 position: 'bottom',
                                 labels: {
                                     padding: 15,
-                                    color: '#374151',
-                                    font: { size: 11, family: 'Inter, sans-serif', weight: '600' },
-                                    usePointStyle: true,
-                                    boxWidth: 10,
-                                    boxHeight: 10
+                                    color: '#1f2937',
+                                    font: { size: 12, family: 'Inter, sans-serif', weight: '600' },
+                                    usePointStyle: false,  // Show line segments
+                                    boxWidth: 40,          // Wider to show dash patterns
+                                    boxHeight: 3,          // Thicker line in legend
+                                    generateLabels: (chart) => {
+                                        return chart.data.datasets.map((dataset, i) => ({
+                                            text: dataset.label,
+                                            fillStyle: dataset.borderColor,
+                                            strokeStyle: dataset.borderColor,
+                                            lineWidth: 3,
+                                            lineDash: dataset.borderDash || [],
+                                            hidden: !chart.isDatasetVisible(i),
+                                            index: i
+                                        }));
+                                    }
                                 }
                             },
                             tooltip: {
-                                backgroundColor: 'rgba(0, 0, 0, 0.85)',
-                                padding: 12,
-                                cornerRadius: 6
+                                backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                                padding: 14,
+                                cornerRadius: 8,
+                                titleFont: { size: 13, weight: 'bold', family: 'Inter, sans-serif' },
+                                bodyFont: { size: 12, family: 'Inter, sans-serif' },
+                                bodySpacing: 6,
+                                borderColor: 'rgba(255, 255, 255, 0.1)',
+                                borderWidth: 1,
+                                callbacks: {
+                                    label: (context) => {
+                                        return context.dataset.label + ': ' + context.parsed.y + ' deaths';
+                                    }
+                                }
                             }
                         },
                         scales: {
@@ -740,13 +774,33 @@
                                     tooltipFormat: 'MMM yyyy',
                                     displayFormats: { month: 'MMM yy' }
                                 },
-                                grid: { display: false },
-                                ticks: { color: '#6B7280', font: { size: 10, family: 'Inter, sans-serif' } }
+                                grid: {
+                                    display: true,
+                                    color: '#f3f4f6',
+                                    drawBorder: false
+                                },
+                                ticks: {
+                                    color: '#4b5563',
+                                    font: { size: 11, family: 'Inter, sans-serif', weight: '500' }
+                                }
                             },
                             y: {
                                 beginAtZero: true,
-                                grid: { color: '#E5E7EB' },
-                                ticks: { color: '#6B7280', font: { size: 10, family: 'Inter, sans-serif' } }
+                                title: {
+                                    display: true,
+                                    text: 'Number of Deaths',
+                                    color: '#374151',
+                                    font: { size: 12, family: 'Inter, sans-serif', weight: '600' }
+                                },
+                                grid: {
+                                    color: '#e5e7eb',
+                                    drawBorder: false
+                                },
+                                ticks: {
+                                    color: '#4b5563',
+                                    font: { size: 11, family: 'Inter, sans-serif', weight: '500' },
+                                    precision: 0  // Show whole numbers only
+                                }
                             }
                         }
                     }

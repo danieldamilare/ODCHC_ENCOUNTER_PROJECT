@@ -102,6 +102,34 @@
             z-index: 100;
         }
         .skip-link:focus { top: 0; }
+
+        /* Collapsible Sidebar Styles */
+        .sidebar-collapsed {
+            width: 4rem !important;
+        }
+        .sidebar-collapsed .sidebar-logo-text,
+        .sidebar-collapsed .nav-item-text,
+        .sidebar-collapsed .section-divider span {
+            display: none;
+        }
+        .sidebar-collapsed .nav-item {
+            justify-content: center;
+            padding-left: 0.75rem;
+            padding-right: 0.75rem;
+        }
+        .sidebar-transition {
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .content-transition {
+            transition: padding-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .toggle-btn {
+            transition: all 0.2s ease;
+        }
+        .toggle-btn:hover {
+            background-color: #e0f2fe;
+            transform: scale(1.05);
+        }
     </style>
 </head>
 <body class="h-full">
@@ -138,13 +166,13 @@
             <div class="flex-shrink-0 w-14" aria-hidden="true"></div>
         </div>
 
-        <div class="hidden md:flex md:w-72 md:flex-col md:fixed md:inset-y-0">
+        <div id="desktop-sidebar" class="hidden md:flex md:w-72 md:flex-col md:fixed md:inset-y-0 sidebar-transition">
             <div class="flex-1 flex flex-col min-h-0 border-r border-slate-200 sidebar-gradient shadow-sm desktop-sidebar">
                 <div class="flex-1 flex flex-col pt-6 pb-4 overflow-y-auto">
-                    <div class="flex items-center flex-shrink-0 px-6 mb-8">
+                    <div class="flex items-center flex-shrink-0 px-6 mb-6">
                         <div class="flex items-center space-x-3">
-                            <img class="h-12 w-12 object-contain" src="{{ url_for('static', filename='odchc_logo.png') }}" alt="ODCHC Logo">
-                            <div>
+                            <img class="h-12 w-12 object-contain flex-shrink-0" src="{{ url_for('static', filename='odchc_logo.png') }}" alt="ODCHC Logo">
+                            <div class="sidebar-logo-text">
                                 <h1 class="text-lg font-bold text-primary-700">ODCHC Admin</h1>
                                 <p class="text-xs text-slate-500">Monitoring & Evaluation</p>
                             </div>
@@ -154,11 +182,21 @@
                     <nav class="flex-1 px-3 space-y-1" aria-label="Main navigation">
                         {% include "admin_nav_links.html" %}
                     </nav>
+
+                    <!-- Toggle Button -->
+                    <div class="px-3 mt-4 border-t border-slate-200 pt-4">
+                        <button id="sidebar-toggle-btn" class="toggle-btn w-full flex items-center justify-center py-2 px-3 text-slate-600 hover:text-primary-600 rounded-lg" aria-label="Toggle sidebar" title="Collapse sidebar">
+                            <svg class="h-5 w-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path id="toggle-icon" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"/>
+                            </svg>
+                            <span class="nav-item-text ml-2 text-sm font-medium">Collapse</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="md:pl-72 flex flex-col flex-1">
+        <div id="main-content-wrapper" class="md:pl-72 flex flex-col flex-1 content-transition">
             <header class="sticky top-0 z-10 flex h-16 flex-shrink-0 bg-white  header-shadow">
                 <button id="open-sidebar-btn" type="button" class="border-r border-slate-200 px-4 text-slate-500 focus-visible hover:bg-slate-50 hover:text-slate-700 transition-colors md:hidden" aria-label="Open sidebar">
                     <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -342,6 +380,50 @@
                     });
                 }
             });
+
+            // --- Desktop Sidebar Toggle ---
+            const sidebarToggleBtn = document.getElementById('sidebar-toggle-btn');
+            const desktopSidebar = document.getElementById('desktop-sidebar');
+            const mainContentWrapper = document.getElementById('main-content-wrapper');
+            const toggleIcon = document.getElementById('toggle-icon');
+
+            // Load saved sidebar state from localStorage
+            const sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+            if (sidebarCollapsed) {
+                desktopSidebar.classList.add('sidebar-collapsed');
+                mainContentWrapper.classList.remove('md:pl-72');
+                mainContentWrapper.classList.add('md:pl-16');
+                toggleIcon.setAttribute('d', 'M13 5l7 7-7 7M5 5l7 7-7 7'); // Right arrows
+                sidebarToggleBtn.setAttribute('title', 'Expand sidebar');
+            }
+
+            if (sidebarToggleBtn) {
+                sidebarToggleBtn.addEventListener('click', () => {
+                    const isCollapsed = desktopSidebar.classList.toggle('sidebar-collapsed');
+
+                    if (isCollapsed) {
+                        mainContentWrapper.classList.remove('md:pl-72');
+                        mainContentWrapper.classList.add('md:pl-16');
+                        toggleIcon.setAttribute('d', 'M13 5l7 7-7 7M5 5l7 7-7 7'); // Right arrows
+                        sidebarToggleBtn.setAttribute('title', 'Expand sidebar');
+                        localStorage.setItem('sidebarCollapsed', 'true');
+                    } else {
+                        mainContentWrapper.classList.remove('md:pl-16');
+                        mainContentWrapper.classList.add('md:pl-72');
+                        toggleIcon.setAttribute('d', 'M11 19l-7-7 7-7m8 14l-7-7 7-7'); // Left arrows
+                        sidebarToggleBtn.setAttribute('title', 'Collapse sidebar');
+                        localStorage.setItem('sidebarCollapsed', 'false');
+                    }
+                });
+
+                // Keyboard shortcut: Ctrl/Cmd + B to toggle sidebar
+                document.addEventListener('keydown', (e) => {
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+                        e.preventDefault();
+                        sidebarToggleBtn.click();
+                    }
+                });
+            }
 
             // --- Keyboard Accessibility ---
             document.addEventListener('keydown', (e) => {
