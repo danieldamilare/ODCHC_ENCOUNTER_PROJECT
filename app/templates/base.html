@@ -121,8 +121,8 @@
                 <div class="flex items-center space-x-3">
                     <a href="{{ url_for('index') }}" class="flex items-center space-x-3 group">
                         <div class="relative">
-                            <img src="{{ url_for('static', filename='odchc_logo.png') }}" 
-                                 alt="ODCHC Logo" 
+                            <img src="{{ url_for('static', filename='odchc_logo.png') }}"
+                                 alt="ODCHC Logo"
                                  class="h-14 w-14 object-contain transition-all duration-300 group-hover:scale-110"
                                  onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                             <div class="h-14 w-14 bg-[#0ea5e9] rounded-xl hidden items-center justify-center shadow-lg">
@@ -150,25 +150,25 @@
                         </div>
                         {% endif %}
 
-                        <a href="{{ url_for('encounters') }}" 
+                        <a href="{{ url_for('encounters') }}"
                            class="nav-item text-slate-800 hover:text-[#0ea5e9] hover:bg-[#e0f2fe] px-5 py-2.5 rounded-lg text-base font-semibold transition-all">
                             Encounters
                         </a>
 
-                        <a href="{{ url_for('add_encounter') }}" 
+                        <a href="{{ url_for('add_encounter') }}"
                            class="nav-item text-slate-800 hover:text-[#0ea5e9] hover:bg-[#e0f2fe] px-5 py-2.5 rounded-lg text-base font-semibold transition-all">
                             Add Encounter
                         </a>
 
 
                         {% if current_user.role.name == "admin" %}
-                        <a href="{{ url_for('admin') }}" 
+                        <a href="{{ url_for('admin_overview') }}"
                            class="nav-item text-slate-800 hover:text-[#0ea5e9] hover:bg-[#e0f2fe] px-5 py-2.5 rounded-lg text-base font-semibold transition-all">
                             Admin
                         </a>
                         {% endif %}
 
-                        <a href="{{ url_for('logout') }}" 
+                        <a href="{{ url_for('logout') }}"
                            class="btn-logout text-white px-5 py-2.5 rounded-lg text-base font-semibold shadow-sm">
                             Logout
                         </a>
@@ -216,8 +216,8 @@
     <footer class="glass-card border-t border-slate-200/60 py-5 mt-auto">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
             <div class="flex items-center space-x-3">
-                <img src="{{ url_for('static', filename='odchc_logo.png') }}" 
-                     alt="ODCHC Logo" 
+                <img src="{{ url_for('static', filename='odchc_logo.png') }}"
+                     alt="ODCHC Logo"
                      class="h-10 w-10 object-contain"
                      onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                 <div class="h-10 w-10 bg-[#0ea5e9] rounded-lg hidden items-center justify-center">

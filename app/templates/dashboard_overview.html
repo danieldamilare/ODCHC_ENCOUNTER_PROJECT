@@ -318,6 +318,8 @@
 
         // Chart options - Power BI Style
         const groupedBarOptions = {
+            barPercentage: 0.95,
+            categoryPercentage: 0.6,
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
@@ -325,7 +327,7 @@
                     display: true,
                     position: 'bottom',
                     labels: {
-                        padding: 12,
+                        padding: 9,
                         color: '#374151',
                         font: { size: 11, family: 'Inter, sans-serif', weight: '600' },
                         usePointStyle: true,
@@ -334,9 +336,9 @@
                 },
                 tooltip: {
                     backgroundColor: 'rgba(0, 0, 0, 0.85)',
-                    titleFont: { size: 13, weight: 'bold' },
-                    bodyFont: { size: 12 },
-                    padding: 10,
+                    titleFont: { size: 15, weight: 'bold' },
+                    bodyFont: { size: 15 },
+                    padding: 11,
                     cornerRadius: 6
                 }
             },

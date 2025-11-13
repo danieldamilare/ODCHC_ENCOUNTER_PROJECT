@@ -1508,20 +1508,35 @@ class EncounterServices(BaseServices):
 
         encounters_rows = cls._get_base_encounter(params, **kwargs)
 
-        encounter_ids = [row['id'] for row in encounters_rows]
-        delivery_ids = [row['id'] for row in encounters_rows if row['enc_type'] == 'delivery']
+        encounter_ids = []
+        delivery_ids = []
+        anc_ids = []
+        child_health_id = []
+
+        for row in encounters_rows:
+            encounter_ids.append(row['id'])
+            if row['enc_type'] == EncType.DELIVERY.value:
+                delivery_ids.append(row['id'])
+            elif row['enc_type'] == EncType.ANC.value:
+                anc_ids.append(row['id'])
+            elif row['enc_type'] == EncType.CHILDHEALTH.value:
+                child_health_id.append(row['id'])
 
         if not encounter_ids:
             return []
 
         diseases_by_encounter = cls._get_diseases_mapping(encounter_ids)
         services_by_encounter = cls._get_services_mapping(encounter_ids=encounter_ids)
-        delivery_babies = cls._get_babies_mapping(delivery_ids=delivery_ids)
+        anc_by_encounters = cls._get_anc_mapping(anc_ids)
+        delivery_by_encounters = cls._get_delivery_mapping(delivery_ids)
+        child_health_by_encounters = cls._get_child_health_mapping(child_health_ids=child_health_id)
 
         facility_ids = [row['facility_id'] for row in encounters_rows]
         scheme_map = FacilityServices.get_insurance_list(facility_ids)
 
         for row in encounters_rows:
+            encounter = None
+
             facility=FacilityView(
                 id=row['facility_id'],
                 name=row['facility_name'],
@@ -1534,30 +1549,41 @@ class EncounterServices(BaseServices):
                             scheme_name=row['scheme_name'],
                             color_scheme=row['color_scheme'])
 
-            if  row['enc_type'] == 'anc':
-                encounter = cls._create_anc_encounter(
+            if  row['enc_type'] == EncType.ANC.value:
+                encounter = cls._build_anc_encounter(
                     facility = facility,
                     isc = insurance_scheme,
                     services_list = services_by_encounter.get(row['id'], []),
                     diseases_list = diseases_by_encounter.get(row['id'], []),
+                    anc_registry= anc_by_encounters[row['id']],
                     row = row
                 )
-            elif row['enc_type'] == 'delivery':
-                encounter = cls._create_delivery_encounter(
+            elif row['enc_type'] == EncType.DELIVERY.value:
+                encounter = cls._build_delivery_encounter(
                     facility = facility,
                     isc = insurance_scheme,
                     services_list = services_by_encounter.get(row['id'], []),
                     diseases_list = diseases_by_encounter.get(row['id'], []),
-                    babies_list = delivery_babies,
+                    delivery_encounter = delivery_by_encounters[row['id']],
                     row = row
                 )
 
-            elif row['enc_type'] == 'general':
-                encounter = cls._create_general_encounter(
+            elif row['enc_type'] == EncType.GENERAL.value:
+                encounter = cls._build_general_encounter(
                     facility = facility,
                     isc = insurance_scheme,
                     services_list = services_by_encounter.get(row['id'], []),
                     diseases_list = diseases_by_encounter.get(row['id'], []),
+                    row = row
+                )
+            elif row['enc_type'] == EncType.CHILDHEALTH.value:
+                encounter  = cls._build_child_health_encounter(
+
+                    facility = facility,
+                    isc = insurance_scheme,
+                    services_list = services_by_encounter.get(row['id'], []),
+                    diseases_list = diseases_by_encounter.get(row['id'], []),
+                    child_encounter = child_health_by_encounters[row['id']],
                     row = row
                 )
 
@@ -2033,13 +2059,13 @@ class DashboardServices(BaseServices):
         query, filter_args = cls._apply_filter(query, **res)
 
         args = [start_date, end_date, prev_start_date, prev_end_date] + filter_args
-        print(query, args)
+        # print(query, args)
 
         db = get_db()
         row = db.execute(query, args).fetchone()
         current = row['current_count'] if row else 0
         prev = row['prev_count'] if row else 0
-        print(current, prev)
+        # print(current, prev)
 
         pct_change = 0.0
         if prev:
@@ -2465,10 +2491,10 @@ class DashboardServices(BaseServices):
 
         res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         query, args = cls._apply_filter(query, **res)
-        print(query, args)
+        # print(query, args)
         db = get_db()
         row = db.execute(query, args).fetchone()
-        print( dict(row))
+        # print( dict(row))
         res = row['count'] if row else 0
         return res or 0
 
@@ -2736,7 +2762,6 @@ class ReportServices(BaseServices):
         table.rename(columns={'facility_name': 'Facilities'}, inplace=True)
 
         return start_date, table
-
 
 class UploadServices(BaseServices):
 

@@ -45,12 +45,12 @@
 </style>
 
 <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-    
+
     <!-- Compact Breadcrumb -->
     <nav class="text-sm font-medium text-slate-500 mb-4" aria-label="Breadcrumb">
         <ol class="list-none p-0 flex items-center gap-1.5">
             {% if current_user.role.name == 'admin' %}
-            <li><a href="{{ url_for('admin') }}" class="hover:text-blue-600 transition-colors">Admin</a></li>
+            <li><a href="{{ url_for('admin_overview') }}" class="hover:text-blue-600 transition-colors">Admin</a></li>
             <li><svg class="h-4 w-4 text-slate-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg></li>
             {% endif %}
             <li><a href="{{ url_for('encounters') }}" class="hover:text-blue-600 transition-colors">Encounters</a></li>
@@ -76,14 +76,14 @@
         <!-- Scheme Cards Grid -->
         <div class="grid grid-cols-1 {% if schemes|length > 1 %}md:grid-cols-2{% if schemes|length > 2 %} lg:grid-cols-3{% endif %}{% endif %} gap-6 mb-6">
             {% for scheme in schemes %}
-            <a href="{{ url_for('add_scheme_encounter', scheme_id=scheme.id) }}" 
+            <a href="{{ url_for('add_scheme_encounter', scheme_id=scheme.id) }}"
                data-scheme-key="{{ loop.index }}"
                style="--scheme-color: {{ scheme.color_scheme | default('#3b82f6') }};"
                class="scheme-card group relative bg-white rounded-2xl border-2 border-slate-200 hover:border-transparent overflow-hidden shadow-lg hover:shadow-2xl">
-                
+
                 <!-- Scheme Color Accent Bar -->
                 <div class="absolute top-0 left-0 right-0 h-1.5" style="background: linear-gradient(90deg, var(--scheme-color), color-mix(in srgb, var(--scheme-color) 70%, white));"></div>
-                
+
                 <!-- Card Content -->
                 <div class="p-6">
                     <!-- Logo & Title Section -->
@@ -100,7 +100,7 @@
                                 </div>
                             {% endif %}
                         </div>
-                        
+
                         <div class="flex-1 min-w-0">
                             <h2 class="text-lg font-bold text-slate-900 group-hover:text-blue-600 transition-colors mb-1 line-clamp-2">
                                 {{ scheme.scheme_name }}
@@ -172,18 +172,18 @@
                 <p class="text-slate-600 max-w-md mx-auto mb-8">
                     Your facility doesn't have any insurance schemes assigned yet. Contact your administrator to set up insurance coverage options.
                 </p>
-                
+
                 <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
-                    <a href="{{ url_for('encounters') }}" 
+                    <a href="{{ url_for('encounters') }}"
                        class="inline-flex items-center px-6 py-3 bg-slate-600 hover:bg-slate-700 text-white font-semibold rounded-lg shadow-md transition-all">
                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
                         </svg>
                         Back to Encounters
                     </a>
-                    
+
                     {% if current_user.role.name == 'admin' %}
-                    <a href="{{ url_for('admin') }}" 
+                    <a href="{{ url_for('admin_overview') }}"
                        class="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition-all">
                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
