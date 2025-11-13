@@ -1173,7 +1173,7 @@ class EncounterServices(BaseServices):
                 ec.age,
                 ec.enc_type,
                 ec.nin,
-                ec.phone_number
+                ec.phone_number,
                 ec.policy_number,
                 ec.date,
                 ec.facility_id ,
@@ -1187,42 +1187,12 @@ class EncounterServices(BaseServices):
                 fc.name as facility_name,
                 fc.facility_type,
                 fc.local_government as lga,
-                u.username AS created_by,
-
-                --delivery_encounter details may be none
-                de.id as delivery_id,
-                de.anc_id as delivery_anc_id,
-                de.anc_count as delivery_anc_count,
-                de.no_of_babies as delivery_babies,
-                de.mode_of_delivery
-
-                --anc encounter_details
-                ar.id as anc_id,
-                ar.kia_date,
-                ar.booking_date,
-                ar.parity,
-                ar.place_of_issue,
-                ar.hospital_number,
-                ar.address,
-                ar.lmp,
-                ar.expected_delivery_date,
-                ae.anc_count as anc_current_count,
-                ae.status as anc_status
-
-                --child health services
-                che.id as child_health_id
-                che.dob,
-                che.address as child_address,
-                che.guardian_name
+                u.username AS created_by
             FROM encounters AS ec
             JOIN insurance_scheme as isc on isc.id = ec.scheme
             JOIN facility as fc on ec.facility_id = fc.id
             JOIN treatment_outcome as tc on ec.outcome = tc.id
             LEFT JOIN users AS u ON ec.created_by = u.id
-            LEFT JOIN anc_encounter as ae on ae.encounter_id = ec.encounter_id
-            LEFT JOIN anc_registry as ar on ar.id = ae.anc_id
-            LEFT JOIN delivery_encounter as de on ec.id = de.encounter_id
-            LEFT JOIN child_health_encounter as che on che.encounter = ec.id
         '''   #polymorphism for all encounters
 
         if params:
@@ -1230,18 +1200,21 @@ class EncounterServices(BaseServices):
         else:
             res = _legacy_to_params(**kwargs)
 
-
         query, args = cls._apply_filter(
             base_query=query,
             base_arg=[],
             **res
         )
+        # print(query)
 
         db = get_db()
         return db.execute(query, args).fetchall()
 
     @classmethod
-    def _get_diseases_mapping(cls, encounter_ids: List):
+    def _get_diseases_mapping(cls, encounter_ids: List) -> Dict:
+        if not encounter_ids:
+            return {}
+
         db = get_db()
 
         placeholders = ','.join('?' * len(encounter_ids))
@@ -1258,9 +1231,7 @@ class EncounterServices(BaseServices):
             WHERE ecd.encounter_id IN ({placeholders})
             ORDER BY ecd.encounter_id
         '''
-
         diseases_rows = db.execute(diseases_query, encounter_ids).fetchall()
-
         diseases_by_encounter = defaultdict(list)
 
         for row in diseases_rows:
@@ -1278,7 +1249,10 @@ class EncounterServices(BaseServices):
         return diseases_by_encounter
 
     @classmethod
-    def _get_services_mapping(cls, encounter_ids: List):
+    def _get_services_mapping(cls, encounter_ids: List)-> Dict:
+        if not encounter_ids:
+            return {}
+
         db = get_db()
         placeholders = ', '.join('?' * len(encounter_ids))
         services_query = f'''
@@ -1287,12 +1261,13 @@ class EncounterServices(BaseServices):
                 srv.id as service_id,
                 srv.name as service_name,
                 scg.id as category_id,
-                scg.category_name as category_name
+                scg.name as category_name
             FROM encounters_services as ecs
             JOIN services as srv on srv.id = ecs.service_id
-            JOIN service_category as scg on scg.
-            WHERE ecs.id in ({placeholders})
+            JOIN service_category as scg on scg.id = srv.category_id
+            WHERE ecs.encounter_id in ({placeholders})
         '''
+
         service_rows = db.execute(services_query, encounter_ids).fetchall()
         services_by_encounter = defaultdict(list)
         for row in service_rows:
@@ -1310,9 +1285,10 @@ class EncounterServices(BaseServices):
         return services_by_encounter
 
     @classmethod
-    def _get_babies_mapping(cls, delivery_ids: List):
+    def _get_babies_mapping(cls, delivery_ids: List) -> Dict:
         if not delivery_ids:
             return {}
+
         placeholders = ', '.join('?' * len(delivery_ids))
         db = get_db()
         babies_query = f'''
@@ -1321,7 +1297,7 @@ class EncounterServices(BaseServices):
                 db.encounter_id as encounter_id,
                 db.gender,
                 db.outcome
-            FROM delivery_babies as db WHERE db.id in ({placeholders})
+            FROM delivery_babies as db WHERE db.encounter_id in ({placeholders})
         '''
         babies_row = db.execute(babies_query, delivery_ids).fetchall()
         babies_list = defaultdict(list)
@@ -1331,12 +1307,124 @@ class EncounterServices(BaseServices):
             babies_list[encounter_id].append(DeliveryBaby(
                 id = row['baby_id'],
                 gender = row['gender'],
-                outcome = row['outcome']
+                outcome = BabyOutcome(row['outcome'])
             ))
         return babies_list
 
     @classmethod
-    def _create_general_encounter(cls,
+    def _get_anc_mapping(cls, anc_ids: List) -> Dict[int, ANCRegistry]:
+        if not anc_ids:
+            return {}
+
+        placeholders = ','.join('?' * len(anc_ids))
+        query = f'''
+        SELECT
+            ae.encounter_id,
+            ar.id as anc_id,
+            ar.kia_date,
+            ar.orin,
+            ar.booking_date,
+            ar.parity,
+            ar.place_of_issue,
+            ar.hospital_number,
+            ar.client_name,
+            ar.address,
+            ar.lmp,
+            ar.expected_delivery_date as edd,
+            ae.anc_count,
+            ar.status as anc_status
+        FROM anc_encounters as ae
+        JOIN anc_registry as ar on ar.id = ae.anc_id
+        WHERE ae.encounter_id IN ({placeholders})
+        '''
+        db = get_db()
+        rows = db.execute(query, anc_ids).fetchall()
+        mapping = {}
+        for row in rows:
+            encounter_id = row['encounter_id']
+
+            anc_encounter = ANCRegistry(
+                id = row['anc_id'],
+                orin = row['orin'],
+                kia_date = row['kia_date'],
+                client_name= row['client_name'],
+                booking_date = row['booking_date'],
+                parity= row['parity'],
+                place_of_issue= row['place_of_issue'],
+                hospital_number= row['hospital_number'],
+                address= row['address'],
+                lmp = row['lmp'],
+                expected_delivery_date= row['edd'],
+                anc_count= row['anc_count'],
+                status = row['anc_status']
+            )
+            mapping[encounter_id] = anc_encounter
+        return mapping
+
+    @classmethod
+    def _get_delivery_mapping(cls, delivery_ids: List) -> Dict[int, DeliveryEncounter]:
+        if not delivery_ids:
+            return {}
+
+        placeholders = ','.join('?' * len(delivery_ids))
+        query = f'''
+        SELECT
+            de.encounter_id,
+            de.id,
+            de.anc_count,
+            de.mode_of_delivery
+        FROM delivery_encounters as de
+        WHERE de.encounter_id in ({placeholders})
+        '''
+
+        db = get_db()
+        rows = db.execute(query, delivery_ids).fetchall()
+        delivery_babies = cls._get_babies_mapping(delivery_ids=delivery_ids)
+        mapping = {}
+        for row in rows:
+            encounter_id = row['encounter_id']
+            mapping[encounter_id]  = DeliveryEncounter(
+                id =row['id'],
+                mode_of_delivery= DeliveryMode(row['mode_of_delivery']),
+                babies = delivery_babies.get(encounter_id, []),
+                anc_count = row['anc_count']
+            )
+        return mapping
+
+    @classmethod
+    def _get_child_health_mapping(cls, child_health_ids: List) -> Dict:
+        if not child_health_ids:
+            return {}
+
+        placeholders = ','.join('?' * len(child_health_ids))
+        query = f'''
+        SELECT
+            che.encounter_id,
+            che.id as id,
+            che.orin,
+            che.dob,
+            che.address as address,
+            che.guardian_name
+        FROM child_health_encounters as che
+        WHERE che.encounter_id in ({placeholders})
+        '''
+
+        db = get_db()
+        rows = db.execute(query, child_health_ids).fetchall()
+        mapping = {}
+        for row in rows:
+            encounter_id = row['encounter_id']
+            mapping[encounter_id] = ChildHealth(
+                id = row['id'],
+                dob = row['dob'],
+                address = row['address'],
+                guardian_name = row['guardian_name'],
+                orin = row['orin']
+            )
+        return mapping
+
+    @classmethod
+    def _build_general_encounter(cls,
                                   facility: FacilityView,
                                   isc: InsuranceScheme,
                                   services_list: List,
@@ -1355,7 +1443,7 @@ class EncounterServices(BaseServices):
                 treatment_outcome=row['treatment_outcome'],
                 age=row['age'],
                 nin = row['nin'],
-                enc_type = row['enc_type'],
+                enc_type = EncType(row['enc_type']),
                 phone_number= row['phone_number'],
                 treatment=row['treatment'],
                 doctor_name=row['doctor_name'],
@@ -1365,24 +1453,52 @@ class EncounterServices(BaseServices):
         return encounter
 
     @classmethod
-    def _create_anc_encounter(cls,
+    def _build_anc_encounter(cls,
                               facility: FacilityView,
                               isc: InsuranceScheme,
                               services_list: List,
                               diseases_list: List,
-                              row: Dict):
-        pass
+                              anc_registry: ANCRegistry,
+                              row: Dict) -> ANCEncounterView:
+        encounter = cls._build_general_encounter(facility = facility,
+                                                 isc = isc,
+                                                 services_list = services_list,
+                                                 diseases_list= diseases_list,
+                                                 row = row)
+        return ANCEncounterView(**encounter.__dict__, anc = anc_registry)
 
 
     @classmethod
-    def _create_delivery_encounter(cls,
+    def _build_delivery_encounter(cls,
                               facility: FacilityView,
                               isc: InsuranceScheme,
                               services_list: List,
                               diseases_list: List,
-                              babies_list: List
-                              row: Dict):
-        pass
+                              delivery_encounter: DeliveryEncounter,
+                              row: Dict) -> DeliveryEncounterView:
+        encounter = cls._build_general_encounter(facility = facility,
+                                                 isc = isc,
+                                                 services_list = services_list,
+                                                 diseases_list= diseases_list,
+                                                 row = row)
+        return DeliveryEncounterView(**encounter.__dict__, delivery= delivery_encounter)
+
+    @classmethod
+    def _build_child_health_encounter(cls,
+                                       facility: FacilityView,
+                                       isc: InsuranceScheme,
+                                       services_list: List,
+                                       diseases_list: List,
+                                       child_encounter: ChildHealth,
+                                       row: Dict):
+        encounter = cls._build_general_encounter(facility = facility,
+                                                  isc = isc,
+                                                  services_list= services_list,
+                                                  diseases_list= diseases_list,
+                                                  row = row)
+        return ChildHealthEncounterView(
+            **encounter.__dict__, health_details=child_encounter
+        )
 
     @classmethod
     def get_all(cls,
