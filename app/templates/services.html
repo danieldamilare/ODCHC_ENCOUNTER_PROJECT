@@ -1,0 +1,225 @@
+{% extends "admin_base.html" %}
+
+
+
+{% block content %}
+
+<style>
+
+    .category-chip {
+        transition: all 0.2s ease;
+    }
+
+    .category-chip:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .table-row:hover {
+        background: #f8fafc;
+    }
+
+</style>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <div class="mb-8">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+            <div>
+                <h1 class="text-3xl font-bold text-slate-900">Service Management</h1>
+                <p class="text-slate-600 mt-1">Manage Services, categories, and diagnostic codes</p>
+            </div>
+
+            <div class="flex gap-3">
+
+                <a href="{{ url_for('add_service_category') }}"
+
+                   class="inline-flex items-center px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg shadow transition-all">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                    </svg>
+                    New Category
+                </a>
+
+                <a href="{{ url_for('add_service') }}"
+                   class="inline-flex items-center px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow transition-all">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                    </svg>
+                    New Service
+                </a>
+
+            </div>
+
+        </div>
+
+<div class="space-y-8">
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-gradient-to-br from-indigo-50 via-white to-indigo-100 p-6 rounded-xl shadow-lg border border-indigo-200 flex items-center gap-4 transition-transform hover:-translate-y-1">
+             <div class="flex-shrink-0 h-12 w-12 rounded-full bg-indigo-500/10 flex items-center justify-center border-2 border-indigo-200">
+                 <svg class="h-6 w-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+            </div>
+            <div>
+                <div class="text-sm font-medium text-gray-500">Total Service Registered</div>
+                <div class="mt-1 text-3xl font-bold text-gray-900">{{ "{:,}".format(total_services) }}</div>
+            </div>
+        </div>
+         <div class="bg-gradient-to-br from-purple-50 via-white to-purple-100 p-6 rounded-xl shadow-lg border border-purple-200 flex items-center gap-4 transition-transform hover:-translate-y-1">
+            <div class="flex-shrink-0 h-12 w-12 rounded-full bg-purple-500/10 flex items-center justify-center border-2 border-purple-200">
+                 <svg class="h-6 w-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+            </div>
+            <div>
+                <div class="text-sm font-medium text-gray-500">Service Categories</div>
+                <div class="mt-1 text-3xl font-bold text-gray-900">{{ total_categories }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+
+        <div class="px-6 py-5 border-b border-gray-200 bg-gray-50/75">
+             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                 <div>
+                    <h2 class="text-xl font-bold text-slate-900">
+                        {% if active_category_name %}
+                            Service in "{{ active_category_name }}"
+                        {% else %}
+                            All Services
+                        {% endif %}
+                    </h2>
+                     <p class="text-sm text-slate-600 mt-1">
+                        Showing <span class="font-semibold text-slate-900">{{ service_list|length }}</span> of <span class="font-semibold text-slate-900">{{ total_services }}</span> entries {% if active_category_name %}in this category{% endif %}
+                    </p>
+                 </div>
+
+                 <div class="relative inline-block text-left" x-data="{ open: false }" @click.away="open = false">
+                     <div>
+                         <button @click="open = !open" type="button" class="inline-flex justify-between w-full rounded-lg border border-gray-300 shadow-sm px-4 py-2.5 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500" id="options-menu" aria-haspopup="true" :aria-expanded="open">
+                             Filter by Category: <strong class="ml-1">{{ active_category_name if active_category_name else 'All Categories' }}</strong>
+                             <svg class="-mr-1 ml-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                 <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                             </svg>
+                         </button>
+                     </div>
+
+                     <div x-show="open"
+                          x-transition:enter="transition ease-out duration-100"
+                          x-transition:enter-start="transform opacity-0 scale-95"
+                          x-transition:enter-end="transform opacity-100 scale-100"
+                          x-transition:leave="transition ease-in duration-75"
+                          x-transition:leave-start="transform opacity-100 scale-100"
+                          x-transition:leave-end="transform opacity-0 scale-95"
+                          class="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10"
+                          role="menu" aria-orientation="vertical" aria-labelledby="options-menu" style="display: none;">
+                         <div class="py-1" role="none">
+                             <a href="{{ url_for('services') }}" class="{% if not active_category %} bg-gray-100 text-gray-900 {% else %} text-gray-700 {% endif %} block px-4 py-2 text-sm hover:bg-gray-100 hover:text-gray-900" role="menuitem">
+                                 All Categories
+                             </a>
+                             {% for category in category_list %}
+                             <a href="{{ url_for('services', category=category.id) }}" class="{% if active_category == category.id|string %} bg-gray-100 text-gray-900 {% else %} text-gray-700 {% endif %} block px-4 py-2 text-sm hover:bg-gray-100 hover:text-gray-900" role="menuitem">
+                                 {{ category.name }}
+                             </a>
+                             {% endfor %}
+                         </div>
+                     </div>
+                 </div>
+             </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            {% if service_list %}
+            <table class="min-w-full divide-y divide-slate-200">
+                <thead class="bg-slate-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Service Name</th>
+                        <th scope="col" class="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Category</th>
+                        <th scope="col" class="px-6 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-slate-100">
+                    {% for service in service_list %}
+                    <tr class="hover:bg-gray-50/75 transition-colors">
+                        <td class="px-6 py-4">
+                            <span class="text-sm font-semibold text-slate-900">{{ service.name }}</span>
+                        </td>
+                        <td class="px-6 py-4">
+                            {% if service.category %}
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-primary-100 text-primary-800 border border-primary-200">
+                                {{ service.category.name }}
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <a href="{{ url_for('edit_service', service_id=service.id) }}"
+                               class="inline-flex items-center px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-sm font-semibold transition-colors">
+                                Edit
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+             <div class="text-center py-16 px-6">
+                 <svg class="w-16 h-16 text-slate-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 3h.01"/></svg>
+                <p class="text-slate-500 text-xl font-semibold">
+                    {% if active_category %}
+                        No services found in this category
+                    {% else %}
+                        No services found
+                    {% endif %}
+                </p>
+                <p class="text-slate-400 mt-2 mb-6">Add your first service record to get started</p>
+                <a href="{{ url_for('add_service') }}" class="inline-flex items-center px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-semibold shadow-md transition-colors">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                    Add First Service
+                </a>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if service_list and (current_page > 1 or current_page < total_pages) %}
+        <div class="px-6 py-4 border-t border-slate-200 bg-slate-50/75">
+            <div class="flex items-center justify-between">
+                <div class="text-sm text-slate-600">
+                     Showing <span class="font-semibold">{{ [ ((current_page - 1) * per_page + 1), total_services] |min }}</span>
+                     to <span class="font-semibold">{{ [(current_page * per_page), total_services ] |min }}</span>
+                     of <span class="font-semibold">{{ total_services }}</span>
+                     {% if active_category_name %} service in this category{% else %}total services{% endif %}
+                </div>
+                <div class="flex gap-2">
+                    {% if prev_url %}
+                    <a href= {{prev_url}}
+                       class="inline-flex items-center px-4 py-2 bg-white border-2 border-slate-300 text-sm font-semibold rounded-lg text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-all">
+                       <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                       Previous
+                    </a>
+                    {% else %}
+                     <span class="inline-flex items-center px-4 py-2 bg-slate-100 border-2 border-slate-200 text-sm font-semibold rounded-lg text-slate-400 cursor-not-allowed">
+                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                         Previous
+                     </span>
+                    {% endif %}
+
+                    {% if next_url %}
+                    <a href=  {{ next_url}}
+                       class="inline-flex items-center px-4 py-2 bg-white border-2 border-slate-300 text-sm font-semibold rounded-lg text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-all">
+                       Next
+                       <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    </a>
+                    {% else %}
+                     <span class="inline-flex items-center px-4 py-2 bg-slate-100 border-2 border-slate-200 text-sm font-semibold rounded-lg text-slate-400 cursor-not-allowed">
+                        Next
+                        <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                     </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div> </div>
+
+<script src="//unpkg.com/alpinejs" defer></script>
+
+{% endblock %}

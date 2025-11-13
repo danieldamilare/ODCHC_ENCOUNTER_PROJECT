@@ -772,7 +772,6 @@ def users():
                            next_url=next_url,
                            prev_url=prev_url)
 
-
 @app.route('/admin/users/edit/<int:user_id>', methods=['GET', 'POST'])
 @admin_required
 def edit_user(user_id: int):
@@ -804,7 +803,6 @@ def edit_user(user_id: int):
                            edit_form=form,
                            delete_form=delete_form)
 
-
 @app.route('/admin/user/delete/<int:user_id>', methods=['POST'])
 @admin_required
 def delete_user(user_id: int):
@@ -818,7 +816,6 @@ def delete_user(user_id: int):
         flash("CSRF token invalid. Could not delete user.", 'error')
 
     return redirect(url_for('users'))
-
 
 @app.route('/encounters')
 @login_required
@@ -1138,89 +1135,6 @@ def admin_mortality():
         start_date = g.start_date,
         end_date = g.end_date
     )
-
-
-# @app.route('/dashboard')
-# @login_required
-# def admin():
-
-#     try:
-
-#         active_facilities = len(list(EncounterServices.get_all(
-#             params= filters.group(Encounter, 'facility_id'))))
-
-#         top_diseases_data = DashboardServices.top_diseases(
-#             params= filters.set_limit(5))
-
-#         male_perc, female_perc = DashboardServices.encounter_gender_distribution(params=filters)
-#         # For charts
-#         monthly_trend_raw = json.loads(
-#             DashboardServices.get_encounter_trend(params=filters))
-#         age_distribution = DashboardServices.encounter_age_group_distribution(
-#             params=filters.set_limit(5))
-#         top_facilities_raw = list(DashboardServices.get_top_encounter_facilities(
-#             params= filters.set_limit(5)))
-#         total_encounters = len(
-#             list(EncounterServices.get_all(params=filters)))
-
-#         formatted_top_facilities = []
-#         for facility in top_facilities_raw:
-#             if facility['last_submission']:
-#                 try:
-#                     dt_obj = arrow.get(facility['last_submission']).to(
-#                         'local')  # Convert to local timezone if needed
-#                     facility['last_submission_formatted'] = dt_obj.strftime(
-#                         '%b %d, %Y %I:%M %p')  # e.g., Oct 23, 2025 08:15 AM
-#                 except Exception:
-#                     facility['last_submission_formatted'] = str(
-#                         facility['last_submission'])  # Fallback
-#             else:
-#                 facility['last_submission_formatted'] = 'N/A'
-#             formatted_top_facilities.append(facility)
-#     except ValueError as e:
-#         flash(f"Error occur in your filtering {e}")
-
-
-#     scheme_list = (list(InsuranceSchemeServices.get_all())
-#                    if get_current_user().role.name == 'admin' else get_current_user().facility.scheme)
-
-#     local_government_list = ONDO_LGAS_LIST
-
-
-#     # For dropdown
-#     all_facilities = sorted(FacilityServices.get_all(), key=lambda x: x.name)
-
-#     return render_template('admin.html',
-#                            # Filters for UI
-#                            title='Dashboard',
-#                            all_facilities=all_facilities,
-#                            current_period=request.args.get('period'),
-#                            current_facility_id=request.args.get('facility_id'),
-
-#                            # KPI Cards
-#                            total_encounters=total_encounters,
-#                            active_facilities=active_facilities,
-#                            top_disease=top_diseases_data[0] if top_diseases_data else None,
-#                            male_perc=round(male_perc, 1),
-#                            scheme_list=scheme_list,
-#                            lga_list=local_government_list,
-#                            female_perc=round(female_perc, 1),
-
-#                            # Chart Data
-#                            monthly_trend_raw=monthly_trend_raw,
-#                            top_diseases=top_diseases_data,
-#                            top_facilities=top_facilities_raw,
-#                            age_distribution=age_distribution,
-
-#                            current_scheme_id=request.args.get(
-#                                'scheme_id', 'all'),
-#                            current_gender=request.args.get('gender', 'all'),
-#                            current_lga=request.args.get('lga', 'all'),
-
-#                            # Table Data
-#                            top_facilities_raw=formatted_top_facilities
-#                            )
-
 
 @app.route('/admin/reports')
 @admin_required
