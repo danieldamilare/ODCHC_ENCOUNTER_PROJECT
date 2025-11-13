@@ -1,6 +1,7 @@
 from datetime import timedelta
 from datetime import datetime, date
 from collections import defaultdict
+import sqlite3
 import pandas as pd
 from werkzeug.security import generate_password_hash, check_password_hash
 from typing import Optional, Type, TypeVar, Iterator, List, Tuple, Dict, Literal
@@ -8,16 +9,15 @@ from app.db import get_db
 from app.models import (User, Facility, Disease, Encounter, TreatmentOutcome, DiseaseCategory, Role,
             InsuranceScheme, FacilityView, UserView, EncounterView, DiseaseView, FacilityScheme,
             EncounterDiseases, ServiceCategory, ServiceView, ANCEncounterView, DeliveryEncounterView,
-            DeliveryBaby
+            DeliveryBaby, ANCRegistry, DeliveryEncounter, ChildHealth, ChildHealthEncounterView, Service
             )
 from app.exceptions import MissingError, InvalidReferenceError, DuplicateError, QueryParameterError
-from app.exceptions import ValidationError, AuthenticationError
+from app.exceptions import ValidationError, AuthenticationError, ServiceError
 from app import app
-from app.constants import ONDO_LGAS_LOWER
+from app.constants import ONDO_LGAS_LOWER, DeliveryMode, EncType, BabyOutcome, SchemeEnum
 from copy import copy
 from app.filter_parser import FilterParser, Params
 from dateutil.relativedelta import relativedelta
-
 
 def _legacy_to_params(**kwargs) -> Dict:
     res = {}
@@ -40,7 +40,7 @@ class BaseServices:
     model: Type[T] = None
     table_name = ''
     columns_to_update: set = set()
-    MODEL_MAP = {}
+    MODEL_ALIAS_MAP = {}
 
     @staticmethod
     def _row_to_model(row, model_cls: Type[T]) -> T:
@@ -57,9 +57,6 @@ class BaseServices:
             raise MissingError(
                 f"{cls.model.get_name()} not found in the database")
         return cls._row_to_model(row, cls.model)
-
-    # @classmethod
-    # def build
 
     @classmethod
     def list_row_by_page(cls,
@@ -437,8 +434,9 @@ class FacilityServices(BaseServices):
             cursor = db.execute(f'INSERT INTO {cls.table_name} (name, local_government, facility_type) VALUES (?, ?, ?)', (
                 name, local_government, facility_type))
             new_id = cursor.lastrowid
-            scheme_list = list(set((new_id, x) for x in scheme))
-            cls.add_scheme(scheme_list)
+            if scheme:
+                scheme_list = list(set((new_id, x) for x in scheme))
+                cls.add_scheme(scheme_list)
             if commit:
                 db.commit()
             return cls.get_by_id(new_id)
@@ -501,16 +499,14 @@ class FacilityServices(BaseServices):
         placeholders = ','.join(('?' * len(row_ids)))
         query = f'''
         SELECT
-            fc.id,
+            fsc.facility_id as id,
             isc.id as scheme_id,
             isc.scheme_name,
             isc.color_scheme
-        FROM {cls.table_name} as fc
-        JOIN facility_scheme as fsc
-        ON fc.id = fsc.facility_id
+        FROM facility_scheme as fsc
         JOIN insurance_scheme as isc
         ON isc.id = fsc.scheme_id
-        WHERE fc.id IN ({placeholders})
+        WHERE fsc.facility_id IN ({placeholders})
         '''
 
         scheme_rows = db.execute(query, row_ids).fetchall()
@@ -534,7 +530,6 @@ class FacilityServices(BaseServices):
             fc.local_government,
             fc.facility_type
         FROM {cls.table_name} as fc
-        JOIN facility_scheme as fsc on fc.id = fsc.facility_id
         '''
         if params:
             res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
@@ -596,6 +591,17 @@ class InsuranceSchemeServices(BaseServices):
             db.rollback()
             raise DuplicateError(
                 f"{scheme.scheme_name} already exists in database")
+
+    @classmethod
+    def get_scheme_by_enum(cls, scheme: SchemeEnum) -> InsuranceScheme:
+        query = f'''SELECT * from {cls.table_name} where scheme_name = ?'''
+        print(query)
+        db = get_db()
+        print(scheme, scheme.value)
+        result = db.execute(query, (scheme.value, )).fetchone()
+        if not result:
+            raise MissingError(f"{scheme.value} not in insurance scheme")
+        return cls._row_to_model(result, InsuranceScheme)
 
 
 class DiseaseServices(BaseServices):
@@ -686,6 +692,107 @@ class DiseaseServices(BaseServices):
             raise DuplicateError("Disease name already exist")
         return disease
 
+class ServiceServices(BaseServices):
+    MODEL_ALIAS_MAP = {
+        ServiceCategory: 'scg',
+        Service:  'srv'
+    }
+
+    model = Service
+    table_name = 'services'
+
+    @classmethod
+    def create_service(cls, name: str, category_id: int, commit=True) -> Service:
+        db = get_db()
+        try:
+            ServiceCategoryServices.get_by_id(category_id)
+        except MissingError:
+            raise InvalidReferenceError('Service Category does not exist')
+        try:
+            cursor = db.execute(
+                f'INSERT INTO {cls.table_name} (name, category_id) VALUES (?, ?)', [name, category_id])
+            if commit:
+                db.commit()
+            new_id = cursor.lastrowid
+            return cls.get_by_id(new_id)
+        except sqlite3.IntegrityError:
+            db.rollback()
+            raise DuplicateError(f'Service {name} already exists')
+
+    @classmethod
+    def get_all(cls,
+                params: Optional[Params] = None,
+                **kwargs
+                ) -> Iterator:
+
+        query = '''
+        SELECT
+            srv.id as service_id,
+            srv.name as service_name,
+            scg.id as category_id,
+            scg.name as category_name
+        FROM services as srv
+        JOIN service_category as scg
+        ON srv.category_id = scg.id'''
+
+        if params:
+            res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        else:
+            res = _legacy_to_params(**kwargs)
+
+        query, args = cls._apply_filter(
+            base_query=query,
+            base_arg=[],
+            **res
+        )
+        db = get_db()
+        rows = db.execute(query, args)
+        for row in rows:
+            category = ServiceCategory(row['category_id'],
+                                       row['category_name'])
+            service = ServiceView(id=row['service_id'],
+                                  name=row['service_name'],
+                                  category=category)
+            yield service
+
+    @staticmethod
+    def update_service(service: Service):
+
+        try:
+            ServiceServices.update_data(service)
+        except DuplicateError:
+            db.rollback()
+            raise DuplicateError("Disease name already exist")
+        return service
+
+
+    @classmethod
+    def delete_service(cls, service: Service):
+        db = get_db()
+        db.execute(f'DELETE FROM {cls.table_name} WHERE id = ?', (service.id,))
+        db.commit()
+
+class ServiceCategoryServices(BaseServices):
+    model = ServiceCategory
+    table_name = 'service_category'
+    columns = {'id', 'category_name'}
+    columns_to_update = {'name'}
+
+    @classmethod
+    def create_category(cls, category_name, commit=True) -> DiseaseCategory:
+        db = get_db()
+
+        try:
+            cursor = db.execute(f'INSERT INTO {cls.table_name} (name) VALUES(?)',
+                                (category_name, ))
+            if commit:
+                db.commit()
+            new_id = cursor.lastrowid
+            return cls.get_by_id(new_id)
+        except sqlite3.IntegrityError:
+            db.rollback()
+            raise DuplicateError(
+                f"Category {category_name} already exist in Service database")
 
 class DiseaseCategoryServices(BaseServices):
     model = DiseaseCategory
@@ -709,7 +816,6 @@ class DiseaseCategoryServices(BaseServices):
             raise DuplicateError(
                 f"Category {category_name} already exist in database")
 
-
 class EncounterServices(BaseServices):
     table_name = 'encounters'
     model = Encounter
@@ -725,6 +831,43 @@ class EncounterServices(BaseServices):
          EncounterDiseases: 'eds'}
 
     @classmethod
+    def get_total(cls,
+                  params: Optional[Params] = None,
+                  **kwargs) -> int:
+
+        query = f'''
+            SELECT COUNT(*) from {cls.table_name} as ec
+            JOIN insurance_scheme as isc on isc.id = ec.scheme
+            JOIN facility as fc on ec.facility_id = fc.id
+            JOIN treatment_outcome as tc on ec.outcome = tc.id
+            LEFT JOIN users AS u ON ec.created_by = u.id
+        '''
+
+        res ={}
+        if params is not None:
+            if params.group_by or params.order_by:
+                raise QueryParameterError("You can't groupby or order by to get_total")
+
+            mapper = cls.MODEL_ALIAS_MAP
+            res = FilterParser.parse_params(params, model_map=mapper)
+        else:
+            res = _legacy_to_params(**kwargs)
+
+        query, args = cls._apply_filter(
+            base_query=query,
+            base_arg=[],
+            **res
+        )
+        # print(query)
+        db = get_db()
+
+        res =db.execute(query, args).fetchone()
+        if res:
+            return res[0]
+        else:
+            return 0
+
+    @classmethod
     def create_encounter(cls, facility_id: int,
                          date: date,
                          policy_number: str,
@@ -736,10 +879,10 @@ class EncounterServices(BaseServices):
                          scheme: int,
                          nin: str,
                          phone_number: str,
-                         enc_type: str,
                          outcome: int,
                          created_by: int,
                          diseases_id: Optional[List[int]] = None,
+                         enc_type: EncType = EncType.GENERAL,
                          services_id: Optional[List[int]] = None,
                          commit: bool=True) -> Encounter:
         db = get_db()
@@ -750,9 +893,8 @@ class EncounterServices(BaseServices):
         doctor_name = doctor_name .strip() if doctor_name else doctor_name
         nin = nin.strip()
         phone_number = phone_number.strip()
-        enc_type = enc_type.strip()
-
         created_at = datetime.now().date()
+
         try:
 
             cur = db.execute(f'''INSERT INTO {cls.table_name} (facility_id, date, policy_number
@@ -760,13 +902,17 @@ class EncounterServices(BaseServices):
                    scheme, outcome, created_by, created_at) VALUES( ?, ?, ?, ?, ?, ?, ?,
                    ?, ?, ?, ?, ?, ?, ?, ?)''', (facility_id, date, policy_number, client_name,
                                           gender, age, treatment, doctor_name, nin, phone_number,
-                                          enc_type, scheme, outcome, created_by, created_at))
+                                          enc_type.value, scheme, outcome, created_by, created_at))
 
             new_id = cur.lastrowid
             if diseases_id:
                 diseases_list = list(set((new_id, x) for x in diseases_id))
                 db.executemany('''INSERT into encounters_diseases(encounter_id, disease_id)
                             VALUES(?, ?)''', diseases_list)
+            if services_id:
+                services_list = list(set((new_id, x) for x in services_id))
+                db.executemany('''INSERT into encounters_services(encounter_id, service_id)
+                               VALUES(?, ?)''', services_list)
             if commit:
                 db.commit()
             return cls.get_by_id(new_id)
