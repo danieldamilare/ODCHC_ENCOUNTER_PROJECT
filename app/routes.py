@@ -381,10 +381,10 @@ def add_scheme_encounter(scheme_id) -> Any:
 
     return render_template('add_scheme_encounter.html',
                            disease_choices=disease_choices[1:],
+                           service_choices = service_choices[1:],
                            insurance_scheme=insurance_scheme,
                            form=form,
                            title='Add Encounter')
-
 
 @app.route('/admin/facilities', methods=['GET', 'POST'])
 @admin_required
@@ -403,8 +403,12 @@ def facilities() -> Any:
         except (ValidationError, DuplicateError) as e:
             flash(str(e), 'error')
 
-    facility_total = FacilityServices.get_total()
+    facility_total = int(FacilityServices.get_total())
+    primary_total = int(FacilityServices.get_total(Params().where(Facility, 'facility_type', '=', 'Primary')))
+    private_total = int(FacilityServices.get_total(Params().where(Facility, 'facility_type', '=', 'Private')))
+    secondary_total = int(FacilityServices.get_total(Params().where(Facility, 'facility_type', '=', 'Secondary')))
     page: int = int(request.args.get('page', 1))
+
     facility_list = list(FacilityServices.list_row_by_page(page))
     next_url: Optional[str] = (url_for('facilities', page=page+1)
                                if FacilityServices.has_next_page(page) else None)
@@ -415,6 +419,9 @@ def facilities() -> Any:
                            prev_url=prev_url,
                            next_url=next_url,
                            facility_total=facility_total,
+                           primary_total = primary_total,
+                           secondary_total = secondary_total,
+                           private_total = private_total,
                            facility_form=facility_form,
                            facility_list=facility_list)
 
@@ -520,6 +527,110 @@ def view_facilities(pid: int) -> Any:
                            prev_url=prev_url
                            )
 
+@app.route('/admin/services', methods=['GET'])
+@admin_required
+def services():
+    page = int(request.args.get('page', 1))
+    filters = Params()
+    if category := request.args.get('category'):
+        filters = filters.where(Service, 'category_id', '=', category)
+
+    service_list = list(ServiceServices.list_row_by_page(page,
+                                                         params=filters))
+    total_services = ServiceServices.get_total(params=filters)
+
+    category_list = list(ServiceCategoryServices.get_all())
+    total_categories = ServiceCategoryServices.get_total()
+
+    res = {** request.args}
+    if category:
+        res['category'] = category
+
+    res['page'] = page+1
+    next_url = url_for('services', **res) if ServiceServices.has_next_page(page=page,
+                                                                           params=filters) else None
+    res['page'] = page - 1
+    prev_url = url_for('services', **res) if page > 1 else None
+    print(category_list)
+
+    return render_template('services.html',
+                           title='Manage Services',
+                           service_list= service_list,
+                           total_services= total_services,
+                           total_categories=total_categories,
+                           current_page=page,
+                           total_pages=20,
+                           per_page=Config.ADMIN_PAGE_PAGINATION,
+                           category_list=category_list,
+                           active_category=0,
+                           next_url=next_url,
+                           prev_url=prev_url)
+
+@app.route('/admin/services/category/add', methods=['GET', 'POST'])
+@admin_required
+def add_service_category():
+    form = AddCategoryForm()
+    if form.validate_on_submit():
+        try:
+            ServiceCategoryServices.create_category(
+                category_name=form.category_name.data)
+
+            flash('Service category added successfully', 'success')
+            return redirect(url_for('services'))
+        except DuplicateError as e:
+            flash(str(e), 'error')
+        # except Exception:
+            # abort(500)
+    return render_template('add_service_category.html', title='Add Service Category', form=form)
+
+
+@app.route('/admin/services/add', methods=['GET', 'POST'])
+@admin_required
+def add_service():
+    form = AddServiceForm()
+    form.category_id.choices = ([('0', 'Select a Category')] +
+                                sorted([(cat.id, cat.name.title())
+                                        for cat in ServiceCategoryServices.get_all()], key=lambda x: x[1]))
+
+    if form.validate_on_submit():
+        try:
+            ServiceServices.create_service(
+                name=form.name.data, category_id=form.category_id.data)
+            flash('New disease added successfully', 'success')
+
+            return redirect(url_for('services'))
+        except (DuplicateError, InvalidReferenceError) as e:
+            flash(str(e), 'error')
+    return render_template('add_service.html', title='Add Service', form=form)
+
+@app.route('/admin/services/edit/<int:service_id>', methods=['GET', 'POST'])
+@admin_required
+def edit_service(service_id: int):
+    try:
+        service = ServiceServices.get_by_id(service_id)
+    except MissingError:
+        abort(404)
+
+    form = EditDiseaseForm(obj=service)  # Pre-populate form with existing data
+    form.category_id.choices = [('0', 'Select a Category')] + sorted(
+        [(cat.id, cat.name.title())
+         for cat in ServiceCategoryServices.get_all()],
+        key=lambda x: x[1])
+
+    if form.validate_on_submit():
+        try:
+            form.populate_obj(service)
+            ServiceServices.update_service(service)
+            flash(f"Service '{service.name}' has been updated.", 'success')
+            return redirect(url_for('services'))
+        except (DuplicateError, InvalidReferenceError) as e:
+            flash(str(e), 'error')
+
+    return render_template('add_service.html',
+                            title=f"Edit Service: {service.name}",
+                            form=form,
+                            service=service)
+
 
 @app.route('/admin/diseases', methods=['GET'])
 @admin_required
@@ -574,7 +685,7 @@ def add_category():
             flash(str(e), 'error')
         # except Exception:
             # abort(500)
-    return render_template('add_category.html', title='Add Disease Category', form=form)
+    return render_template('add_disease_category.html', title='Add Disease Category', form=form)
 
 
 @app.route('/admin/diseases/add', methods=['GET', 'POST'])

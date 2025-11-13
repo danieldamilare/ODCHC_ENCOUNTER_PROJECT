@@ -34,7 +34,7 @@ CREATE TABLE encounters (
         client_name TEXT NOT NULL,
         gender CHAR(1) NOT NULL CHECK (gender IN ('M', 'F')),
         age INTEGER NOT NULL CHECK (age >= 0 AND age <= 120),
-        enc_type TEXT NOT NULL COLLATE NOCASE CHECK (enc_type IN ('general', 'anc', 'delivery', 'child_heath')),
+        enc_type TEXT NOT NULL COLLATE NOCASE CHECK (enc_type IN ('general', 'anc', 'delivery', 'child_health')),
         scheme INTEGER NOT NULL,
         nin TEXT NOT NULL CHECK(LENGTH(nin) = 11),
         phone_number TEXT NOT NULL,
@@ -59,7 +59,6 @@ CREATE TABLE encounters (
         FOREIGN KEY (outcome) REFERENCES treatment_outcome(id),
         FOREIGN KEY (scheme) REFERENCES insurance_scheme(id));
 
-
 CREATE TABLE encounters_services(
     encounter_id INTEGER NOT NULL,
     service_id INTEGER NOT NULL,
@@ -75,7 +74,7 @@ CREATE TABLE services(
 
 CREATE TABLE service_category (
     id INTEGER PRIMARY KEY,
-    name TEXT UNIQUE NOT NULL,
+    name TEXT UNIQUE NOT NULL
 );
 
 -- To be updated once the whole application is working
@@ -90,8 +89,7 @@ CREATE TABLE encounters_diseases(
 CREATE TABLE insurance_scheme(
     id INTEGER PRIMARY KEY,
     scheme_name TEXT UNIQUE NOT NULL,
-    color_scheme TEXT DEFAULT "#33a9f2",
-    is_special VARCHAR(1) CHECK (is_special in ('T', 'F'))
+    color_scheme TEXT DEFAULT "#33a9f2"
 );
 
 CREATE TABLE facility_scheme(
@@ -120,55 +118,55 @@ CREATE TABLE anc_registry(
     lmp date NOT NULL,
     expected_delivery_date DATE NOT NULL,
     anc_count INTEGER NOT NULL,
-    status TEXT NOT NULL COLLATE NOCASE  CHECK(status IN ('active' , 'inactive')), --set to inactive after delivery
-    FOREIGN KEY(encounter_id) REFERENCES encounters(id)
+    status TEXT NOT NULL COLLATE NOCASE  CHECK(status IN ('active' , 'inactive')) --set to inactive after delivery
+);
+
+CREATE TABLE anc_encounters(
+    encounter_id INTEGER PRIMARY KEY,
+    anc_id INTEGER NOT NULL,
+    anc_count INTEGER NOT NULL,
+    FOREIGN KEY(encounter_id) REFERENCES encounters(id) ON DELETE RESTRICT,
+    FOREIGN KEY(anc_id) REFERENCES anc_registry(id) ON DELETE RESTRICT
 );
 
 
-CREATE TABLE  child_health_encounter_details(
+CREATE TABLE  child_health_encounters(
     id INTEGER PRIMARY KEY,
-    encounter_id INTEGER NOT NULL,
+    encounter_id INTEGER UNIQUE NOT NULL,
     orin CHAR(10) NOT NULL CHECK(LENGTH(orin) = 10),
     dob date NOT NULL,
     address TEXT NOT NULL,
     guardian_name TEXT NOT NULL,
-    FOREIGN key(encounter_id) REFERENCES encounters(id)
+    FOREIGN key(encounter_id) REFERENCES encounters(id) ON DELETE RESTRICT
 );
 
-CREATE TABLE delivery_encounter(
+CREATE TABLE delivery_encounters(
     id INTEGER PRIMARY KEY,
     anc_id INTEGER NOT NULL,
     encounter_id INTEGER NOT NULL,
     anc_count INTEGER NOT NULL,
-    no_of_babies INTEGER NOT NULL,
     mode_of_delivery TEXT NOT NULL COLLATE NOCASE,
-    FOREIGN KEY(encounter_id) REFERENCES encounters(id),
-    FOREIGN KEY(anc_id) REFERENCES anc_registry(id)
-
+    FOREIGN KEY(encounter_id) REFERENCES encounters(id) ON DELETE RESTRICT,
+    FOREIGN KEY(anc_id) REFERENCES anc_registry(id) ON DELETE RESTRICT
 );
 
 CREATE TABLE delivery_babies(
     id INTEGER PRIMARY KEY,
     encounter_id INTEGER NOT NULL,
     gender CHAR(1) NOT NULL CHECK (gender IN ('M', 'F')),
-    outcome INTEGER NOT NULL,
-    FOREIGN KEY(outcome) REFERNCES treatment_outcome(id),
-    FOREIGN KEY(encounter_id) REFERNCES encounters(id)
-)
+    outcome VARCHAR(50) NOT NULL,
+    FOREIGN KEY(encounter_id) REFERENCES encounters(id) ON DELETE RESTRICT
+);
 
 CREATE INDEX idx_anc_status ON anc_registry(status);
 CREATE INDEX idx_anc_orin ON anc_registry(orin);
-CREATE iNDEX idx_child_health_encounter_id ON child_health_encounter_details(encounter_id);
-CREATE iNDEX idx_child_health_orin ON child_health_encounter_details(orin);
-CREATE iNDEX idx_child_health_gender ON child_health_encounter_details(gender);
-CREATE INDEX idx_delivery_encounter_encounter_id ON delivery_encounter(encounter_id);
-CREATE INDEX idx_delivery_encounter_mother_outcome ON delivery_encounter(mother_outcome);
-CREATE INDEX idx_delivery_encounter_baby_outcome ON delivery_encounter(baby_outcome);
-CREATE INDEX idx_delivery_encounter_orin ON delivery_encounter(orin);
-CREATE INDEX idx_baby_gender_encounter ON delivery_babies(encounter_id);
-CREATE INDEX idx_baby_gender_gender ON delivery_babies(gender);
+CREATE iNDEX idx_child_health_encounter_id ON child_health_encounters(encounter_id);
+CREATE iNDEX idx_child_health_orin ON child_health_encounters(orin);
+CREATE INDEX idx_delivery_encounter_encounter_id ON delivery_encounters(encounter_id);
+CREATE INDEX idx_delivery_babies_encounter ON delivery_babies(encounter_id);
+CREATE INDEX idx_delivery_babies_gender ON delivery_babies(gender);
+CREATE INDEX idx_delivery_babies_outcome ON delivery_babies(outcome);
 CREATE INDEX idx_encounters_created_at ON encounters (created_at);
-CREATE INDEX idx_facility_facility_id ON facility_scheme (facility_id);
 CREATE INDEX idx_facility_scheme_id ON facility_scheme (scheme_id);
 CREATE INDEX idx_facility_scheme_facility_id ON facility_scheme (facility_id);
 CREATE INDEX idx_encounters_facility_date ON encounters (facility_id, date);
