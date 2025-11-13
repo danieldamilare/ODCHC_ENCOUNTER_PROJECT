@@ -1,7 +1,6 @@
 import os
 import secrets
 
-
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 DBNAME = 'odchc_encounter.db'
 DBPATH = os.path.join(os.path.dirname(BASE_DIR), DBNAME)

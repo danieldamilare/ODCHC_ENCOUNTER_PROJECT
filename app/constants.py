@@ -1,3 +1,4 @@
+from enum import Enum
 ONDO_LGAS = set(["AKOKO NORTH EAST",
                  "AKOKO NORTH WEST",
                  "AKOKO SOUTH EAST",
@@ -25,3 +26,22 @@ LGA_CHOICES = [('', 'Select Local Government')] + \
     [(lga, lga.title()) for lga in ONDO_LGAS_LIST]
 
 MODE_OF_DELIVERY = ['SVD', 'ASD', 'CS']
+class DeliveryMode(Enum):
+    SVD = "Spontaneous Vaginal Delivery"
+    AVD = "Assisted Vaginal Delivery"
+    CS = "Caesarean Section"
+
+class EncType(Enum):
+    ANC = 'anc'
+    DELIVERY = 'delivery'
+    GENERAL = 'general'
+    CHILDHEALTH = 'child_health'
+
+class BabyOutcome(Enum):
+    LIVEBIRTH = 'Live Birth'
+    STILLBIRTH = "Still Birth"
+
+class SchemeEnum(Enum):
+    BHCPF = 'BHCPF'
+    ORANGHIS = 'ORANGHIS'
+    AMCHIS = 'AMCHIS'
