@@ -947,10 +947,10 @@ class EncounterServices(BaseServices):
                                 created_by: int,
                                 anc_id: int,
                                 anc_count: int,
-                                mode_of_delivery: str,
+                                mode_of_delivery: DeliveryMode,
                                 mother_outcome: int,
                                 baby_details: List[Dict],
-                                commit: Bool = True
+                                commit: bool = True
                                   ):
 
         db = get_db()
@@ -967,35 +967,39 @@ class EncounterServices(BaseServices):
                 scheme = scheme,
                 nin = nin,
                 phone_number = phone_number,
-                enc_type  = 'delivery',
+                enc_type  = EncType.DELIVERY,
                 outcome = mother_outcome,
                 created_by = created_by,
                 commit = False
             )
             cur = db.execute('''
-            INSERT INTO delivery_encounter(anc_id, encounter_id, anc_count,
+            INSERT INTO delivery_encounters(anc_id, encounter_id, anc_count,
                               mode_of_delivery)
             VALUES(?, ?, ?, ?)''',
 
-            (anc_id, new_enc.id, anc_count, mode_of_delivery))
-            row_id = new_enc.id
+            (anc_id, new_enc.id, anc_count, mode_of_delivery.value))
+            identifier = 'cesarean' if (mode_of_delivery == DeliveryMode.CS) else "delivery"
+            service_id = db.execute('''SELECT id from services WHERE LOWER(name) LIKE ?''', (f'%{identifier}%',)).fetchone()
+            if not service_id:
+                raise MissingError(f"Service {identifier} not found")
+
+            db.execute("INSERT INTO encounters_services(encounter_id, service_id) VALUES(?, ?)", (new_enc.id, service_id['id']))
 
             db.execute('''
             UPDATE anc_registry SET status = "inactive" WHERE id = ?
             ''', (anc_id,))
 
             baby_list = [(new_enc.id, baby['gender'], baby['outcome']) for baby in baby_details]
+            # print(baby_list)
 
             db.executemany("""INSERT INTO delivery_babies(encounter_id, gender, outcome)
                            VALUES (?, ?, ?)""", baby_list)
             if commit:
                 db.commit()
-            return cls.get_by_id(id)
+            return new_enc
         except Exception as e:
             db.rollback()
-            raise ServiceError(str(e))
-
-
+            raise ServiceError(f"Failed to create delivery encounter: {str(e)}")
 
     @classmethod
     def create_anc_encounter(cls,
@@ -1020,7 +1024,6 @@ class EncounterServices(BaseServices):
                              doctor_name: str,
                              outcome: int,
                              created_by: int,
-                             baby_details: List[Dict],
                              treatment: Optional[str],
                              commit: bool = True
                              ):
@@ -1038,35 +1041,124 @@ class EncounterServices(BaseServices):
                 scheme = scheme,
                 nin = nin,
                 phone_number= phone_number,
-                enc_type = 'anc',
+                enc_type = EncType.ANC,
                 outcome = outcome,
                 created_by= created_by,
                 commit = False
             )
+            anc_service = db.execute('''SELECT id from services where LOWER(name) LIKE ?''', ('%antenatal%',)).fetchone()
+            if not anc_service:
+                raise MissingError("ANC service not found in services table")
+            db.execute('''
+            INSERT INTO encounters_services(encounter_id, service_id) VALUES(?, ?)''', (new_enc.id, anc_service['id']))
+
             existing = db.execute(
                 "SELECT id FROM anc_registry where orin = ? AND status = 'active'",
-                (policy_number, )).fetchone
-
+                (policy_number, )).fetchone()
+            anc_id = None;
             if existing:
                 db.execute("UPDATE anc_registry SET anc_count = anc_count+1 WHERE id = ?",
                            (existing['id'], ))
+                anc_id = existing['id']
             else:
                 cur = db.execute(
                 '''INSERT INTO anc_registry(orin, kia_date, client_name,
                 booking_date, parity, place_of_issue, hospital_number, address, lmp,
                 expected_delivery_date, anc_count, status) VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
                 (policy_number, kia_date, client_name, booking_date, parity,
                 place_of_issue, hospital_number, address, lmp, expected_delivery_date,
                 anc_count, "active"))
+                anc_id = cur.lastrowid
 
             new_id = new_enc.id
+
+            db.execute('''INSERT INTO anc_encounters(encounter_id, anc_id, anc_count) VALUES (
+                       ?, ?, ?)''', (new_enc.id, anc_id, anc_count))
             if commit:
                 db.commit()
-            return cls.get_by_id(new_id)
+            return new_enc
         except Exception as e:
             db.rollback()
-            raise ServiceError(str(e))
+            raise ServiceError(f"Failed to create ANC encounter: {str(e)}")
+
+    @classmethod
+    def create_child_health_encounter(cls,
+                         facility_id: int,
+                         date: date,
+                         policy_number: str,
+                         client_name: str,
+                         gender: str,
+                         age: int,
+                         treatment: Optional[str],
+                         doctor_name: Optional[str],
+                         scheme: int,
+                         nin: str,
+                         phone_number: str,
+                         outcome: int,
+                         created_by: int,
+                         address: str,
+                         guardian_name: str,
+                         dob: date,
+                         diseases_id: Optional[List[int]] = None,
+                         services_id: Optional[List[int]] = None,
+                         commit: bool= True):
+
+        db = get_db()
+        try:
+            new_enc = cls.create_encounter(
+                facility_id= facility_id,
+                date = date,
+                policy_number= policy_number,
+                client_name = client_name,
+                gender = gender,
+                age = age,
+                treatment = treatment,
+                doctor_name = doctor_name,
+                scheme = scheme,
+                nin = nin,
+                phone_number = phone_number,
+                enc_type = EncType.CHILDHEALTH,
+                services_id= services_id,
+                diseases_id = diseases_id,
+                created_by = created_by,
+                outcome=outcome,
+                commit=False)
+            query = '''
+            INSERT INTO child_health_encounters(encounter_id, orin, dob, address, guardian_name)
+            VALUES(?, ?, ?, ?, ?)'''
+            db.execute(query, (new_enc.id, policy_number, dob, address, guardian_name))
+            return new_enc
+        except Exception as e:
+            db.rollback()
+            raise ServiceError(f"Failed to create child health encounter: {str(e)}")
+
+    @classmethod
+    def get_anc_record_by_registry(cls, orin: str) -> ANCRegistry:
+        orin = orin.strip()
+        query = '''
+        SELECT * FROM anc_registry
+        WHERE orin = ? AND status = 'active'
+        '''
+        db = get_db()
+        row = db.execute(query, (orin,)).fetchone()
+        if not row:
+            raise MissingError("Can't find record from registry")
+        return ANCRegistry(
+            id = row['id'],
+            orin = row['orin'],
+            kia_date = row['kia_date'],
+            booking_date= row['booking_date'],
+            client_name = row['client_name'],
+            parity = row['parity'],
+            place_of_issue= row['place_of_issue'],
+            hospital_number= row['hospital_number'],
+            address = row['address'],
+            lmp = row['lmp'],
+            expected_delivery_date= row['expected_delivery_date'],
+            anc_count= row['anc_count'],
+            status= row['status']
+        )
 
     @classmethod
     def _get_base_encounter(cls,
