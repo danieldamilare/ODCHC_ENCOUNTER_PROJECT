@@ -5,12 +5,11 @@ from enum import Enum, auto
 from app.exceptions import MissingError
 from app import login
 from typing import Optional, List
-
+from app.constants import EncType, BabyOutcome, DeliveryMode
 
 class Role(Enum):
     admin = auto()
     user = auto()
-
 @dataclass
 class Model:
     @classmethod
@@ -19,7 +18,6 @@ class Model:
             if (field.name == col):
                 return True
         return False
-
 @dataclass
 class User(Model):
     id: int
@@ -74,7 +72,7 @@ class Encounter(Model):
     scheme: int
     nin: str
     phone_number: str
-    enc_type: str
+    enc_type: EncType
     treatment: Optional[str]
     outcome: str
     doctor_name: Optional[str]
@@ -94,7 +92,24 @@ class InsuranceScheme(Model):
     @classmethod
     def get_name(cls) -> str:
         return "Insurance Scheme"
+@dataclass
+class ServiceCategory(Model):
+    id: int
+    name: str
 
+    @classmethod
+    def get_name(cls) -> str:
+        return "Service Category"
+
+@dataclass
+class Service(Model):
+    id: int
+    name: str
+    category_id: int
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "Service"
 @dataclass
 class TreatmentOutcome(Model):
     id: int
@@ -123,17 +138,12 @@ class FacilityView:
     scheme: List[InsuranceScheme]
     facility_type: str
 
-
-
 @dataclass
 class DiseaseView:
     id: int
     name: str
     category: DiseaseCategory
-@dataclass
-class ServiceCategory:
-    id: int
-    name: str
+
 @dataclass
 class ServiceView:
     id: int
@@ -149,7 +159,7 @@ class EncounterView:
     age: int
     nin: str
     phone_number: str
-    enc_type: str
+    enc_type: EncType
     treatment: Optional[str]
     doctor_name: Optional[str]
     treatment_outcome: TreatmentOutcome
@@ -166,14 +176,14 @@ class EncounterView:
 
     @property
     def service_name(self):
-        return ', '.join([service.name for service in services])
-
+        return ', '.join([service.name for service in self.services])
 @dataclass
-class ANCEncounter:
+class ANCRegistry:
     id: int
     orin: str
-    kia_date: str
+    kia_date: date
     booking_date: date
+    client_name: Optional[str]
     parity: int
     place_of_issue: str
     hospital_number: str
@@ -181,11 +191,12 @@ class ANCEncounter:
     lmp: date
     expected_delivery_date: date
     anc_count: int
+    status: str
 @dataclass
 class DeliveryBaby:
     id: int
     gender: str
-    outcome: TreatmentOutcome
+    outcome: BabyOutcome
 
 @dataclass
 class ChildHealth:
@@ -194,15 +205,16 @@ class ChildHealth:
     dob: date
     address: str
     guardian_name: str
+
 @dataclass
 class DeliveryEncounter:
     id: int
-    anc: ANCEncounter
-    mode_of_delivery: str
+    mode_of_delivery: DeliveryMode
+    anc_count: int
     babies: List[DeliveryBaby]
 @dataclass
 class ANCEncounterView(EncounterView):
-    anc: ANCEncounter
+    anc: ANCRegistry
 @dataclass
 class DeliveryEncounterView(EncounterView):
     delivery: DeliveryEncounter

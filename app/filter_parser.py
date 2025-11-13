@@ -108,7 +108,8 @@ class FilterParser:
                 if not model.validate_col(col):
                     raise QueryParameterError(f"Column {col} not in table {model.get_name()}")
                 if not model in model_map:
-                    # print(fil)
+                    print(fil)
+                    print(model_map)
                     raise QueryParameterError(f"Model {model} not in Model map")
                 col = f'{model_map[model]}.{col}'
 
@@ -136,6 +137,7 @@ class FilterParser:
                     raise QueryParameterError(f"Column {col} not in table {model.get_name()}")
                 if not model in model_map:
                     # print(fil)
+                    print(model_map)
                     raise QueryParameterError(f"Model {model} not in Model map")
                 col = (f'{model_map[model]}.{col}')
             if col not in save:
@@ -158,6 +160,7 @@ class FilterParser:
                     raise QueryParameterError(f"Column {col} not in table {model.get_name()}")
                 if not model in model_map:
                     # print(fil)
+                    print(model_map)
                     raise QueryParameterError(f"Model {model} not in Model map")
                 col = f'{model_map[model]}.{col}'
 
