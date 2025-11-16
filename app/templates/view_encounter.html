@@ -30,19 +30,19 @@
     :root {
         --scheme-color: {{ encounter.insurance_scheme.color_scheme | default('#6b7280') }};
     }
-    
+
     .scheme-accent {
         background: linear-gradient(135deg, var(--scheme-color) 0%, color-mix(in srgb, var(--scheme-color) 80%, black) 100%);
     }
-    
+
     .scheme-border {
         border-color: var(--scheme-color);
     }
-    
+
     .scheme-bg-light {
         background-color: color-mix(in srgb, var(--scheme-color) 8%, white);
     }
-    
+
     @media print {
         .no-print { display: none !important; }
         body { background: white; }
@@ -54,7 +54,7 @@
 <div class="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden mb-6">
     <!-- Scheme-colored header bar -->
     <div class="scheme-accent h-2"></div>
-    
+
     <div class="p-6 sm:p-8">
         <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
             <!-- Patient Info -->
@@ -64,7 +64,31 @@
                         {{ encounter.client_name[0] if encounter.client_name else 'P' }}
                     </div>
                     <div class="flex-1">
-                        <h1 class="text-3xl font-bold text-slate-900 mb-1">{{ encounter.client_name }}</h1>
+                        <div class="flex items-center gap-3 mb-2">
+                            <h1 class="text-3xl font-bold text-slate-900">{{ encounter.client_name }}</h1>
+                            <!-- Encounter Type Badge -->
+                            {% if encounter.enc_type.value == 'anc' %}
+                            <span class="inline-flex items-center px-3 py-1 rounded-full bg-pink-100 text-pink-700 text-sm font-bold border-2 border-pink-300">
+                                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                                ANC
+                            </span>
+                            {% elif encounter.enc_type.value == 'delivery' %}
+                            <span class="inline-flex items-center px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-sm font-bold border-2 border-purple-300">
+                                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                                DELIVERY
+                            </span>
+                            {% elif encounter.enc_type.value == 'child_health' %}
+                            <span class="inline-flex items-center px-3 py-1 rounded-full bg-cyan-100 text-cyan-700 text-sm font-bold border-2 border-cyan-300">
+                                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                CHILD HEALTH
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-sm font-bold border-2 border-blue-300">
+                                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                                GENERAL
+                            </span>
+                            {% endif %}
+                        </div>
                         <div class="flex flex-wrap items-center gap-3 text-sm">
                             <span class="inline-flex items-center px-3 py-1 rounded-full bg-slate-100 text-slate-700 font-medium">
                                 <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -118,7 +142,7 @@
                             </p>
                         </div>
                     </div>
-                    
+
                     <!-- Action Buttons -->
                     <div class="flex gap-2 mt-4 no-print">
                         <button onclick="window.print()" class="flex-1 inline-flex items-center justify-center px-4 py-2.5 bg-white border-2 border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-all shadow-sm">
@@ -136,10 +160,160 @@
 
 <!-- Main Content Grid -->
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    
-    <!-- Left Column: Clinical Info -->
+
+    <!-- Left Column: Clinical Info & Type-Specific Details -->
     <div class="lg:col-span-2 space-y-6">
-        
+
+        <!-- Type-Specific Information -->
+        {% if encounter.enc_type.value == 'anc' and encounter.anc %}
+        <!-- ANC Registry Details -->
+        <div class="bg-gradient-to-br from-pink-50 to-rose-50 rounded-xl shadow-lg border-2 border-pink-200 overflow-hidden print-break">
+            <div class="px-6 py-4 bg-gradient-to-r from-pink-500 to-rose-500">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-lg font-bold text-white flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                        ANC Registry Information
+                    </h2>
+                    <!-- ANC Status Badge -->
+                    {% if encounter.anc.status == 'active' %}
+                    <span class="inline-flex items-center px-3 py-1 rounded-full bg-green-100 text-green-800 text-xs font-bold border-2 border-green-400">
+                        <span class="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></span>
+                        ACTIVE
+                    </span>
+                    {% else %}
+                    <span class="inline-flex items-center px-3 py-1 rounded-full bg-slate-200 text-slate-700 text-xs font-bold border-2 border-slate-400">
+                        <span class="w-2 h-2 bg-slate-500 rounded-full mr-2"></span>
+                        INACTIVE
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-white rounded-lg p-4 border border-pink-200">
+                        <p class="text-xs font-semibold text-pink-600 uppercase tracking-wide mb-1">Hospital Number</p>
+                        <p class="text-base font-bold text-slate-900">{{ encounter.anc.hospital_number }}</p>
+                    </div>
+                    <div class="bg-white rounded-lg p-4 border border-pink-200">
+                        <p class="text-xs font-semibold text-pink-600 uppercase tracking-wide mb-1">Parity</p>
+                        <p class="text-base font-bold text-slate-900">{{ encounter.anc.parity }}</p>
+                    </div>
+                    <div class="bg-white rounded-lg p-4 border border-pink-200">
+                        <p class="text-xs font-semibold text-pink-600 uppercase tracking-wide mb-1">LMP</p>
+                        <p class="text-base font-bold text-slate-900">{{ encounter.anc.lmp.strftime('%b %d, %Y') if encounter.anc.lmp else 'N/A' }}</p>
+                    </div>
+                    <div class="bg-white rounded-lg p-4 border border-pink-200">
+                        <p class="text-xs font-semibold text-pink-600 uppercase tracking-wide mb-1">Expected Delivery</p>
+                        <p class="text-base font-bold text-slate-900">{{ encounter.anc.expected_delivery_date.strftime('%b %d, %Y') if encounter.anc.expected_delivery_date else 'N/A' }}</p>
+                    </div>
+                    <div class="bg-white rounded-lg p-4 border border-pink-200">
+                        <p class="text-xs font-semibold text-pink-600 uppercase tracking-wide mb-1">ANC Visits</p>
+                        <p class="text-base font-bold text-slate-900">{{ encounter.anc.anc_count }}</p>
+                    </div>
+                    <div class="bg-white rounded-lg p-4 border border-pink-200">
+                        <p class="text-xs font-semibold text-pink-600 uppercase tracking-wide mb-1">Booking Date</p>
+                        <p class="text-base font-bold text-slate-900">{{ encounter.anc.booking_date.strftime('%b %d, %Y') if encounter.anc.booking_date else 'N/A' }}</p>
+                    </div>
+                </div>
+                <div class="mt-4 bg-white rounded-lg p-4 border border-pink-200">
+                    <p class="text-xs font-semibold text-pink-600 uppercase tracking-wide mb-1">Place of Issue (Kaadi Igbeayo)</p>
+                    <p class="text-base font-medium text-slate-900">{{ encounter.anc.place_of_issue }}</p>
+                </div>
+            </div>
+        </div>
+        {% elif encounter.enc_type.value == 'delivery' and encounter.delivery %}
+        <!-- Delivery Details -->
+        <div class="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl shadow-lg border-2 border-purple-200 overflow-hidden print-break">
+            <div class="px-6 py-4 bg-gradient-to-r from-purple-500 to-indigo-500">
+                <h2 class="text-lg font-bold text-white flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                    Delivery Information
+                </h2>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div class="bg-white rounded-lg p-4 border border-purple-200">
+                        <p class="text-xs font-semibold text-purple-600 uppercase tracking-wide mb-1">Mode of Delivery</p>
+                        <p class="text-base font-bold text-slate-900">{{ encounter.delivery.mode_of_delivery.value if encounter.delivery.mode_of_delivery else 'N/A' }}</p>
+                    </div>
+                    <div class="bg-white rounded-lg p-4 border border-purple-200">
+                        <p class="text-xs font-semibold text-purple-600 uppercase tracking-wide mb-1">ANC Visits</p>
+                        <p class="text-base font-bold text-slate-900">{{ encounter.delivery.anc_count }}</p>
+                    </div>
+                    <div class="bg-white rounded-lg p-4 border border-purple-200">
+                        <p class="text-xs font-semibold text-purple-600 uppercase tracking-wide mb-1">Number of Babies</p>
+                        <p class="text-base font-bold text-slate-900">{{ encounter.delivery.babies|length }}</p>
+                    </div>
+                </div>
+
+                <!-- Babies Information -->
+                {% if encounter.delivery.babies %}
+                <div>
+                    <h3 class="text-sm font-bold text-purple-700 uppercase tracking-wide mb-3 flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        Baby Details
+                    </h3>
+                    <div class="space-y-3">
+                        {% for baby in encounter.delivery.babies %}
+                        <div class="bg-white rounded-lg p-4 border border-purple-200 flex items-center justify-between">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 rounded-full {{ 'bg-blue-100' if baby.gender == 'M' else 'bg-pink-100' }} flex items-center justify-center">
+                                    <svg class="w-6 h-6 {{ 'text-blue-600' if baby.gender == 'M' else 'text-pink-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="text-base font-bold text-slate-900">Baby #{{ loop.index }}</p>
+                                    <p class="text-sm text-slate-600">{{ 'Male' if baby.gender == 'M' else 'Female' }}</p>
+                                </div>
+                            </div>
+                            <div>
+                                {% if baby.outcome.value == 'Live Birth' %}
+                                <span class="inline-flex items-center px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-bold border border-green-300">
+                                    <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                                    {{ baby.outcome.value }}
+                                </span>
+                                {% else %}
+                                <span class="inline-flex items-center px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-bold border border-slate-300">
+                                    {{ baby.outcome.value }}
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% elif encounter.enc_type.value == 'child_health' and encounter.health_details %}
+        <!-- Child Health Details -->
+        <div class="bg-gradient-to-br from-cyan-50 to-blue-50 rounded-xl shadow-lg border-2 border-cyan-200 overflow-hidden print-break">
+            <div class="px-6 py-4 bg-gradient-to-r from-cyan-500 to-blue-500">
+                <h2 class="text-lg font-bold text-white flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    Child Health Information
+                </h2>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-white rounded-lg p-4 border border-cyan-200">
+                        <p class="text-xs font-semibold text-cyan-600 uppercase tracking-wide mb-1">Date of Birth</p>
+                        <p class="text-base font-bold text-slate-900">{{ encounter.health_details.dob.strftime('%b %d, %Y') if encounter.health_details.dob else 'N/A' }}</p>
+                    </div>
+                    <div class="bg-white rounded-lg p-4 border border-cyan-200">
+                        <p class="text-xs font-semibold text-cyan-600 uppercase tracking-wide mb-1">Guardian Name</p>
+                        <p class="text-base font-bold text-slate-900">{{ encounter.health_details.guardian_name }}</p>
+                    </div>
+                </div>
+                <div class="mt-4 bg-white rounded-lg p-4 border border-cyan-200">
+                    <p class="text-xs font-semibold text-cyan-600 uppercase tracking-wide mb-1">Address</p>
+                    <p class="text-base font-medium text-slate-900">{{ encounter.health_details.address }}</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Diagnosis Section -->
         <div class="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden print-break">
             <div class="px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-blue-50">
@@ -195,15 +369,15 @@
 
     <!-- Right Column: Outcome & Details -->
     <div class="space-y-6">
-        
+
         <!-- Treatment Outcome - Prominent -->
         <div class="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden print-break">
             <div class="px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-purple-50">
                 <h2 class="text-lg font-bold text-slate-900">Treatment Outcome</h2>
             </div>
             <div class="p-6">
-                {% set outcome_lower = encounter.treatment_outcome|lower if encounter.treatment_outcome else 'n/a' %}
-                {% if outcome_lower == 'resolved' or outcome_lower == 'treated' %}
+                {% set outcome_lower = encounter.treatment_outcome.name|lower if encounter.treatment_outcome else 'n/a' %}
+                {% if 'live' in outcome_lower or 'resolved' in outcome_lower or 'treated' in outcome_lower or 'cured' in outcome_lower %}
                 <div class="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-6 border-2 border-emerald-200">
                     <div class="flex items-center gap-3 mb-2">
                         <div class="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg">
@@ -212,12 +386,12 @@
                             </svg>
                         </div>
                         <div>
-                            <p class="text-2xl font-bold text-emerald-700">{{ encounter.treatment_outcome|title }}</p>
+                            <p class="text-2xl font-bold text-emerald-700">{{ encounter.treatment_outcome.name|title if encounter.treatment_outcome else 'N/A' }}</p>
                             <p class="text-sm text-emerald-600">Successful treatment</p>
                         </div>
                     </div>
                 </div>
-                {% elif outcome_lower == 'referred' %}
+                {% elif 'refer' in outcome_lower %}
                 <div class="bg-gradient-to-br from-amber-50 to-yellow-50 rounded-xl p-6 border-2 border-amber-200">
                     <div class="flex items-center gap-3 mb-2">
                         <div class="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center shadow-lg">
@@ -226,12 +400,12 @@
                             </svg>
                         </div>
                         <div>
-                            <p class="text-2xl font-bold text-amber-700">{{ encounter.treatment_outcome|title }}</p>
+                            <p class="text-2xl font-bold text-amber-700">{{ encounter.treatment_outcome.name|title if encounter.treatment_outcome else 'N/A' }}</p>
                             <p class="text-sm text-amber-600">Requires specialist care</p>
                         </div>
                     </div>
                 </div>
-                {% elif outcome_lower == 'death' %}
+                {% elif 'death' in outcome_lower or 'maternal death' in outcome_lower %}
                 <div class="bg-gradient-to-br from-red-50 to-rose-50 rounded-xl p-6 border-2 border-red-200">
                     <div class="flex items-center gap-3 mb-2">
                         <div class="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center shadow-lg">
@@ -240,7 +414,7 @@
                             </svg>
                         </div>
                         <div>
-                            <p class="text-2xl font-bold text-red-700">{{ encounter.treatment_outcome|title }}</p>
+                            <p class="text-2xl font-bold text-red-700">{{ encounter.treatment_outcome.name|title if encounter.treatment_outcome else 'N/A' }}</p>
                             <p class="text-sm text-red-600">Patient deceased</p>
                         </div>
                     </div>
@@ -254,11 +428,28 @@
                             </svg>
                         </div>
                         <div>
-                            <p class="text-2xl font-bold text-slate-700">{{ encounter.treatment_outcome|title if encounter.treatment_outcome else 'N/A' }}</p>
+                            <p class="text-2xl font-bold text-slate-700">{{ encounter.treatment_outcome.name|title if encounter.treatment_outcome else 'N/A' }}</p>
                         </div>
                     </div>
                 </div>
                 {% endif %}
+            </div>
+        </div>
+
+        <!-- Contact Information -->
+        <div class="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden print-break">
+            <div class="px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-cyan-50">
+                <h2 class="text-lg font-bold text-slate-900">Contact Info</h2>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Phone Number</p>
+                    <p class="text-base font-semibold text-slate-900">{{ encounter.phone_number or 'Not provided' }}</p>
+                </div>
+                <div>
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">NIN</p>
+                    <p class="text-base font-semibold text-slate-900 font-mono">{{ encounter.nin or 'Not provided' }}</p>
+                </div>
             </div>
         </div>
 
