@@ -176,8 +176,6 @@ class DeliveryEncounterForm(ANCEncounterForm):
     anc_count = IntegerField("Number of ANC Visit", validators=[DataRequired()])
     outcome = SelectField('Pregnancy Outcome',  validators=[
                           Optional()], coerce=int, render_kw={'id': 'outcome-select'})
-    death_type = SelectField("Death Type", validators=[
-                             Optional()], coerce=int, render_kw={'id': 'death-type-select'})
     no_of_babies = IntegerField("Number of babies", validators=[DataRequired()], default=1)
     mode_of_delivery = SelectField(
             "Mode of Delivery",
