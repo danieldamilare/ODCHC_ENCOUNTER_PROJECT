@@ -61,6 +61,13 @@ class FacilityMixin:
             [(f.id, f.name) for f in FacilityServices.get_all()]
         )
 
+class SchemeMixin:
+    def populate_scheme_choices(self):
+        """Populate scheme choices from database"""
+        self.scheme.choices = (
+            [('0', 'Select Scheme')] +
+            [(f.id, f.name) for f in InsuranceSchemeServices.get_all()]
+        )
 class EncTypeForm(FlaskForm):
     encounter_list = [('ANC', 'ANC'), ('Delivery', 'Delivery'),
                       ('Child Health Services', 'Child Health Services')]
@@ -290,7 +297,7 @@ class EditUserForm(FlaskForm):
 class EditFacilityForm(AddFacilityForm):
     pass
 
-class EncounterFilterForm(FlaskForm):
+class EncounterFilterForm(FlaskForm, FacilityMixin, SchemeMixin):
     start_date = DateField(
         'Start Date', format='%Y-%m-%d', validators=[Optional()])
     end_date = DateField('End Date', format='%Y-%m-%d',
@@ -299,8 +306,13 @@ class EncounterFilterForm(FlaskForm):
                                    choices=LGA_CHOICES,
                                    validators=[Optional()])
     facility_id = SelectField('Facility', coerce=int, validators=[Optional()])
+    scheme = SelectField('Scheme', coerce=int, validators = [Optional()])
     submit = SubmitField('Filter')
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.populate_facility_choices()
+        self.populate_scheme_choices()
 
 class ExcelUploadForm(FlaskForm):
     facility_id = SelectField('Facility', coerce=int,
