@@ -62,6 +62,8 @@ CREATE TABLE encounters (
 CREATE TABLE encounters_services(
     encounter_id INTEGER NOT NULL,
     service_id INTEGER NOT NULL,
+    FOREIGN KEY (encounter_id) REFERENCES encounters (id) ON DELETE CASCADE,
+    FOREIGN KEY (service_id) REFERENCES services (id) ON DELETE RESTRICT,
     PRIMARY key (encounter_id, service_id)
 );
 

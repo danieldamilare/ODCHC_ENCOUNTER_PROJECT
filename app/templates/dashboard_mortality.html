@@ -186,8 +186,8 @@
                 </div>
             </div>
             <p class="text-xs font-semibold text-white text-opacity-90 uppercase tracking-wide mb-1">Top Cause</p>
-            <h3 class="text-lg font-bold truncate" title="{{ mortality_top_cause[0].disease_name if mortality_top_cause else 'N/A' }}">
-                {{ mortality_top_cause[0].disease_name if mortality_top_cause else 'N/A' }}
+            <h3 class="text-lg font-bold truncate" title="{{ mortality_top_cause[0].name if mortality_top_cause else 'N/A' }}">
+                {{ mortality_top_cause[0].name if mortality_top_cause else 'N/A' }}
             </h3>
             <p class="text-sm font-semibold mt-1">{{ "{:,}".format(mortality_top_cause[0].count) if mortality_top_cause else 0 }} cases</p>
         </div>
@@ -586,7 +586,7 @@
                 new Chart(ctxTopCause, {
                     type: 'bar',
                     data: {
-                        labels: mortalityTopCauseData.map(d => d.disease_name),
+                        labels: mortalityTopCauseData.map(d => d.name),
                         datasets: [{
                             data: mortalityTopCauseData.map(d => d.count),
                             backgroundColor: '#F39C12',

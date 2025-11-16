@@ -1639,8 +1639,10 @@ class DashboardServices(BaseServices):
     MODEL_ALIAS_MAP = {**EncounterServices.MODEL_ALIAS_MAP,
                        User : 'u',
                        Disease: 'dis',
+                       Service: 'srv',
                        DiseaseCategory: 'dc',
-                       EncounterDiseases: 'ecd'}
+                       EncounterDiseases: 'ecd',
+                       EncounterServices: 'ecs'}
 
     @classmethod
     def get_top_encounter_facilities(cls, params: Params):
@@ -1672,7 +1674,8 @@ class DashboardServices(BaseServices):
             fc.name AS facility_name,
             COUNT(ec.id) as encounter_count
            FROM encounters as ec
-           JOIN encounters_diseases as ecd ON ec.id = ecd.encounter_id
+           LEFT JOIN encounters_diseases as ecd ON ec.id = ecd.encounter_id
+           LEFT JOIN encounters_services as ecs on ec.id = ecs.encounter_id
            JOIN facility as fc on ec.facility_id = fc.id
           '''
 
@@ -1688,8 +1691,6 @@ class DashboardServices(BaseServices):
                               lambda row: {'facility_name': row['facility_name'],
                                            'count': row['encounter_count'],
                                            })
-
-
 
     @classmethod
     def _validate_date(cls, start_date, end_date, limit):
@@ -1733,6 +1734,30 @@ class DashboardServices(BaseServices):
         return cls._run_query(query,
                               args,
                               lambda row: {'disease_name': row['disease_name'], 'count': row['disease_count']})
+
+    @classmethod
+    def top_services(cls,
+                     params:Params):
+
+        query = '''
+             SELECT srv.name AS service_name, COUNT(srv.id) AS service_count
+             FROM encounters AS ec
+             JOIN encounters_services as ecs ON ecs.encounter_id = ec.id
+             JOIN services AS srv ON ecs.service_id = srv.id
+             JOIN facility AS fc ON fc.id = ec.facility_id
+        '''
+        args = ()
+        params = params.group(Service, 'id')
+        params = params.sort(None, 'service_count', 'DESC')
+        if not params.limit:
+            params = params.set_limit(10)
+
+        res:Dict = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, args = cls._apply_filter(query, **res)
+
+        return cls._run_query(query,
+                              args,
+                              lambda row: {'service_name': row['service_name'], 'count': row['service_count']})
 
     @classmethod
     def encounter_gender_distribution(cls,
@@ -1784,7 +1809,8 @@ class DashboardServices(BaseServices):
         query = '''
             SELECT age_group, COUNT(*) as age_group_count
             FROM encounters as ec
-            JOIN encounters_diseases as ecd on ecd.encounter_id = ec.id
+            LEFT JOIN encounters_diseases as ecd on ecd.encounter_id = ec.id
+            LEFT JOIN encounters_services as ecs on ecs.encounter_id = ec.id
             JOIN facility as f ON f.id = ec.facility_id
         '''
 
@@ -1807,7 +1833,8 @@ class DashboardServices(BaseServices):
         query = '''
             SELECT ec.date, COUNT(*) AS date_count
             FROM encounters AS ec
-            JOIN encounters_diseases as ecd on ecd.encounter_id = ec.id
+            LEFT JOIN encounters_diseases as ecd on ecd.encounter_id = ec.id
+            LEFT JOIN encounters_services as ecs on ecs.encounter_id = ec.id
             JOIN facility AS f ON f.id = ec.facility_id
         '''
 
@@ -1956,7 +1983,8 @@ class DashboardServices(BaseServices):
             isc.scheme_name as encounter_scheme,
             isc.color_scheme as color_scheme
         FROM encounters as ec
-        JOIN encounters_diseases as ecd on ecd.encounter_id = ec.id
+        LEFT JOIN encounters_diseases as ecd on ecd.encounter_id = ec.id
+        LEFT JOIN encounters_services as ecs on ecs.encounter_id = ec.id
         JOIN insurance_scheme as isc on isc.id = ec.scheme
         JOIN facility as fc on ec.facility_id = fc.id
         '''
@@ -1970,14 +1998,6 @@ class DashboardServices(BaseServices):
                                                   'color':  row['color_scheme'],
                                                   'count': row['encounter_count']}
                        )
-
-
-    # @classmethod
-    # def get_top_facility_utilization(cls, params: Params):
-        # query = '''
-            # SELECT
-        # '''
-
     @classmethod
     def get_treatment_outcome_distribution(cls, params: Params):
         inner_query = '''
@@ -1996,7 +2016,6 @@ class DashboardServices(BaseServices):
                       row_mapper = lambda row: {'outcome': row['outcome'],
                                                 'count': row['outcome_count']})
 
-
     @classmethod
     def get_referral_count(cls, params: Params):
         query = '''
@@ -2013,6 +2032,7 @@ class DashboardServices(BaseServices):
         row = db.execute(query, args).fetchone()
         return row['referral_count'] if row else 0
 
+
     @classmethod
     def get_total_utilization(cls, params: Params, start_date, end_date):
         diff = end_date - start_date
@@ -2024,7 +2044,8 @@ class DashboardServices(BaseServices):
             COALESCE(SUM(CASE WHEN ec.date BETWEEN ? AND ? THEN 1 ELSE 0 END), 0) AS current_count,
             COALESCE(SUM(CASE WHEN ec.date BETWEEN ? AND ? THEN 1 ELSE 0 END), 0) AS prev_count
         FROM encounters AS ec
-        JOIN encounters_diseases as ecd on ecd.encounter_id = ec.id
+        LEFT JOIN encounters_diseases as ecd on ecd.encounter_id = ec.id
+        LEFT JOIN encounters_services as ecs on ecs.encounter_id = ec.id
         JOIN facility AS fc ON fc.id = ec.facility_id
         '''
 
@@ -2111,6 +2132,7 @@ class DashboardServices(BaseServices):
             COUNT(*) as count
         FROM encounters as ec
         LEFT JOIN encounters_diseases as ecd on ecd.encounter_id = ec.id
+        LEFT JOIN encounters_services as ecs on ecs.encounter_id = ec.id
         JOIN facility as fc on fc.id = ec.facility_id
         '''
         params = params.group(Facility, 'local_government')
@@ -2134,6 +2156,7 @@ class DashboardServices(BaseServices):
             isc.color_scheme
         FROM encounters as ec
         LEFT JOIN encounters_diseases as ecd on ecd.encounter_id = ec.id
+        LEFT JOIN encounters_services as ecs on ecs.encounter_id = ec.id
         JOIN insurance_scheme as isc on isc.id = ec.scheme
         JOIN facility as fc on fc.id = ec.facility_id
         '''
@@ -2210,25 +2233,44 @@ class DashboardServices(BaseServices):
     def get_top_cause_of_mortality(cls, params: Params):
         query = '''
         SELECT
-            dis.name as disease_name,
-            COUNT(dis.name) AS count
-        FROM encounters as ec
-        JOIN encounters_diseases as ecd on ecd.encounter_id = ec.id
-        JOIN diseases as dis on ecd.disease_id = dis.id
+         cause_name || " (" || cause_type || ")" as cause_name,
+         COUNT(*) as count
+        FROM
+        ( SELECT
+                ecs.encounter_id as encounter_id,
+                ecs.service_id as cause_id,
+                'Service' as cause_type,
+                srv.name as cause_name
+            FROM encounters_services as ecs
+            JOIN services as srv on ecs.service_id = srv.id
+            UNION ALL
+
+            SELECT
+                ecd.encounter_id as encounter_id,
+                ecd.disease_id as cause_id,
+                'Disease' as cause_type,
+                dis.name as cause_name
+            FROM encounters_diseases as ecd
+            JOIN diseases as dis on ecd.disease_id = dis.id
+        ) as temp
+
+        JOIN encounters as ec on temp.encounter_id = ec.id
         JOIN facility as fc on fc.id = ec.facility_id
         JOIN treatment_outcome as tc on tc.id = ec.outcome
         '''
         params = params.where(TreatmentOutcome, 'type', '=', 'Death')
+        params = params.group(None, 'cause_id')
+        params = params.group(None, 'cause_name')
         params = params.sort(None, 'count', 'DESC')
-        params = params.group(Disease, 'id')
 
         if not params.limit:
             params = params.set_limit(10)
 
         res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         query, args = cls._apply_filter(query, **res)
+        print(query, args)
         return cls._run_query(query, args,
-                              lambda row: {'disease_name': row['disease_name'], 'count': row['count']})
+                              lambda row: {'name': row['cause_name'], 'count': row['count']})
 
     @classmethod
     def get_mortality_distribution_by_gender(cls, params: Params):
@@ -2490,7 +2532,8 @@ class DashboardServices(BaseServices):
             END as count
         FROM encounters as ec
         JOIN facility as fc on fc.id = ec.facility_id
-        JOIN encounters_diseases as ecd on ec.id =  ecd.encounter_id
+        LEFT JOIN encounters_diseases as ecd on ec.id =  ecd.encounter_id
+        LEFT JOIN encounters_services as ecs on ec.id =  ecs.encounter_id
         '''
         params = params.where(Encounter, 'date', '>=', start_date)\
                         .where(Encounter, 'date', "<=", end_date)
