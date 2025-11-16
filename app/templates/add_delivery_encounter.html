@@ -348,24 +348,6 @@
 document.addEventListener('DOMContentLoaded', function() {
 
     // --- Treatment Outcome Toggle ---
-    const outcome_select = document.getElementById('outcome-select'); // This is Mother's Outcome
-    const death_type_container = document.getElementById('death-type-container');
-
-    function toggleDeathType(){
-        if (outcome_select && death_type_container) {
-            // Value for 'Death' is -1 as defined in the OutcomeMixin
-            if (outcome_select.value === '-1'){
-                death_type_container.classList.remove('hidden');
-            } else {
-                death_type_container.classList.add('hidden');
-            }
-        }
-    }
-
-    if(outcome_select) {
-        outcome_select.addEventListener('change', toggleDeathType);
-        toggleDeathType(); // Run on page load
-    }
 
     // --- Dynamic Baby Forms ---
     // **NOTE:** You MUST pass 'baby_outcome_choices' from your route for this to work.

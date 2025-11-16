@@ -319,24 +319,6 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
 
-    const outcome_select = document.getElementById('outcome-select');
-    const death_type_container = document.getElementById('death-type-container');
-
-    function toggleDeathType(){
-        if (outcome_select && death_type_container) {
-            if (outcome_select.value === '-1'){
-                death_type_container.classList.remove('hidden');
-            } else {
-                death_type_container.classList.add('hidden');
-            }
-        }
-    }
-
-    if(outcome_select) {
-        outcome_select.addEventListener('change', toggleDeathType);
-        toggleDeathType(); // Run on page load
-    }
-
     const submitBtn = document.getElementById('submit-button');
     if (submitBtn) {
         submitBtn.classList.add('text-white');
