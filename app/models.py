@@ -188,6 +188,8 @@ class ANCRegistry:
     place_of_issue: str
     hospital_number: str
     address: str
+    phone_number: str
+    nin: str
     lmp: date
     expected_delivery_date: date
     anc_count: int

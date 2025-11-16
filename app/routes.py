@@ -165,6 +165,8 @@ def add_delivery_encounter():
         form.address.data = registry_val.address
         form.parity.data = registry_val.parity
         form.lmp.data = registry_val.lmp
+        form.nin.data = registry_val.nin
+        form.phone_number.data = registry_val.phone_number
         form.expected_delivery_date.data = registry_val.expected_delivery_date
         form.gestational_age.data = calculate_gestational_age(registry_val.lmp)
     else:
@@ -259,6 +261,8 @@ def add_anc_encounter():
         form.address.data = registry_val.address
         form.parity.data = registry_val.parity
         form.lmp.data = registry_val.lmp
+        form.nin.data = registry_val.nin
+        form.phone_number.data = registry_val.phone_number
         form.expected_delivery_date.data = registry_val.expected_delivery_date
         form.gestational_age.data = calculate_gestational_age(registry_val.lmp)
     else:

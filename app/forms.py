@@ -45,6 +45,13 @@ class OutcomeMixin:
             [('0', 'Select Death Type')] +
             [(s.id, s.name) for s in outcomes if s.type.lower() == 'death']
         )
+    def populate_maternal_outcome_choices(self):
+        outcomes = list(TreatmentOutcomeServices.get_all())
+        self.outcome.choices = (
+            [('0', 'Select Treatment Outcome')] +
+            [(s.id, s.name) for s in outcomes if s.type.lower() != 'death']
+        )
+        self.outcome.choices += [(s.id, s.name) for s in outcomes if s.type.lower() == 'death' and s.name.lower().startswith('maternal death')]
 
 class FacilityMixin:
     def populate_facility_choices(self):
@@ -117,10 +124,6 @@ class ANCEncounterForm(FlaskForm, OutcomeMixin, FacilityMixin): #only for pregna
         15, 60, 'Pregnancy age must be between 15 - 60')])
 
     date = DateField('Date Of Visit', format="%Y-%m-%d", validators=[DataRequired()])
-    gender = SelectField('Gender', choices=[
-                         ('M', 'Male'), ('F', 'Female')], validators=[DataRequired(),
-                                                                      AnyOf(('M', 'F'))])
-
     kia_date = DateField("Date of Issue Of Kaadi Igbeayo", validators=[DataRequired()])
     place_of_issue = StringField("Place of Issue of Kaadi Igbeayo", validators = [DataRequired()])
     hospital_number = StringField("Hospital Number", validators=[DataRequired()] )
@@ -130,8 +133,6 @@ class ANCEncounterForm(FlaskForm, OutcomeMixin, FacilityMixin): #only for pregna
     facility = SelectField("Select Facility", coerce=int, validators=[validate_facility])
     outcome = SelectField('Treatment Outcome',  validators=[
                           Optional()], coerce=int, render_kw={'id': 'outcome-select'})
-    death_type = SelectField("Death Type", validators=[
-                             Optional()], coerce=int, render_kw={'id': 'death-type-select'})
     phone_number = StringField("Phone Number", validators = [DataRequired(),nigerian_phone_number])
     lmp = DateField("Last Menstrual Period (in weeks)",
                                    validators=[DataRequired()] )
@@ -144,6 +145,8 @@ class ANCEncounterForm(FlaskForm, OutcomeMixin, FacilityMixin): #only for pregna
     submit = SubmitField('submit')
 
     def validate(self, extra_validators=None):
+        print("facility choices", self.facility.choices)
+        print("outcome choices", self.outcome.choices)
         valid = super().validate(extra_validators)
         if not valid:
             return False
@@ -156,13 +159,13 @@ class ANCEncounterForm(FlaskForm, OutcomeMixin, FacilityMixin): #only for pregna
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.populate_facility_choices()
-        self.populate_outcome_choices()
+        self.populate_maternal_outcome_choices()
 
 class BabyForm(FlaskForm):
     gender = SelectField('Baby Gender', choices=[
                          ('M', 'Male'), ('F', 'Female')], validators=[DataRequired()])
 
-    outcome = SelectField('Baby Outcome',  validators=[DataRequired()])
+    outcome = SelectField('Delivery Outcome',  validators=[DataRequired()])
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -171,7 +174,7 @@ class BabyForm(FlaskForm):
 class DeliveryEncounterForm(ANCEncounterForm):
     date = DateField("Date of Delivery", validators= [DataRequired()])
     anc_count = IntegerField("Number of ANC Visit", validators=[DataRequired()])
-    outcome = SelectField('Mother Outcome',  validators=[
+    outcome = SelectField('Pregnancy Outcome',  validators=[
                           Optional()], coerce=int, render_kw={'id': 'outcome-select'})
     death_type = SelectField("Death Type", validators=[
                              Optional()], coerce=int, render_kw={'id': 'death-type-select'})
@@ -233,11 +236,6 @@ class AddCategoryForm(FlaskForm):
     category_name = StringField('Category Name', validators=[DataRequired()])
     submit = SubmitField('Add Category')
 
-class AddServiceForm(FlaskForm):
-    name = StringField('Service Name', validators=[DataRequired()])
-    category_id = SelectField('Category', validators=[
-                              DataRequired()], coerce=int)
-    submit = SubmitField('Add Service')
 
 class AddDiseaseForm(FlaskForm):
     name = StringField('Disease Name', validators=[DataRequired()])

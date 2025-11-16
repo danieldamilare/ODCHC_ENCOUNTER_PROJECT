@@ -1064,11 +1064,11 @@ class EncounterServices(BaseServices):
                 cur = db.execute(
                 '''INSERT INTO anc_registry(orin, kia_date, client_name,
                 booking_date, parity, place_of_issue, hospital_number, address, lmp,
-                expected_delivery_date, anc_count, status) VALUES (
+                expected_delivery_date, anc_count, status, nin, phone_number) VALUES (
                 ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
                 (policy_number, kia_date, client_name, booking_date, parity,
                 place_of_issue, hospital_number, address, lmp, expected_delivery_date,
-                anc_count, "active"))
+                anc_count, "active", nin, phone_number))
                 anc_id = cur.lastrowid
 
             new_id = new_enc.id
@@ -1155,6 +1155,8 @@ class EncounterServices(BaseServices):
             hospital_number= row['hospital_number'],
             address = row['address'],
             lmp = row['lmp'],
+            nin = row['nin'],
+            phone_number= row['phone_number'],
             expected_delivery_date= row['expected_delivery_date'],
             anc_count= row['anc_count'],
             status= row['status']
@@ -1330,6 +1332,8 @@ class EncounterServices(BaseServices):
             ar.client_name,
             ar.address,
             ar.lmp,
+            ar.nin,
+            ar.phone_number,
             ar.expected_delivery_date as edd,
             ae.anc_count,
             ar.status as anc_status
@@ -1354,6 +1358,8 @@ class EncounterServices(BaseServices):
                 hospital_number= row['hospital_number'],
                 address= row['address'],
                 lmp = row['lmp'],
+                nin = row['nin'],
+                phone_number = row['phone_number'],
                 expected_delivery_date= row['edd'],
                 anc_count= row['anc_count'],
                 status = row['anc_status']
