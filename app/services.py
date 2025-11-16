@@ -357,7 +357,10 @@ class UserServices(BaseServices):
     @classmethod
     def get_view_by_id(cls, id: int):
         and_filter = [('u.id', id, '=')]
-        return next(cls.get_all(and_filter=and_filter))
+        try:
+            return next(cls.get_all(and_filter=and_filter))
+        except StopIteration as e:
+            raise MissingError("User does not exist")
 
     @staticmethod
     def get_verified_user(username: str, password: str):
@@ -558,7 +561,10 @@ class FacilityServices(BaseServices):
 
     @classmethod
     def get_view_by_id(cls, facility_id: int) -> FacilityView:
-        return next(cls.get_all(and_filter=[('fc.id', facility_id, '=')]))
+        try:
+            return next(cls.get_all(and_filter=[('fc.id', facility_id, '=')]))
+        except StopIteration as e:
+            raise MissingError("Facility is invalid and does not exist in database")
 
 
 class InsuranceSchemeServices(BaseServices):
@@ -1184,6 +1190,8 @@ class EncounterServices(BaseServices):
                 isc.color_scheme,
                 ec.doctor_name,
                 tc.name as treatment_outcome,
+                tc.type as treatment_type,
+                tc.id as treatment_id,
                 ec.created_at,
                 ec.treatment,
                 fc.name as facility_name,
@@ -1446,7 +1454,9 @@ class EncounterServices(BaseServices):
                 client_name=row['client_name'],
                 gender=row['gender'],
                 date=row['date'],
-                treatment_outcome=row['treatment_outcome'],
+                treatment_outcome= TreatmentOutcome(id = row['treatment_id'],
+                                            name = row['treatment_outcome'],
+                                            type = row['treatment_type']),
                 age=row['age'],
                 nin = row['nin'],
                 enc_type = EncType(row['enc_type']),
@@ -1602,7 +1612,10 @@ class EncounterServices(BaseServices):
     @classmethod
     def get_view_by_id(cls, id: int) -> EncounterView:
         filters = Params().where(Encounter, 'id', '=', id)
-        return next(cls.get_all(params=filters))
+        try:
+            return next(cls.get_all(params=filters))
+        except StopIteration:
+            raise MissingError("Encounter does not exist in database")
 
     @classmethod
     def update_data(cls, model):

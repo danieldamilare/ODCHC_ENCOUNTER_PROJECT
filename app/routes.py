@@ -869,7 +869,6 @@ def encounters():
                            prev_url=prev_url
                            )
 
-
 @app.route('/encounters/view/<int:pid>')
 @login_required
 def view_encounter(pid: int):
@@ -878,11 +877,9 @@ def view_encounter(pid: int):
         user = get_current_user()
         if user.role.name != 'admin' and user.facility.id != encounter_view.facility.id:
             raise ValidationError("Encounter not registered to your facility")
-    except MissingError as e:
+    except (MissingError, ValidationError) as e:
         flash(str(e), "error")
-    except ValidationError as e:
-        flash(str(e), "erro")
-    encounter_view =  EncounterServices.get_view_by_id(pid)
+        return redirect(url_for("encounters"))
     return render_template('view_encounter.html',
                            title=f"Encounter Details: {encounter_view.client_name}",
                            encounter=encounter_view)

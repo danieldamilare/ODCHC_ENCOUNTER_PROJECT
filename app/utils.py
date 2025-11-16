@@ -82,4 +82,3 @@ def calculate_edd(dt: date) -> date:
     return dt + timedelta(days=280)
 
 app.jinja_env.filters['humanize_datetime'] = humanize_datetime_filter
-app.jinja_env.filters['calculate_edd'] = calculate_edd

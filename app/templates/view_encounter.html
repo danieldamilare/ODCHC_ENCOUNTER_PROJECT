@@ -181,7 +181,7 @@
                 <h2 class="text-base font-bold text-slate-900">Treatment Outcome</h2>
             </div>
             <div class="p-6">
-                {% set outcome_str = encounter.treatment_outcome.name if encounter.treatment_outcome and hasattr(encounter.treatment_outcome, 'name') else (encounter.treatment_outcome if encounter.treatment_outcome else 'N/A') %}
+                {% set outcome_str = encounter.treatment_outcome.name if encounter.treatment_outcome  else (encounter.treatment_outcome if encounter.treatment_outcome else 'N/A') %}
                 {% set outcome_lower = outcome_str|lower %}
 
                 {% if 'resolved' in outcome_lower or 'treated' in outcome_lower or 'cured' in outcome_lower %}

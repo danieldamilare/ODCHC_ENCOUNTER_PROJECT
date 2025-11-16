@@ -15,4 +15,4 @@ app.cli.add_command(init_db_command)
 app.cli.add_command(seed_db)
 app.cli.add_command(run_test_command)
 
-from app import routes, services, models
+from app import routes, services, models, utils
