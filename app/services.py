@@ -597,7 +597,7 @@ class InsuranceSchemeServices(BaseServices):
         query = f'''SELECT * from {cls.table_name} where scheme_name = ?'''
         print(query)
         db = get_db()
-        print(scheme, scheme.value)
+        # print(scheme, scheme.value)
         result = db.execute(query, (scheme.value, )).fetchone()
         if not result:
             raise MissingError(f"{scheme.value} not in insurance scheme")
@@ -1065,7 +1065,7 @@ class EncounterServices(BaseServices):
                 '''INSERT INTO anc_registry(orin, kia_date, client_name,
                 booking_date, parity, place_of_issue, hospital_number, address, lmp,
                 expected_delivery_date, anc_count, status, nin, phone_number) VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
                 (policy_number, kia_date, client_name, booking_date, parity,
                 place_of_issue, hospital_number, address, lmp, expected_delivery_date,
                 anc_count, "active", nin, phone_number))
@@ -2268,7 +2268,7 @@ class DashboardServices(BaseServices):
 
         res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         query, args = cls._apply_filter(query, **res)
-        print(query, args)
+        # print(query, args)
         return cls._run_query(query, args,
                               lambda row: {'name': row['cause_name'], 'count': row['count']})
 
