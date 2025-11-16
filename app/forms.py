@@ -66,7 +66,7 @@ class SchemeMixin:
         """Populate scheme choices from database"""
         self.scheme.choices = (
             [('0', 'Select Scheme')] +
-            [(f.id, f.name) for f in InsuranceSchemeServices.get_all()]
+            [(f.id, f.scheme_name) for f in InsuranceSchemeServices.get_all()]
         )
 class EncTypeForm(FlaskForm):
     encounter_list = [('ANC', 'ANC'), ('Delivery', 'Delivery'),
@@ -305,7 +305,7 @@ class EncounterFilterForm(FlaskForm, FacilityMixin, SchemeMixin):
     local_government = SelectField('Local Government',
                                    choices=LGA_CHOICES,
                                    validators=[Optional()])
-    facility_id = SelectField('Facility', coerce=int, validators=[Optional()])
+    facility = SelectField('Facility', coerce=int, validators=[Optional()])
     scheme = SelectField('Scheme', coerce=int, validators = [Optional()])
     submit = SubmitField('Filter')
 

@@ -828,10 +828,6 @@ def encounters():
     page = int(request.args.get('page', 1))
     filter_form = EncounterFilterForm(request.args)
 
-    filter_form.facility_id.choices = [('0', 'All Facilities')] + sorted(
-        [(fac.id, fac.name.title()) for fac in FacilityServices.get_all()],
-        key=lambda x: x[1])
-
     filters = Params()
 
     if filter_form.start_date.data:
@@ -849,7 +845,7 @@ def encounters():
     else:
         if lga := filter_form.local_government.data:
             filters = filters.where(Facility, 'local_government', '=', lga)
-        if facility_id := filter_form.facility_id.data:
+        if facility_id := filter_form.facility.data:
             filters = filters.where(Encounter, 'facility_id', '=', facility_id)
 
     encounter_list = list(EncounterServices.list_row_by_page(page,
