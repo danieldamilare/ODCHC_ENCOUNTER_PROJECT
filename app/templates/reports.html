@@ -1,60 +1,136 @@
 {% extends "admin_base.html" %}
 
 {% block content %}
-<div class="space-y-8">
-    <h1 class="text-3xl font-bold text-gray-800">Generate Reports</h1>
+<div class="space-y-6 sm:space-y-8">
 
-    <div class="bg-white rounded-lg shadow-lg p-6">
-        <form action="{{ url_for('view_report') }}" method="GET">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
-                
-                <!-- Report Type (The Master Control) -->
+    <!-- Page Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <h1 class="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900">Generate Reports</h1>
+            <p class="text-sm sm:text-base text-gray-600 mt-1">
+                Create custom analytics reports for encounters and services
+            </p>
+        </div>
+    </div>
+
+    <!-- Report Configuration Form -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="bg-gradient-to-r from-gray-50 to-white px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-bold text-gray-900">Report Configuration</h2>
+            <p class="text-sm text-gray-600 mt-1">Select report type and time period</p>
+        </div>
+
+        <form action="{{ url_for('view_report') }}" method="GET" class="p-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+
+                <!-- Report Type -->
                 <div>
-                    <label for="report_type" class="block text-sm font-medium text-gray-700">Report Type</label>
-                    <select id="report_type" name="report_type" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
-                        <option value="" disabled selected>Select a report...</option>
-                        <option value="utilization">Service Utilization (by Facility)</option>
-                        <option value="encounter">Encounter Summary (All Facilities)</option>
-                        <option value="categorization">Disease Categorization (All Facilities)</option>
-                    </select>
+                    <label for="report_type" class="block text-base font-semibold text-gray-900 mb-2">
+                        Report Type
+                    </label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                        </div>
+                        <select id="report_type" name="report_type" required class="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg shadow-sm text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all appearance-none">
+                            <option value="" disabled selected>Select a report...</option>
+                            <option value="utilization">Service Utilization (by Facility)</option>
+                            <option value="encounter">Encounter Summary (All Facilities)</option>
+                            <option value="categorization">Disease Categorization (All Facilities)</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </div>
+                    </div>
                 </div>
-                
-                <!-- Facility (The Slave Control - Hidden by default) -->
+
+                <!-- Facility -->
                 <div id="facility-selector-div" style="display: none;">
-                    <label for="facility_id" class="block text-sm font-medium text-gray-700">Facility</label>
-                    <select id="facility_id" name="facility_id" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
-                        <option value="">Select a facility...</option>
-                        {% for facility in facilities %}
-                        <option value="{{ facility.id }}">{{ facility.name }}</option>
-                        {% endfor %}
-                    </select>
+                    <label for="facility_id" class="block text-base font-semibold text-gray-900 mb-2">
+                        Facility
+                    </label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                            </svg>
+                        </div>
+                        <select id="facility_id" name="facility_id" class="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg shadow-sm text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all appearance-none">
+                            <option value="">Select a facility...</option>
+                            {% for facility in facilities %}
+                            <option value="{{ facility.id }}">{{ facility.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Month -->
                 <div>
-                    <label for="month" class="block text-sm font-medium text-gray-700">Month (Optional)</label>
-                    <select id="month" name="month" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
-                        <option value="">Current Month</option>
-                        {% for num, name in month_choices %}
-                        <option value="{{ num }}">{{ name }}</option>
-                        {% endfor %}
-                    </select>
+                    <label for="month" class="block text-base font-semibold text-gray-900 mb-2">
+                        Month
+                    </label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                        </div>
+                        <select id="month" name="month" class="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg shadow-sm text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all appearance-none">
+                            <option value="">Current Month</option>
+                            {% for num, name in month_choices %}
+                            <option value="{{ num }}">{{ name }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Year -->
                 <div>
-                    <label for="year" class="block text-sm font-medium text-gray-700">Year (Optional)</label>
-                    <select id="year" name="year" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
-                         <option value="">Current Year</option>
-                        {% for year, label in year_choices %}
-                        <option value="{{ year }}">{{ label }}</option>
-                        {% endfor %}
-                    </select>
+                    <label for="year" class="block text-base font-semibold text-gray-900 mb-2">
+                        Year
+                    </label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                        </div>
+                        <select id="year" name="year" class="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg shadow-sm text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all appearance-none">
+                            <option value="">Current Year</option>
+                            {% for year, label in year_choices %}
+                            <option value="{{ year }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </div>
+                    </div>
                 </div>
 
             </div>
+
+            <!-- Submit Button -->
             <div class="mt-8">
-                <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                <button type="submit" class="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg text-base font-semibold hover:from-indigo-700 hover:to-indigo-800 shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
                     Generate Report
                 </button>
             </div>
