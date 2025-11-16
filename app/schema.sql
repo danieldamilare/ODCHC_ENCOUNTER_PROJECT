@@ -114,6 +114,8 @@ CREATE TABLE anc_registry(
     parity INTEGER NOT NULL,
     place_of_issue TEXT NOT NULL,
     hospital_number TEXT NOT NULL,
+    nin TEXT NOT NULL CHECK(LENGTH(nin) = 11),
+    phone_number TEXT NOT NULL,
     address TEXT NOT NULL,
     lmp date NOT NULL,
     expected_delivery_date DATE NOT NULL,
