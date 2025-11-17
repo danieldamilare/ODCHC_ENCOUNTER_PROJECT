@@ -89,7 +89,11 @@
                         {% endif %}
                     </h2>
                      <p class="text-sm text-slate-600 mt-1">
+<<<<<<< HEAD
                         Showing <span class="font-semibold text-slate-900">{{ service_list|length }}</span> of <span class="font-semibold text-slate-900">{{ total_category_services }}</span> entries {% if active_category_name %}in this category{% endif %}
+=======
+                        Showing <span class="font-semibold text-slate-900">{{ service_list|length }}</span> of <span class="font-semibold text-slate-900">{{ filtered_services }}</span> entries {% if active_category_name %}in this category{% endif %}
+>>>>>>> 1d0266b (Fix services and diseases calculation and add Services nav link)
                     </p>
                  </div>
 
@@ -183,9 +187,15 @@
         <div class="px-6 py-4 border-t border-slate-200 bg-slate-50/75">
             <div class="flex items-center justify-between">
                 <div class="text-sm text-slate-600">
+<<<<<<< HEAD
                      Showing <span class="font-semibold">{{ [ ((current_page - 1) * per_page + 1), total_category_services] |min }}</span>
                      to <span class="font-semibold">{{ [(current_page * per_page), total_services ] |min }}</span>
                      of <span class="font-semibold">{{ total_categoryservices }}</span>
+=======
+                     Showing <span class="font-semibold">{{ [ ((current_page - 1) * per_page + 1), filtered_services] |min }}</span>
+                     to <span class="font-semibold">{{ [(current_page * per_page), filtered_services ] |min }}</span>
+                     of <span class="font-semibold">{{ filtered_services }}</span>
+>>>>>>> 1d0266b (Fix services and diseases calculation and add Services nav link)
                      {% if active_category_name %} service in this category{% else %}total services{% endif %}
                 </div>
                 <div class="flex gap-2">
