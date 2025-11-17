@@ -575,10 +575,10 @@
                 },
                 tooltip: {
                     backgroundColor: 'rgba(0, 0, 0, 0.85)',
-                    padding: 10,
+                    padding: 14,
                     cornerRadius: 6,
-                    titleFont: { size: 13, weight: 'bold' },
-                    bodyFont: { size: 12 }
+                    titleFont: { size: 16, weight: 'bold' },
+                    bodyFont: { size: 15 }
                 }
             }
         };
@@ -591,19 +591,21 @@
                 legend: { display: false },
                 tooltip: {
                     backgroundColor: 'rgba(0, 0, 0, 0.85)',
-                    padding: 10,
-                    cornerRadius: 6
+                    padding: 14,
+                    cornerRadius: 6,
+                    titleFont: { size: 16, weight: 'bold' },
+                    bodyFont: { size: 15 }
                 }
             },
             scales: {
                 x: {
                     grid: { display: false },
-                    ticks: { color: '#6B7280', font: { size: 10, family: 'Inter, sans-serif' } }
+                    ticks: { color: '#6B7280', font: { size: 14, family: 'Inter, sans-serif', weight: 'bold' } }
                 },
                 y: {
                     beginAtZero: true,
                     grid: { color: '#E5E7EB' },
-                    ticks: { color: '#6B7280', font: { size: 10, family: 'Inter, sans-serif' } }
+                    ticks: { color: '#6B7280', font: { size: 14, family: 'Inter, sans-serif', weight: 'bold' } }
                 }
             }
         };
@@ -720,12 +722,12 @@
                         ...barOptions,
                         indexAxis: 'y',
                         scales: {
-                            x: { beginAtZero: true, grid: { color: '#E5E7EB' }, ticks: { color: '#6B7280', font: { size: 10 } } },
+                            x: { beginAtZero: true, grid: { color: '#E5E7EB' }, ticks: { color: '#6B7280', font: { size: 14, weight: 'bold' } } },
                             y: {
                                 grid: { display: false },
                                 ticks: {
                                     color: '#6B7280',
-                                    font: { size: 9 },
+                                    font: { size: 13, weight: 'bold' },
                                     callback: function(value) {
                                         const label = this.getLabelForValue(value);
                                         return label.length > 18 ? label.substr(0, 18) + '...' : label;
@@ -759,12 +761,12 @@
                         ...barOptions,
                         indexAxis: 'y',
                         scales: {
-                            x: { beginAtZero: true, grid: { color: '#E5E7EB' }, ticks: { color: '#6B7280', font: { size: 10 } } },
+                            x: { beginAtZero: true, grid: { color: '#E5E7EB' }, ticks: { color: '#6B7280', font: { size: 14, weight: 'bold' } } },
                             y: {
                                 grid: { display: false },
                                 ticks: {
                                     color: '#6B7280',
-                                    font: { size: 9 },
+                                    font: { size: 13, weight: 'bold' },
                                     callback: function(value) {
                                         const label = this.getLabelForValue(value);
                                         return label.length > 22 ? label.substr(0, 22) + '...' : label;
@@ -870,8 +872,10 @@
                             },
                             tooltip: {
                                 backgroundColor: 'rgba(0, 0, 0, 0.85)',
-                                padding: 12,
-                                cornerRadius: 6
+                                padding: 14,
+                                cornerRadius: 6,
+                                titleFont: { size: 16, weight: 'bold' },
+                                bodyFont: { size: 15 }
                             }
                         },
                         scales: {
@@ -883,12 +887,12 @@
                                     displayFormats: { month: 'MMM yy' }
                                 },
                                 grid: { display: false },
-                                ticks: { color: '#6B7280', font: { size: 10, family: 'Inter, sans-serif' } }
+                                ticks: { color: '#6B7280', font: { size: 14, family: 'Inter, sans-serif', weight: 'bold' } }
                             },
                             y: {
                                 beginAtZero: true,
                                 grid: { color: '#E5E7EB' },
-                                ticks: { color: '#6B7280', font: { size: 10, family: 'Inter, sans-serif' } }
+                                ticks: { color: '#6B7280', font: { size: 14, family: 'Inter, sans-serif', weight: 'bold' } }
                             }
                         }
                     }
