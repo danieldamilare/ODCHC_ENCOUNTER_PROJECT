@@ -1813,7 +1813,7 @@ class DashboardServices(BaseServices):
             FROM encounters as ec
             LEFT JOIN encounters_diseases as ecd on ecd.encounter_id = ec.id
             LEFT JOIN encounters_services as ecs on ecs.encounter_id = ec.id
-            JOIN facility as f ON f.id = ec.facility_id
+            JOIN facility as fc ON fc.id = ec.facility_id
         '''
 
         params = params.group(Encounter, 'age_group')
@@ -1837,7 +1837,7 @@ class DashboardServices(BaseServices):
             FROM encounters AS ec
             LEFT JOIN encounters_diseases as ecd on ecd.encounter_id = ec.id
             LEFT JOIN encounters_services as ecs on ecs.encounter_id = ec.id
-            JOIN facility AS f ON f.id = ec.facility_id
+            JOIN facility AS fc ON fc.id = ec.facility_id
         '''
 
         params = params.where(Encounter, 'date', '>=', start_date)
