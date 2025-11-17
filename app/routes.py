@@ -90,7 +90,7 @@ def add_encounter():
 def add_child_health_encounter():
     scheme = InsuranceSchemeServices.get_scheme_by_enum(SchemeEnum.AMCHIS)
     if not (orin := request.args.get("orin")):
-        flash("Please provide Mother ORIN for AMCHIS CHILD HEALTH Services", "error")
+        flash("Please provide Mother ORIN for AMCHIS CHILD HEALTH Encounter ", "error")
         return redirect(url_for('add_amchis_encounter'))
 
     form = ChildHealthEncounterForm()
@@ -308,7 +308,7 @@ def add_amchis_encounter():
             return redirect(url_for('add_anc_encounter', orin = orin))
         elif enc_type.lower() == 'delivery':
             return redirect(url_for('add_delivery_encounter', orin = orin))
-        elif enc_type.lower() == 'child health services':
+        elif enc_type.lower() == 'child health':
             return redirect(url_for('add_child_health_encounter', orin = orin))
         else:
             flash("Invalid Encounter Type Selection", 'error')

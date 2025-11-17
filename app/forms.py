@@ -71,7 +71,7 @@ class SchemeMixin:
         )
 class EncTypeForm(FlaskForm):
     encounter_list = [('ANC', 'ANC'), ('Delivery', 'Delivery'),
-                      ('Child Health Services', 'Child Health Services')]
+                      ('Child Health', 'Child Health')]
     orin = StringField("Enter ORIN Number: ", validators=[DataRequired()])
 
     enc_type = SelectField("Select Encounter Type", validators=[DataRequired()],
