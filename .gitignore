@@ -1,6 +1,7 @@
 .venv/
 .env
 venv/
+.flaskenv
 
 *.pyc
 __pycache__/
@@ -19,6 +20,7 @@ instance/
 .pytest_cache/
 .coverage
 htmlcov/
+data/
 
 dist/
 build/
