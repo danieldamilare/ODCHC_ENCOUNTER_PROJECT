@@ -559,17 +559,14 @@ def services():
 
     service_list = list(ServiceServices.list_row_by_page(page,
                                                          params=filters))
-<<<<<<< HEAD
     total_services = ServiceServices.get_total()
     total_category_services = ServiceServices.get_total()
-=======
 
     # Get filtered count for pagination
     filtered_services = ServiceServices.get_total(params=filters)
 
     # Get total unfiltered count for the card
     total_services = ServiceServices.get_total()
->>>>>>> 1d0266b (Fix services and diseases calculation and add Services nav link)
 
     total_categories = ServiceCategoryServices.get_total()
 
@@ -601,10 +598,7 @@ def services():
                            total_pages=20,
                            per_page=Config.ADMIN_PAGE_PAGINATION,
                            category_list=category_list,
-<<<<<<< HEAD
-=======
                            active_category=int(category) if category else 0,
->>>>>>> 1d0266b (Fix services and diseases calculation and add Services nav link)
                            active_category_name=active_category_name,
                            next_url=next_url,
                            prev_url=prev_url)
@@ -685,18 +679,14 @@ def diseases():
 
     if category := request.args.get('category'):
         filters = filters.where(Disease, 'category_id', '=', category)
-        active_category_name = [cat.name for cat in category if cat.id == int(category)][0]
+        active_category_name = [cat.category_name for cat in category_list if cat.id == int(category)][0]
 
     disease_list = list(DiseaseServices.list_row_by_page(page,
                                                          params=filters))
-<<<<<<< HEAD
-=======
-
     # Get filtered count for pagination
     filtered_diseases = DiseaseServices.get_total(params=filters)
 
     # Get total unfiltered count for the card
->>>>>>> 1d0266b (Fix services and diseases calculation and add Services nav link)
     total_diseases = DiseaseServices.get_total()
 
     total_categories = DiseaseCategoryServices.get_total()
@@ -730,10 +720,7 @@ def diseases():
                            total_pages=20,
                            per_page=Config.ADMIN_PAGE_PAGINATION,
                            category_list=category_list,
-<<<<<<< HEAD
-=======
                            active_category=int(category) if category else 0,
->>>>>>> 1d0266b (Fix services and diseases calculation and add Services nav link)
                            active_category_name=active_category_name,
                            next_url=next_url,
                            prev_url=prev_url)
