@@ -9,7 +9,7 @@
     <nav class="text-sm font-medium text-slate-500 mb-3" aria-label="Breadcrumb">
         <ol class="list-none p-0 flex items-center gap-1.5">
             {% if current_user.role.name == 'admin' %}
-            <li><a href="{{ url_for('admin') }}" class="hover:text-blue-600 transition-colors">Admin</a></li>
+            <li><a href="{{ url_for('admin_overview') }}" class="hover:text-blue-600 transition-colors">Admin</a></li>
             {% else %}
             <li><a href="{{ url_for('encounters') }}" class="hover:text-blue-600 transition-colors">Encounters</a></li>
             {% endif %}
@@ -45,10 +45,16 @@
     }
 
     .form-field-error p {
-        @apply text-red-600 text-sm mt-2 flex items-center;
+        color: #dc2626;
+        font-size: 0.875rem;
+        margin-top: 0.5rem;
+        display: flex;
+        align-items: center;
     }
     .form-field-error svg {
-        @apply h-4 w-4 mr-1.5;
+        height: 1rem;
+        width: 1rem;
+        margin-right: 0.375rem;
     }
     .dynamic-card {
         transition: all 0.2s ease;
@@ -146,6 +152,28 @@
             </div>
         {% endmacro %}
 
+        <!-- Facility Selection (Top Level for Admin) -->
+        {% if current_user.role.name == 'admin' %}
+        <div class="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden mb-6">
+            <div class="px-6 py-5 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-indigo-50">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold shadow-md">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-bold text-slate-900">Facility Selection</h3>
+                        <p class="text-sm text-slate-600">Select the facility where this child health visit occurred.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="p-6">
+                {{ render_select_field(form.facility, "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4") }}
+            </div>
+        </div>
+        {% endif %}
+
         <div class="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden mb-6">
             <div class="px-6 py-5 border-b border-slate-200 scheme-bg-lighter">
                 <div class="flex items-center gap-3">
@@ -197,23 +225,14 @@
                     <div class="w-10 h-10 bg-gray-500 rounded-xl flex items-center justify-center text-white font-bold shadow-md">3</div>
                     <div>
                         <h3 class="text-xl font-bold text-slate-900">Visit Details</h3>
-                        <p class="text-sm text-slate-600">Facility, date, and attending doctor for this visit.</p>
+                        <p class="text-sm text-slate-600">Date and attending doctor for this visit.</p>
                     </div>
                 </div>
             </div>
             <div class="p-6">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-                    {% if current_user.role.name == 'admin' %}
-                        <div class="md:col-span-1">
-                            {{ render_select_field(form.facility, "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4") }}
-                        </div>
-                    {% endif %}
-                    <div class="md:col-span-1">
-                        {{ render_field(form.date, "", "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z") }}
-                    </div>
-                    <div class="md:col-span-1">
-                        {{ render_field(form.doctor_name, "Dr. Name", "M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z") }}
-                    </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    {{ render_field(form.date, "", "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z") }}
+                    {{ render_field(form.doctor_name, "Dr. Name", "M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z") }}
                 </div>
             </div>
         </div>
