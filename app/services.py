@@ -1718,15 +1718,34 @@ class DashboardServices(BaseServices):
                      params:Params):
 
         query = '''
-             SELECT dis.name AS disease_name, COUNT(dis.id) AS disease_count
-             FROM encounters AS ec
-             JOIN encounters_diseases as ecd ON ecd.encounter_id = ec.id
-             JOIN diseases AS dis ON ecd.disease_id = dis.id
-             JOIN facility AS fc ON fc.id = ec.facility_id
+        SELECT
+         cause_name || " (" || cause_type || ")" as disease_name,
+         COUNT(*) as count
+        FROM
+        ( SELECT
+                ecs.encounter_id as encounter_id,
+                ecs.service_id as cause_id,
+                'Service' as cause_type,
+                srv.name as cause_name
+            FROM encounters_services as ecs
+            JOIN services as srv on ecs.service_id = srv.id
+            UNION ALL
+
+            SELECT
+                ecd.encounter_id as encounter_id,
+                ecd.disease_id as cause_id,
+                'Disease' as cause_type,
+                dis.name as cause_name
+            FROM encounters_diseases as ecd
+            JOIN diseases as dis on ecd.disease_id = dis.id
+        ) as temp
+
+        JOIN encounters as ec on temp.encounter_id = ec.id
+        JOIN facility as fc on fc.id = ec.facility_id
+        JOIN treatment_outcome as tc on tc.id = ec.outcome
         '''
-        args = ()
-        params = params.group(Disease, 'id')
-        params = params.sort(None, 'disease_count', 'DESC')
+        params = params.group(None, 'cause_id')
+        params = params.sort(None, 'Count', 'DESC')
         if not params.limit:
             params = params.set_limit(10)
 
@@ -1735,7 +1754,7 @@ class DashboardServices(BaseServices):
 
         return cls._run_query(query,
                               args,
-                              lambda row: {'disease_name': row['disease_name'], 'count': row['disease_count']})
+                              lambda row: {'disease_name': row['disease_name'], 'count': row['count']})
 
     @classmethod
     def top_services(cls,
