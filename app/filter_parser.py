@@ -11,6 +11,7 @@ class Filter:
     op: str
     value: Any
 
+
 @dataclass
 class GroupBy:
     model: Optional[Type]
@@ -48,6 +49,7 @@ class Params:
 
     def set_offset(self, offset: int = 0) -> 'Params':
         return replace(self,  _offset = offset)
+
 
     @property
     def and_filter(self) -> Tuple[Filter]:

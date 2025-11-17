@@ -64,29 +64,16 @@ class BaseServices:
                          params: Optional[Params] = None,
                          **kwargs,
                          ) -> Iterator:
+        if page < 1:
+            raise ValidationError("Page number must be >= 1")
+        limit = params.limit if params and params.limit > 0 else app.config['ADMIN_PAGE_PAGINATION']
+        if limit < 0:
+            raise ValidationError("Invalid Page limit")
 
-        limit = 0
-        res = {}
-        if not params:
-            res = _legacy_to_params(**kwargs)
-            if not 'limit' in res:
-                res['limit'] = app.config['ADMIN_PAGE_PAGINATION']
-                limit = res['limit']
-            else:
-                limit = res['limit']
-        else:
-           limit = app.config['ADMIN_PAGE_PAGINATION'] if not params.limit else params.limit
-
-        offset = (int(page) - 1) * limit
-        if offset < 0:
-            raise ValidationError("Invalid listing page")
-        if params:
-            params = params.set_limit(limit)
-            params = params.set_offset(offset)
-            return cls.get_all(params=params)
-        else:
-            res['offset'] = offset
-            return cls.get_all(**res)
+        offset = (page - 1) * limit
+        params = Params() if params is None else params
+        params = params.set_limit(limit).set_offset(offset)
+        return cls.get_all(params=params)
 
     @classmethod
     def update_data(cls, model: Type[T]) -> T:
@@ -171,7 +158,6 @@ class BaseServices:
         # --- GROUP BY Clause ---
         if group_by:
             query += f" GROUP BY {', '.join(group_by)}"
-
         # --- ORDER BY Clause ---
         if order_by:
             clause = []
@@ -533,11 +519,11 @@ class FacilityServices(BaseServices):
             fc.local_government,
             fc.facility_type
         FROM {cls.table_name} as fc
+        JOIN facility_scheme as fsc on fsc.facility_id = fc.id
         '''
+        res = {}
         if params:
             res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
-        else:
-            res = _legacy_to_params(**kwargs)
 
         query, args = cls._apply_filter(
             base_query=query,
@@ -546,10 +532,13 @@ class FacilityServices(BaseServices):
 
         db = get_db()
         facility_rows = list(db.execute(query, args).fetchall())
-        row_ids = [row['id'] for row in facility_rows]
+        row_ids = list(set(row['id'] for row in facility_rows))
         scheme_map = cls.get_insurance_list(row_ids)
-
+        done = set()
         for row in facility_rows:
+            if row['id'] in done:
+                continue
+            done.add(row['id'])
             facility = FacilityView(
                 id=row['id'],
                 lga=row['local_government'],
@@ -1803,7 +1792,7 @@ class DashboardServices(BaseServices):
         query = '''
             SELECT age_group, COUNT(*) as age_group_count
             FROM encounters as ec
-            JOIN facility as f ON f.id = ec.facility_id
+            JOIN facility as fc ON fc.id = ec.facility_id
         '''
 
         params = params.group(Encounter, 'age_group')
@@ -1880,8 +1869,6 @@ class DashboardServices(BaseServices):
         trend.rename(columns={'date_count': 'count'})
         return trend.to_dict(orient="records")
 
-
-
     @classmethod
     def get_encounter_trend(cls, params: Params, start_date, end_date):
         # ensure at least 6 months range
@@ -1893,7 +1880,7 @@ class DashboardServices(BaseServices):
         query = '''
             SELECT ec.date, COUNT(*) AS date_count
             FROM encounters AS ec
-            JOIN facility AS f ON f.id = ec.facility_id
+            JOIN facility AS fc ON fc.id = ec.facility_id
         '''
 
         params = params.where(Encounter, 'date', '>=', start_date)

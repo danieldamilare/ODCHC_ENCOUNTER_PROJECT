@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 from app.config import Config
 from app.utils import form_to_dict, admin_required, humanize_datetime_filter, calculate_gestational_age, scheme_access_required
 from app.forms import LoginForm, AddEncounterForm, AddFacilityForm, EditFacilityForm, AddDiseaseForm, ExcelUploadForm, DashboardFilterForm, EncTypeForm, DeliveryEncounterForm, AddServiceForm
-from app.forms import AddUserForm, AddCategoryForm, DeleteUserForm, EditUserForm, EditDiseaseForm, EncounterFilterForm, AdminDashboardFilterForm, ANCEncounterForm, ChildHealthEncounterForm
+from app.forms import AddUserForm, AddCategoryForm, DeleteUserForm, EditUserForm, EditDiseaseForm, EncounterFilterForm, AdminDashboardFilterForm, ANCEncounterForm, ChildHealthEncounterForm, FacilityFilterForm
 from app.constants import ONDO_LGAS_LIST, SchemeEnum, BabyOutcome
 
 from app.filter_parser import Params
@@ -287,6 +287,7 @@ def add_anc_encounter():
             EncounterServices.create_anc_encounter(**res)
             flash("ANC Encounter added successfully", 'success')
             return redirect(url_for("add_encounter"))
+
         except (ServiceError, ValidationError, MissingError) as e:
             flash(str(e), "error")
 
@@ -394,9 +395,6 @@ def add_scheme_encounter(scheme_id) -> Any:
 @admin_required
 def facilities() -> Any:
     facility_form = AddFacilityForm()
-    others = [(sc.id, sc.scheme_name)
-              for sc in InsuranceSchemeServices.get_all()]
-    facility_form.scheme.choices = others
     if facility_form.validate_on_submit():
         res = form_to_dict(facility_form, Facility)
         res['scheme'] = facility_form.scheme.data
@@ -407,13 +405,30 @@ def facilities() -> Any:
         except (ValidationError, DuplicateError) as e:
             flash(str(e), 'error')
 
-    facility_total = int(FacilityServices.get_total())
-    primary_total = int(FacilityServices.get_total(Params().where(Facility, 'facility_type', '=', 'Primary')))
-    private_total = int(FacilityServices.get_total(Params().where(Facility, 'facility_type', '=', 'Private')))
-    secondary_total = int(FacilityServices.get_total(Params().where(Facility, 'facility_type', '=', 'Secondary')))
+    filter_form = FacilityFilterForm(request.args)
+    param = Params()
+    if (res:= filter_form.facility_type.data):
+        param = param.where(Facility, 'facility_type', '=', res)
+
+    if (res := filter_form.lga.data):
+        param = param.where(Facility, "lga", '=', res)
+
+    if (res := filter_form.name.data):
+        param = (param.where(Facility, 'name', 'LIKE', f'%res%'))
+
+    limit = 0
+    if (res := filter_form.limit.data):
+        limit = res
+
+
+    facility_total = int(FacilityServices.get_total(param))
+    primary_total = int(FacilityServices.get_total(param.where(Facility, 'facility_type', '=', 'Primary')))
+    private_total = int(FacilityServices.get_total(param.where(Facility, 'facility_type', '=', 'Private')))
+    secondary_total = int(FacilityServices.get_total(param.where(Facility, 'facility_type', '=', 'Secondary')))
     page: int = int(request.args.get('page', 1))
 
-    facility_list = list(FacilityServices.list_row_by_page(page))
+    facility_list = list(FacilityServices.list_row_by_page(page, param.set_limit(limit)))
+
     next_url: Optional[str] = (url_for('facilities', page=page+1)
                                if FacilityServices.has_next_page(page) else None)
     prev_url = (url_for('facilities', page=page-1) if page > 1 else None)
@@ -487,7 +502,7 @@ def view_facilities(pid: int) -> Any:
             UserServices.create_user(username=user_form.username.data,
                                      facility_id=pid,
                                      password=user_form.password.data)
-            redirect(url_for('view_facilities', pid=pid))
+            return redirect(url_for('view_facilities', pid=pid))
         except (DuplicateError, InvalidReferenceError, ValidationError) as e:
             flash(str(e), "error")
 
@@ -536,14 +551,17 @@ def view_facilities(pid: int) -> Any:
 def services():
     page = int(request.args.get('page', 1))
     filters = Params()
+    category_list = list(ServiceCategoryServices.get_all())
+    active_category_name = None
     if category := request.args.get('category'):
         filters = filters.where(Service, 'category_id', '=', category)
+        active_category_name = [cat.name for cat in category_list if cat.id == int(category )][0]
 
     service_list = list(ServiceServices.list_row_by_page(page,
                                                          params=filters))
-    total_services = ServiceServices.get_total(params=filters)
+    total_services = ServiceServices.get_total()
+    total_category_services = ServiceServices.get_total()
 
-    category_list = list(ServiceCategoryServices.get_all())
     total_categories = ServiceCategoryServices.get_total()
 
     res = {** request.args}
@@ -555,18 +573,18 @@ def services():
                                                                            params=filters) else None
     res['page'] = page - 1
     prev_url = url_for('services', **res) if page > 1 else None
-    print(category_list)
 
     return render_template('services.html',
                            title='Manage Services',
                            service_list= service_list,
                            total_services= total_services,
                            total_categories=total_categories,
+                           total_category_services = total_category_services,
                            current_page=page,
                            total_pages=20,
                            per_page=Config.ADMIN_PAGE_PAGINATION,
                            category_list=category_list,
-                           active_category=0,
+                           active_category_name=active_category_name,
                            next_url=next_url,
                            prev_url=prev_url)
 
@@ -641,15 +659,19 @@ def edit_service(service_id: int):
 def diseases():
     page = int(request.args.get('page', 1))
     filters = Params()
+    active_category_name = None
+    category_list = list(DiseaseCategoryServices.get_all())
+
     if category := request.args.get('category'):
         filters = filters.where(Disease, 'category_id', '=', category)
+        active_category_name = [cat.name for cat in category if cat.id == int(category)][0]
 
     disease_list = list(DiseaseServices.list_row_by_page(page,
                                                          params=filters))
-    total_diseases = DiseaseServices.get_total(params=filters)
+    total_diseases = DiseaseServices.get_total()
 
-    category_list = list(DiseaseCategoryServices.get_all())
     total_categories = DiseaseCategoryServices.get_total()
+    total_category_diseases = DiseaseServices.get_total(params=filters)
 
     res = {** request.args}
     if category:
@@ -666,11 +688,12 @@ def diseases():
                            disease_list=disease_list,
                            total_diseases=total_diseases,
                            total_categories=total_categories,
+                           total_category_diseases = total_category_diseases,
                            current_page=page,
                            total_pages=20,
                            per_page=Config.ADMIN_PAGE_PAGINATION,
                            category_list=category_list,
-                           active_category=0,
+                           active_category_name=active_category_name,
                            next_url=next_url,
                            prev_url=prev_url)
 

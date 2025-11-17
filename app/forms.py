@@ -6,7 +6,8 @@ from wtforms import widgets
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileAllowed, FileRequired
 from app.models import get_current_user
-from app.constants import LGA_CHOICES, DeliveryMode, BabyOutcome
+from app.constants import LGA_CHOICES, DeliveryMode, BabyOutcome, FacilityType
+from app.config import Config
 import re
 
 def nigerian_phone_number(form, field):
@@ -222,13 +223,13 @@ class ChildHealthEncounterForm(AddEncounterForm):
                           Optional()], coerce=int, render_kw={'id': 'outcome-select'})
     death_type = SelectField("Death Type", validators=[
                              Optional()], coerce=int, render_kw={'id': 'death-type-select'})
-class AddFacilityForm(FlaskForm):
+class AddFacilityForm(FlaskForm, SchemeMixin):
     name = StringField('Facility Name', validators=[DataRequired()])
     local_government = SelectField('Local Government',
                                    choices=LGA_CHOICES,
                                    validators=[DataRequired('Please select a local government from list')])
     facility_type = SelectField('Facility Type',
-                                choices=['Primary', 'Secondary', 'Private'], validators=[DataRequired()])
+                                choices = [(fc.value, fc.value) for fc in FacilityType], validators=[DataRequired()])
 
     scheme = SelectMultipleField('Insurance Scheme', coerce=int,
                                  validators=[DataRequired(
@@ -236,6 +237,10 @@ class AddFacilityForm(FlaskForm):
                                  widget=widgets.ListWidget(),
                                  option_widget=widgets.CheckboxInput())
     submit = SubmitField('submit')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.scheme.choices  = list(InsuranceSchemeServices.get_all())
 
 class AddCategoryForm(FlaskForm):
     category_name = StringField('Category Name', validators=[DataRequired()])
@@ -314,6 +319,19 @@ class EncounterFilterForm(FlaskForm, FacilityMixin, SchemeMixin):
         self.populate_facility_choices()
         self.populate_scheme_choices()
 
+class FacilityFilterForm(FlaskForm, SchemeMixin):
+    scheme = SelectField("Scheme", validators= [Optional()], coerce=int)
+    lga = SelectField("LGA", validators= [Optional()], choices = LGA_CHOICES)
+    name = StringField("", validators= [Optional()])
+    facility_type = SelectField("LGA", validators = [Optional()], choices = [])
+    limit = SelectField("Number", validators=[Optional()], coerce = int, default=Config.ADMIN_PAGE_PAGINATION)
+    class Meta:
+        csrf = False
+
+class DiseaseFilterForm(FlaskForm):
+    name = StringField("name", validators= [Optional()])
+    class Meta:
+        csrf = False
 class ExcelUploadForm(FlaskForm):
     facility_id = SelectField('Facility', coerce=int,
                               validators=[DataRequired()])
@@ -356,6 +374,7 @@ class DashboardFilterForm(FlaskForm):
         ],
         validators=[Optional()]
     )
+    submit = SubmitField("Apply")
 
     def __init__(self, *args, **kwargs):
         """Populate dynamic choices on form init"""

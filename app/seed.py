@@ -61,7 +61,7 @@ def seed_diseases():
 
 
 def seed_insurance_scheme():
-    scheme = [('BHCPF', '#448264'),
+    scheme = [('BHCPFP', '#448264'),
               ('ORANGHIS', '#fc9d03'),
               ('AMCHIS', '#0066ff')]
     for sc in tqdm(scheme, desc="Seeding Insurance Scheme"):
@@ -75,7 +75,7 @@ def seed_facilities():
     for idx, row in tqdm(df.iterrows(), desc="Seeding Facilities"):
         scheme_list = []
         if bool(row['BHCPF']):
-            scheme_list.append(scheme_map['BHCPF'])
+            scheme_list.append(scheme_map['BHCPFP'])
         if bool(row['ORANGHIS']):
             scheme_list.append(scheme_map['ORANGHIS'])
         if bool(row['AMCHIS']):

@@ -1,4 +1,4 @@
-from app.models import Facility, Encounter
+from app.models import Facility, Encounter, FacilityScheme
 
 filter_config = {
     'lga': (Facility, 'local_government', '='),

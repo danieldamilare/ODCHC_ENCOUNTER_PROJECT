@@ -51,7 +51,7 @@ def seed_db():
     seed_facilities()
     print("Seeding Users...")
     seed_users()
-    encounter_number = 20000
+    encounter_number = 50000
     end_date = datetime.now()
     start_date = end_date.replace(year =2021, month=7, day=1)
     print(f"Seeding Encounter with {encounter_number} number starting from {start_date} to {end_date}...")

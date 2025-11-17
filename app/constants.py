@@ -42,6 +42,11 @@ class BabyOutcome(Enum):
     STILLBIRTH = "Still Birth"
 
 class SchemeEnum(Enum):
-    BHCPF = 'BHCPF'
+    BHCPF = 'BHCPFP'
     ORANGHIS = 'ORANGHIS'
     AMCHIS = 'AMCHIS'
+
+class FacilityType(Enum):
+    PRIVATE = "Private"
+    SECONDARY = "Secondary"
+    PRIMARY = "Primary"
