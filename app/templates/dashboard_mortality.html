@@ -511,18 +511,18 @@
         const mortalityTopCauseData = {{ mortality_top_cause|tojson }};
         const mortalityTrendData = {{ mortality_trend_distribution|tojson }};
 
-        // DISTINCT Power BI Colors
-        const distinctColors = [
-            '#E74C3C', // Bright Red
-            '#3498DB', // Bright Blue
-            '#F39C12', // Orange
-            '#9B59B6', // Purple
-            '#1ABC9C', // Teal
-            '#E67E22', // Dark Orange
-            '#2ECC71', // Green
-            '#34495E', // Dark Gray
-            '#D35400', // Burnt Orange
-            '#8E44AD'  // Dark Purple
+        // Professional Mortality Colors (muted, serious tones)
+        const mortalityColors = [
+            '#8B0000', // Dark Red
+            '#4A5568', // Slate Gray
+            '#B7791F', // Muted Gold
+            '#6B46C1', // Deep Purple
+            '#2C5282', // Deep Blue
+            '#975A16', // Burnt Umber
+            '#44403C', // Warm Gray
+            '#1E3A8A', // Navy Blue
+            '#7C2D12', // Dark Brown
+            '#5B21B6'  // Dark Violet
         ];
 
         // Helper function to show/hide no data message
@@ -621,7 +621,7 @@
                         labels: mortalityTypeData.map(d => d.death_type),
                         datasets: [{
                             data: mortalityTypeData.map(d => d.count),
-                            backgroundColor: distinctColors.slice(0, mortalityTypeData.length),
+                            backgroundColor: mortalityColors.slice(0, mortalityTypeData.length),
                             borderColor: '#fff',
                             borderWidth: 2
                         }]
@@ -644,7 +644,7 @@
                         labels: mortalityGenderData.map(d => d.gender === 'M' || d.gender === 'Male' ? 'Male' : 'Female'),
                         datasets: [{
                             data: mortalityGenderData.map(d => d.count),
-                            backgroundColor: ['#3498DB', '#E74C3C'],
+                            backgroundColor: ['#2C5282', '#8B0000'], // Deep Blue for Male, Dark Red for Female
                             borderColor: '#fff',
                             borderWidth: 2
                         }]
@@ -690,7 +690,7 @@
                         labels: mortalityAgeData.map(d => d.age_group),
                         datasets: [{
                             data: mortalityAgeData.map(d => d.count),
-                            backgroundColor: '#E74C3C',
+                            backgroundColor: '#8B0000', // Dark Red
                             borderRadius: 4
                         }]
                     },
@@ -712,7 +712,7 @@
                         labels: mortalityTopCauseData.map(d => d.name),
                         datasets: [{
                             data: mortalityTopCauseData.map(d => d.count),
-                            backgroundColor: '#F39C12',
+                            backgroundColor: '#975A16', // Burnt Umber
                             borderRadius: 4
                         }]
                     },
@@ -751,7 +751,7 @@
                         labels: mortalityFacilityData.map(d => d.facility_name),
                         datasets: [{
                             data: mortalityFacilityData.map(d => d.count),
-                            backgroundColor: '#9B59B6',
+                            backgroundColor: '#4A5568', // Slate Gray
                             borderRadius: 4
                         }]
                     },
@@ -790,7 +790,7 @@
                         labels: mortalityLgaData.map(d => d.lga),
                         datasets: [{
                             data: mortalityLgaData.map(d => d.count),
-                            backgroundColor: '#1ABC9C',
+                            backgroundColor: '#6B46C1', // Deep Purple
                             borderRadius: 4
                         }]
                     },
@@ -822,12 +822,13 @@
                 const firstRow = mortalityTrendData[0];
                 const mortalityTypes = Object.keys(firstRow).filter(k => k !== 'date' && k !== 'total');
 
+                // Professional muted colors for mortality trend lines
                 const typeColors = {
-                    'Infant Death': '#E74C3C',
-                    'Maternal Death (Pregnant women)': '#9B59B6',
-                    'Neonatal Death (0 - 28 days)': '#F39C12',
-                    'Other Death': '#34495E',
-                    'Under 5 deaths (1 - 5 years)': '#3498DB'
+                    'Infant Death': '#8B0000',                          // Dark Red
+                    'Maternal Death (Pregnant women)': '#6B46C1',       // Deep Purple
+                    'Neonatal Death (0 - 28 days)': '#B7791F',          // Muted Gold
+                    'Other Death': '#4A5568',                           // Slate Gray
+                    'Under 5 deaths (1 - 5 years)': '#2C5282'           // Deep Blue
                 };
 
                 const datasets = mortalityTypes.map(type => ({
