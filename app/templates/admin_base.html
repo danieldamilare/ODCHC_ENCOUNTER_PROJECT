@@ -117,6 +117,30 @@
             padding-left: 0.75rem;
             padding-right: 0.75rem;
         }
+        .sidebar-collapsed .flex.items-center.flex-shrink-0 {
+            justify-content: center;
+            padding-left: 0.5rem;
+            padding-right: 0.5rem;
+        }
+        .sidebar-collapsed .flex.items-center.flex-shrink-0 a {
+            justify-content: center;
+        }
+        /* Hide chevron icon in dashboard dropdown when collapsed */
+        .sidebar-collapsed .dashboard-dropdown button svg:last-child {
+            display: none;
+        }
+        /* Center the dashboard dropdown button when collapsed */
+        .sidebar-collapsed .dashboard-dropdown button {
+            justify-content: center;
+        }
+        /* Hide submenu when sidebar is collapsed */
+        .sidebar-collapsed #dashboard-submenu {
+            display: none !important;
+        }
+        /* Ensure submenu icons are always visible */
+        #dashboard-submenu svg {
+            flex-shrink: 0;
+        }
         .sidebar-transition {
             transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
@@ -170,13 +194,13 @@
             <div class="flex-1 flex flex-col min-h-0 border-r border-slate-200 sidebar-gradient shadow-sm desktop-sidebar">
                 <div class="flex-1 flex flex-col pt-6 pb-4 overflow-y-auto">
                     <div class="flex items-center flex-shrink-0 px-6 mb-6">
-                        <div class="flex items-center space-x-3">
+                        <a href="{{ url_for('index') }}" class="flex items-center space-x-3 hover:opacity-80 transition-opacity">
                             <img class="h-12 w-12 object-contain flex-shrink-0" src="{{ url_for('static', filename='odchc_logo.png') }}" alt="ODCHC Logo">
                             <div class="sidebar-logo-text">
                                 <h1 class="text-lg font-bold text-primary-700">ODCHC Admin</h1>
                                 <p class="text-xs text-slate-500">Monitoring & Evaluation</p>
                             </div>
-                        </div>
+                        </a>
                     </div>
 
                     <nav class="flex-1 px-3 space-y-1" aria-label="Main navigation">
