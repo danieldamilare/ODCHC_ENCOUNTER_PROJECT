@@ -552,10 +552,8 @@ def services():
     page = int(request.args.get('page', 1))
     filters = Params()
     category_list = list(ServiceCategoryServices.get_all())
-    active_category_name = None
     if category := request.args.get('category'):
         filters = filters.where(Service, 'category_id', '=', category)
-        active_category_name = [cat.name for cat in category_list if cat.id == int(category )][0]
 
     service_list = list(ServiceServices.list_row_by_page(page,
                                                          params=filters))
@@ -674,12 +672,10 @@ def edit_service(service_id: int):
 def diseases():
     page = int(request.args.get('page', 1))
     filters = Params()
-    active_category_name = None
     category_list = list(DiseaseCategoryServices.get_all())
 
     if category := request.args.get('category'):
         filters = filters.where(Disease, 'category_id', '=', category)
-        active_category_name = [cat.category_name for cat in category_list if cat.id == int(category)][0]
 
     disease_list = list(DiseaseServices.list_row_by_page(page,
                                                          params=filters))
