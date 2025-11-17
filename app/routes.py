@@ -414,24 +414,28 @@ def facilities() -> Any:
         param = param.where(Facility, "lga", '=', res)
 
     if (res := filter_form.name.data):
-        param = (param.where(Facility, 'name', 'LIKE', f'%res%'))
+        param = (param.where(Facility, 'name', 'LIKE', f'%{res}%'))
 
     limit = 0
     if (res := filter_form.limit.data):
         limit = res
 
+    primary_total = int(FacilityServices.get_total(Params().where(Facility, 'facility_type', '=', 'Primary')))
+    private_total = int(FacilityServices.get_total(Params().where(Facility, 'facility_type', '=', 'Private')))
+    secondary_total = int(FacilityServices.get_total(Params().where(Facility, 'facility_type', '=', 'Secondary')))
 
     facility_total = int(FacilityServices.get_total(param))
-    primary_total = int(FacilityServices.get_total(param.where(Facility, 'facility_type', '=', 'Primary')))
-    private_total = int(FacilityServices.get_total(param.where(Facility, 'facility_type', '=', 'Private')))
-    secondary_total = int(FacilityServices.get_total(param.where(Facility, 'facility_type', '=', 'Secondary')))
+
     page: int = int(request.args.get('page', 1))
 
     facility_list = list(FacilityServices.list_row_by_page(page, param.set_limit(limit)))
 
-    next_url: Optional[str] = (url_for('facilities', page=page+1)
-                               if FacilityServices.has_next_page(page) else None)
-    prev_url = (url_for('facilities', page=page-1) if page > 1 else None)
+    res = {**request.args}
+    res['page'] = page + 1
+    next_url: Optional[str] = (url_for('facilities', **res)
+                               if FacilityServices.has_next_page(page, params=param) else None)
+    res['page'] = page - 1
+    prev_url = (url_for('facilities', **res) if page > 1 else None)
 
     return render_template('facilities.html',
                            title='Facilities',
@@ -442,7 +446,9 @@ def facilities() -> Any:
                            secondary_total = secondary_total,
                            private_total = private_total,
                            facility_form=facility_form,
-                           facility_list=facility_list)
+                           filter_form=filter_form,
+                           facility_list=facility_list,
+                           current_page=page)
 
 
 @app.route('/admin/facilities/edit/<int:pid>', methods=['GET', 'POST'])
@@ -555,11 +561,7 @@ def services():
     if category := request.args.get('category'):
         filters = filters.where(Service, 'category_id', '=', category)
 
-    service_list = list(ServiceServices.list_row_by_page(page,
-                                                         params=filters))
-    total_services = ServiceServices.get_total()
-    total_category_services = ServiceServices.get_total()
-
+    service_list = list(ServiceServices.list_row_by_page(page, params=filters))
     # Get filtered count for pagination
     filtered_services = ServiceServices.get_total(params=filters)
 
@@ -591,7 +593,6 @@ def services():
                            total_services= total_services,
                            filtered_services=filtered_services,
                            total_categories=total_categories,
-                           total_category_services = total_category_services,
                            current_page=page,
                            total_pages=20,
                            per_page=Config.ADMIN_PAGE_PAGINATION,
@@ -677,16 +678,19 @@ def diseases():
     if category := request.args.get('category'):
         filters = filters.where(Disease, 'category_id', '=', category)
 
-    disease_list = list(DiseaseServices.list_row_by_page(page,
-                                                         params=filters))
-    # Get filtered count for pagination
+    disease_list = list(DiseaseServices.list_row_by_page(page, params = filters))
     filtered_diseases = DiseaseServices.get_total(params=filters)
 
-    # Get total unfiltered count for the card
     total_diseases = DiseaseServices.get_total()
 
     total_categories = DiseaseCategoryServices.get_total()
     total_category_diseases = DiseaseServices.get_total(params=filters)
+
+    active_category_name = None
+    if category:
+        active_cat = next((cat for cat in category_list if str(cat.id) == str(category)), None)
+        if active_cat:
+            active_category_name = active_cat.category_name
 
     # Get active category name
     active_category_name = None

@@ -205,7 +205,13 @@
                 </button>
 
                 <div class="flex flex-1 justify-between px-4 sm:px-6">
-                    <div class="flex items-center">
+                    <div class="flex items-center gap-4">
+                        <!-- Desktop Hamburger Menu -->
+                        <button id="desktop-hamburger-btn" type="button" class="hidden md:flex items-center justify-center p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition-colors" aria-label="Toggle sidebar" title="Toggle sidebar">
+                            <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                            </svg>
+                        </button>
                         <h2 class="text-lg font-semibold text-slate-800">{{ title }}</h2>
                     </div>
 
@@ -402,24 +408,27 @@
                 sidebarToggleBtn.setAttribute('title', 'Expand sidebar');
             }
 
-            if (sidebarToggleBtn) {
-                sidebarToggleBtn.addEventListener('click', () => {
-                    const isCollapsed = desktopSidebar.classList.toggle('sidebar-collapsed');
+            // Shared toggle function
+            function toggleSidebar() {
+                const isCollapsed = desktopSidebar.classList.toggle('sidebar-collapsed');
 
-                    if (isCollapsed) {
-                        mainContentWrapper.classList.remove('md:pl-72');
-                        mainContentWrapper.classList.add('md:pl-16');
-                        toggleIcon.setAttribute('d', 'M13 5l7 7-7 7M5 5l7 7-7 7'); // Right arrows
-                        sidebarToggleBtn.setAttribute('title', 'Expand sidebar');
-                        localStorage.setItem('sidebarCollapsed', 'true');
-                    } else {
-                        mainContentWrapper.classList.remove('md:pl-16');
-                        mainContentWrapper.classList.add('md:pl-72');
-                        toggleIcon.setAttribute('d', 'M11 19l-7-7 7-7m8 14l-7-7 7-7'); // Left arrows
-                        sidebarToggleBtn.setAttribute('title', 'Collapse sidebar');
-                        localStorage.setItem('sidebarCollapsed', 'false');
-                    }
-                });
+                if (isCollapsed) {
+                    mainContentWrapper.classList.remove('md:pl-72');
+                    mainContentWrapper.classList.add('md:pl-16');
+                    toggleIcon.setAttribute('d', 'M13 5l7 7-7 7M5 5l7 7-7 7'); // Right arrows
+                    sidebarToggleBtn.setAttribute('title', 'Expand sidebar');
+                    localStorage.setItem('sidebarCollapsed', 'true');
+                } else {
+                    mainContentWrapper.classList.remove('md:pl-16');
+                    mainContentWrapper.classList.add('md:pl-72');
+                    toggleIcon.setAttribute('d', 'M11 19l-7-7 7-7m8 14l-7-7 7-7'); // Left arrows
+                    sidebarToggleBtn.setAttribute('title', 'Collapse sidebar');
+                    localStorage.setItem('sidebarCollapsed', 'false');
+                }
+            }
+
+            if (sidebarToggleBtn) {
+                sidebarToggleBtn.addEventListener('click', toggleSidebar);
 
                 // Keyboard shortcut: Ctrl/Cmd + B to toggle sidebar
                 document.addEventListener('keydown', (e) => {
@@ -428,6 +437,12 @@
                         sidebarToggleBtn.click();
                     }
                 });
+            }
+
+            // Desktop Hamburger Menu Toggle
+            const desktopHamburgerBtn = document.getElementById('desktop-hamburger-btn');
+            if (desktopHamburgerBtn) {
+                desktopHamburgerBtn.addEventListener('click', toggleSidebar);
             }
 
             // --- Keyboard Accessibility ---

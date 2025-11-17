@@ -375,6 +375,7 @@ class DashboardFilterForm(FlaskForm):
         validators=[Optional()]
     )
     submit = SubmitField("Apply")
+    clear = SubmitField("Clear")
 
     def __init__(self, *args, **kwargs):
         """Populate dynamic choices on form init"""
