@@ -4,13 +4,69 @@
 <style>
     /* Print Styles */
     @media print {
-        body { background: white; }
+        body {
+            background: white !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        /* Hide non-essential elements */
         .no-print { display: none !important; }
-        .print-full-width { width: 100% !important; max-width: 100% !important; }
+        #desktop-sidebar { display: none !important; }
+        #mobile-sidebar { display: none !important; }
+        header { display: none !important; }
+        nav { display: none !important; }
+
+        /* Full width content */
+        #main-content-wrapper {
+            padding-left: 0 !important;
+            margin: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+
+        #main-content {
+            padding: 0.5in !important;
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+
+        .print-full-width {
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+
+        /* Remove shadows and effects */
         .shadow-lg, .shadow-md, .shadow-sm { box-shadow: none !important; }
         .border { border: 1px solid #e5e7eb !important; }
-        .chart-container { page-break-inside: avoid; }
-        h1, h2, h3 { page-break-after: avoid; }
+
+        /* Page breaks */
+        .chart-container, .powerbi-card {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+        h1, h2, h3 {
+            page-break-after: avoid;
+            break-after: avoid;
+        }
+
+        /* Optimize chart sizes for print */
+        .chart-wrapper, .chart-wrapper-small, .chart-wrapper-medium, .chart-wrapper-large {
+            height: 300px !important;
+            page-break-inside: avoid;
+        }
+
+        /* Grid adjustments for print */
+        .grid {
+            display: grid !important;
+        }
+
+        /* Ensure colors print correctly */
+        * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
+        }
     }
 
     /* Power BI Style Card Shadows */
@@ -103,15 +159,15 @@
     <!-- Filter Form - Power BI Style with Collapsible -->
     <div class="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden no-print powerbi-card">
         <!-- Collapsible Header -->
-        <button type="button" id="filter-toggle" class="w-full bg-gradient-to-r from-slate-50 to-white px-6 py-3 border-b border-gray-200 flex items-center justify-between hover:from-slate-100 hover:to-gray-50 transition-colors" aria-expanded="true" aria-controls="filter-content">
+        <button type="button" id="filter-toggle" class="w-full bg-gradient-to-r from-slate-50 to-white px-6 py-3 border-b border-gray-200 flex items-center justify-between hover:from-slate-100 hover:to-gray-50 transition-colors" aria-expanded="false" aria-controls="filter-content">
             <h2 class="text-base font-bold text-gray-800">🔍 Filters</h2>
-            <svg id="filter-icon" class="h-5 w-5 text-gray-600 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg id="filter-icon" class="h-5 w-5 text-gray-600 transition-transform duration-200 collapsed" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
             </svg>
         </button>
 
         <!-- Collapsible Content -->
-        <div id="filter-content" class="filter-content">
+        <div id="filter-content" class="filter-content collapsed">
             <form id="filter-form" method="GET" class="p-4">
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
                     <!-- Period -->
@@ -149,9 +205,10 @@
                     {% endif %}
                 </div>
 
-                <!-- Submit Button -->
-                <div class="mt-4 flex justify-end">
-                    {{ form.submit(class="inline-flex items-center px-6 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors shadow-sm") }}
+                <!-- Action Buttons -->
+                <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {{ form.submit(class="w-full inline-flex items-center justify-center px-6 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors shadow-sm") }}
+                    {{ form.clear(class="w-full inline-flex items-center justify-center px-6 py-2.5 bg-gray-100 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 transition-colors shadow-sm") }}
                 </div>
             </form>
         </div>

@@ -182,16 +182,6 @@
                     <nav class="flex-1 px-3 space-y-1" aria-label="Main navigation">
                         {% include "admin_nav_links.html" %}
                     </nav>
-
-                    <!-- Toggle Button -->
-                    <div class="px-3 mt-4 border-t border-slate-200 pt-4">
-                        <button id="sidebar-toggle-btn" class="toggle-btn w-full flex items-center justify-center py-2 px-3 text-slate-600 hover:text-primary-600 rounded-lg" aria-label="Toggle sidebar" title="Collapse sidebar">
-                            <svg class="h-5 w-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path id="toggle-icon" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"/>
-                            </svg>
-                            <span class="nav-item-text ml-2 text-sm font-medium">Collapse</span>
-                        </button>
-                    </div>
                 </div>
             </div>
         </div>
@@ -393,10 +383,9 @@
             });
 
             // --- Desktop Sidebar Toggle ---
-            const sidebarToggleBtn = document.getElementById('sidebar-toggle-btn');
             const desktopSidebar = document.getElementById('desktop-sidebar');
             const mainContentWrapper = document.getElementById('main-content-wrapper');
-            const toggleIcon = document.getElementById('toggle-icon');
+            const desktopHamburgerBtn = document.getElementById('desktop-hamburger-btn');
 
             // Load saved sidebar state from localStorage
             const sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
@@ -404,8 +393,6 @@
                 desktopSidebar.classList.add('sidebar-collapsed');
                 mainContentWrapper.classList.remove('md:pl-72');
                 mainContentWrapper.classList.add('md:pl-16');
-                toggleIcon.setAttribute('d', 'M13 5l7 7-7 7M5 5l7 7-7 7'); // Right arrows
-                sidebarToggleBtn.setAttribute('title', 'Expand sidebar');
             }
 
             // Shared toggle function
@@ -415,39 +402,30 @@
                 if (isCollapsed) {
                     mainContentWrapper.classList.remove('md:pl-72');
                     mainContentWrapper.classList.add('md:pl-16');
-                    toggleIcon.setAttribute('d', 'M13 5l7 7-7 7M5 5l7 7-7 7'); // Right arrows
-                    sidebarToggleBtn.setAttribute('title', 'Expand sidebar');
                     localStorage.setItem('sidebarCollapsed', 'true');
                 } else {
                     mainContentWrapper.classList.remove('md:pl-16');
                     mainContentWrapper.classList.add('md:pl-72');
-                    toggleIcon.setAttribute('d', 'M11 19l-7-7 7-7m8 14l-7-7 7-7'); // Left arrows
-                    sidebarToggleBtn.setAttribute('title', 'Collapse sidebar');
                     localStorage.setItem('sidebarCollapsed', 'false');
                 }
             }
 
-            if (sidebarToggleBtn) {
-                sidebarToggleBtn.addEventListener('click', toggleSidebar);
+            // Desktop Hamburger Menu Toggle
+            if (desktopHamburgerBtn) {
+                desktopHamburgerBtn.addEventListener('click', toggleSidebar);
 
                 // Keyboard shortcut: Ctrl/Cmd + B to toggle sidebar
                 document.addEventListener('keydown', (e) => {
                     if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
                         e.preventDefault();
-                        sidebarToggleBtn.click();
+                        toggleSidebar();
                     }
                 });
             }
 
-            // Desktop Hamburger Menu Toggle
-            const desktopHamburgerBtn = document.getElementById('desktop-hamburger-btn');
-            if (desktopHamburgerBtn) {
-                desktopHamburgerBtn.addEventListener('click', toggleSidebar);
-            }
-
             // --- Keyboard Accessibility ---
             document.addEventListener('keydown', (e) => {
-                // Close mobile sidebar on Escape
+                // Close mobile sidebar on Escapgge
                 if (e.key === 'Escape' && mobileSidebarBackdrop.style.display === 'flex') {
                     closeSidebar();
                 }
