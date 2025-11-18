@@ -2578,7 +2578,30 @@ class DashboardServices(BaseServices):
         return res or 0
 
     @classmethod
-    def get_total_death_outcome(cls, params: Params, start_date, end_date):
+    def get_service_utilization_rate(cls, params: Params, start_date: date, end_date: date):
+        query = '''
+        SELECT
+            CASE WHEN COUNT(DISTINCT ec.id) = 0 THEN 0
+            ELSE (COUNT(DISTINCT ec.id) /COUNT(*)) *100
+            END AS rate
+        FROM encounters as ec
+        JOIN facility as fc on fc.id = ec.facility_id
+        LEFT JOIN encounters_diseases as ecd on ec.id = ecd.encounter_id
+        LEFT JOIN encounters_services as ecs on ec.id = ecs.encounter_id
+        '''
+        params = params.where(Encounter, 'date', '>=', start_date)\
+                        .where(Encounter, 'date', "<=", end_date)
+
+        res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        query, args = cls._apply_filter(query, **res)
+        # print(query, args)
+        db = get_db()
+        row = db.execute(query, args).fetchone()
+        res = row['rate'] if row else 0
+        return res or 0
+
+    @classmethod
+    def get_total_death_outcome(cls, params: Params, start_date: date, end_date: date):
         ''''
         Return total death outcome and the percentage difference based on the prevous month
         Params should not filter based on date. but instead parse the start_date and end_date
