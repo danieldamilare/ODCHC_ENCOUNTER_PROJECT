@@ -1709,6 +1709,7 @@ class DashboardServices(BaseServices):
         result = []
 
         for row in rows:
+            print(row)
             result.append({'age_group': row['age_group'], 'count': row['age_group_count']})
             used.add(row['age_group'])
 
@@ -2235,7 +2236,7 @@ class DashboardServices(BaseServices):
         query = '''
         SELECT
             ec.age_group,
-            COUNT(*) as count
+            COUNT(*) as age_group_count
         FROM encounters as ec
         JOIN facility as fc ON ec.facility_id = fc.id
         JOIN treatment_outcome as tc on tc.id = ec.outcome

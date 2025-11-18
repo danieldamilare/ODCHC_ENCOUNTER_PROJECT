@@ -46,7 +46,7 @@ class DateRangePicker {
             <div class="odchc-date-picker__overlay"></div>
             <div class="odchc-date-picker__container">
                 <div class="odchc-date-picker__header">
-                    <h3>Date Range Picker</h3>
+                    <h3>Date Range</h3>
                     <button type="button" class="odchc-date-picker__close" aria-label="Close">×</button>
                 </div>
                 <div class="odchc-date-picker__body">
