@@ -236,6 +236,25 @@
         .filter-content:not(.collapsed) {
             overflow: visible !important;
         }
+
+        /* Ensure dropdown container doesn't clip */
+        .choices.is-open {
+            overflow: visible !important;
+        }
+
+        .choices.is-open .choices__list--dropdown {
+            position: absolute !important;
+        }
+
+        /* Make all select fields grey for consistency */
+        select {
+            background-color: #f9fafb !important;
+        }
+
+        /* Ensure form containers don't clip dropdowns */
+        form .grid > div {
+            overflow: visible !important;
+        }
     </style>
 </head>
 <body class="h-full">
@@ -594,7 +613,9 @@
                     searchPlaceholderValue: 'Type to search...',
                     itemSelectText: '',
                     shouldSort: false,
-                    removeItemButton: false
+                    removeItemButton: false,
+                    position: 'bottom',
+                    renderChoiceLimit: -1
                 });
 
                 window.choicesInstances.push(choices);

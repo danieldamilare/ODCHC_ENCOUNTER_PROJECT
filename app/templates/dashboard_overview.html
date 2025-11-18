@@ -152,8 +152,8 @@
         <!-- Collapsible Content -->
         <div id="filter-content" class="filter-content collapsed">
             <form id="filter-form" method="GET" class="p-4">
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div>
+                <div class="grid grid-cols-1 sm:grid-cols-12 gap-4">
+                    <div class="sm:col-span-6">
                         <label class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Date Range</label>
                         <button type="button" id="date-range-btn" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50 hover:bg-gray-100 text-left flex items-center justify-between transition-colors">
                             <span id="date-range-display">{{ start_date.strftime('%b %d, %Y') }} - {{ end_date.strftime('%b %d, %Y') }}</span>
@@ -165,11 +165,11 @@
                         <input type="hidden" id="start_date" name="start_date" value="{{ start_date.strftime('%Y-%m-%d') }}">
                         <input type="hidden" id="end_date" name="end_date" value="{{ end_date.strftime('%Y-%m-%d') }}">
                     </div>
-                    <div>
+                    <div class="sm:col-span-3">
                         {{ form.scheme_id.label(class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide") }}
                         {{ form.scheme_id(class="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500") }}
                     </div>
-                    <div>
+                    <div class="sm:col-span-3">
                         {{ form.gender.label(class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide") }}
                         {{ form.gender(class="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500") }}
                     </div>
