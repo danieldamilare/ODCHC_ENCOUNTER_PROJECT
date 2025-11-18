@@ -933,7 +933,22 @@ def view_encounter(pid: int):
 
 
 def parse_date(period: str = None):
-    """Parse period string into start_date and end_date."""
+    """Parse period string or custom date range into start_date and end_date."""
+    # Check if custom date range is provided in request args
+    custom_start = request.args.get('start_date')
+    custom_end = request.args.get('end_date')
+
+    if custom_start and custom_end:
+        # Use custom date range from date picker
+        try:
+            start_date = datetime.strptime(custom_start, '%Y-%m-%d').date()
+            end_date = datetime.strptime(custom_end, '%Y-%m-%d').date()
+            return start_date, end_date
+        except ValueError:
+            # If parsing fails, fall back to default
+            pass
+
+    # Fall back to period-based date selection (legacy support)
     if not period:
         period = 'this_month'
 
@@ -948,7 +963,8 @@ def parse_date(period: str = None):
     elif period == 'last_year':
         start_date = today.replace(year=today.year - 1)
     else:
-        raise ValueError(f"Invalid Period selected: {period}")
+        # Default to this month instead of raising error
+        start_date = today.replace(day=1)
 
     return start_date, end_date
 
@@ -1340,7 +1356,7 @@ def append_encounter_header(report_data, start_date: date):
     wb = load_workbook(output_buffer)
     ws = wb.active
     ws.merge_cells("A1:S1")
-    ws['A1'].value = f'{start_date.strftime('%B').upper()} ENCOUNTER PER FACILITIES'
+    ws['A1'].value = f"{start_date.strftime('%B').upper()} ENCOUNTER PER FACILITIES"
     ws['A1'].font = Font(bold=True, size=14)
     ws['A1'].alignment = Alignment(horizontal='center')
 
@@ -1408,7 +1424,7 @@ def download_report():
         return redirect(url_for('reports'))
     # except Exception as e:
         # abort(500)
-    report_name = f'{report_title.replace(' ', '_')}_{start_date.strftime("%B")}.xlsx'
+    report_name = f"{report_title.replace(' ', '_')}_{start_date.strftime('%B')}.xlsx"
 
     report_type = request.args.get('report_type')
     if report_type == 'utilization':

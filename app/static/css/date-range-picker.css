@@ -1,0 +1,531 @@
+/**
+ * ODCHC Date Range Picker Styles
+ * Matching ODCHC brand colors and design system
+ */
+
+/* Overlay and Container */
+.odchc-date-picker {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1000;
+    display: none;
+}
+
+.odchc-date-picker.active {
+    display: block;
+}
+
+.odchc-date-picker__overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+}
+
+.odchc-date-picker__container {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+    width: 700px;
+    max-width: calc(100vw - 32px);
+    max-height: calc(100vh - 32px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header */
+.odchc-date-picker__header {
+    padding: 16px 20px;
+    border-bottom: 1px solid #E2E8F0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+}
+
+.odchc-date-picker__header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: white;
+}
+
+.odchc-date-picker__close {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    font-size: 28px;
+    line-height: 1;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.odchc-date-picker__close:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Body - Two Column Layout */
+.odchc-date-picker__body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* Left Column */
+.odchc-date-picker__left {
+    width: 200px;
+    background: #F8FAFC;
+    border-right: 1px solid #E2E8F0;
+    padding: 16px;
+    overflow-y: auto;
+}
+
+/* Tabs */
+.odchc-date-picker__tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+    border-bottom: 2px solid #E2E8F0;
+}
+
+.odchc-date-picker__tab {
+    flex: 1;
+    background: transparent;
+    border: none;
+    padding: 8px 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748B;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+}
+
+.odchc-date-picker__tab:hover {
+    color: #3B82F6;
+}
+
+.odchc-date-picker__tab.active {
+    color: #3B82F6;
+    border-bottom-color: #3B82F6;
+}
+
+/* Tab Content */
+.odchc-date-picker__tab-content {
+    display: none;
+}
+
+.odchc-date-picker__tab-content.active {
+    display: block;
+}
+
+/* Preset Buttons */
+.odchc-date-picker__preset {
+    width: 100%;
+    background: white;
+    border: 1px solid #CBD5E1;
+    padding: 10px 12px;
+    margin-bottom: 4px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #1E293B;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+}
+
+.odchc-date-picker__preset:hover {
+    background: #DBEAFE;
+    border-color: #3B82F6;
+    color: #1E40AF;
+}
+
+.odchc-date-picker__preset.active {
+    background: #3B82F6;
+    border-color: #3B82F6;
+    color: white;
+}
+
+/* Year Selector */
+.odchc-date-picker__year-selector {
+    margin-bottom: 16px;
+}
+
+.odchc-date-picker__year-selector label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #475569;
+    margin-bottom: 6px;
+}
+
+.odchc-date-picker__year-select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #CBD5E1;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1E293B;
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.odchc-date-picker__year-select:hover {
+    border-color: #3B82F6;
+}
+
+.odchc-date-picker__year-select:focus {
+    outline: none;
+    border-color: #3B82F6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Quarter Grid */
+.odchc-date-picker__quarter-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+}
+
+.odchc-date-picker__quarter {
+    background: white;
+    border: 1px solid #CBD5E1;
+    padding: 12px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.odchc-date-picker__quarter:hover {
+    background: #DBEAFE;
+    border-color: #3B82F6;
+}
+
+.odchc-date-picker__quarter.active {
+    background: #3B82F6;
+    border-color: #3B82F6;
+}
+
+.odchc-date-picker__quarter .quarter-label {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1E293B;
+}
+
+.odchc-date-picker__quarter:hover .quarter-label,
+.odchc-date-picker__quarter.active .quarter-label {
+    color: #1E40AF;
+}
+
+.odchc-date-picker__quarter.active .quarter-label {
+    color: white;
+}
+
+.odchc-date-picker__quarter .quarter-months {
+    font-size: 11px;
+    font-weight: 500;
+    color: #64748B;
+}
+
+.odchc-date-picker__quarter:hover .quarter-months,
+.odchc-date-picker__quarter.active .quarter-months {
+    color: #1E40AF;
+}
+
+.odchc-date-picker__quarter.active .quarter-months {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* Period Type Radio */
+.odchc-date-picker__period-type {
+    margin-bottom: 16px;
+    display: flex;
+    gap: 12px;
+}
+
+.odchc-date-picker__period-type label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+}
+
+.odchc-date-picker__period-type input[type="radio"] {
+    cursor: pointer;
+}
+
+/* Month Grid */
+.odchc-date-picker__month-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+}
+
+.odchc-date-picker__month {
+    background: white;
+    border: 1px solid #CBD5E1;
+    padding: 8px 4px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #1E293B;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.odchc-date-picker__month:hover {
+    background: #DBEAFE;
+    border-color: #3B82F6;
+    color: #1E40AF;
+}
+
+.odchc-date-picker__month.active {
+    background: #3B82F6;
+    border-color: #3B82F6;
+    color: white;
+}
+
+.odchc-date-picker__month--bimonthly {
+    grid-column: span 2;
+    font-size: 12px;
+}
+
+/* Right Column */
+.odchc-date-picker__right {
+    flex: 1;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow-y: auto;
+}
+
+/* Calendars */
+.odchc-date-picker__calendars {
+    display: flex;
+    gap: 16px;
+}
+
+.odchc-date-picker__calendar {
+    flex: 1;
+}
+
+/* Calendar Header */
+.odchc-calendar__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding: 0 4px;
+}
+
+.odchc-calendar__title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1E293B;
+}
+
+.odchc-calendar__nav {
+    background: transparent;
+    border: none;
+    color: #64748B;
+    font-size: 14px;
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.odchc-calendar__nav:hover {
+    background: #F1F5F9;
+    color: #1E293B;
+}
+
+/* Calendar Grid */
+.odchc-calendar__grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+}
+
+.odchc-calendar__day-header {
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748B;
+    text-align: center;
+    padding: 8px 4px;
+}
+
+.odchc-calendar__day {
+    aspect-ratio: 1;
+    background: white;
+    border: 1px solid #E2E8F0;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #1E293B;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.odchc-calendar__day:hover:not(.odchc-calendar__day--disabled):not(.odchc-calendar__day--empty) {
+    background: #F1F5F9;
+    border-color: #CBD5E1;
+}
+
+.odchc-calendar__day--empty {
+    border: none;
+    cursor: default;
+}
+
+.odchc-calendar__day--today {
+    border-color: #3B82F6;
+    border-width: 2px;
+    font-weight: 700;
+}
+
+.odchc-calendar__day--selected-start,
+.odchc-calendar__day--selected-end {
+    background: #3B82F6;
+    border-color: #3B82F6;
+    color: white;
+    font-weight: 700;
+}
+
+.odchc-calendar__day--in-range {
+    background: #DBEAFE;
+    border-color: #93C5FD;
+    color: #1E40AF;
+}
+
+.odchc-calendar__day--disabled {
+    color: #CBD5E1;
+    cursor: not-allowed;
+    background: #F8FAFC;
+}
+
+/* Status Display */
+.odchc-date-picker__status {
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    border-radius: 8px;
+    padding: 12px 16px;
+}
+
+.odchc-date-picker__status-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #475569;
+    margin-bottom: 4px;
+}
+
+.odchc-date-picker__status-row:last-child {
+    margin-bottom: 0;
+}
+
+.odchc-date-picker__status-row strong {
+    font-weight: 700;
+    color: #1E293B;
+    min-width: 50px;
+}
+
+/* Apply Button */
+.odchc-date-picker__apply {
+    width: 100%;
+    background: #3B82F6;
+    border: none;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.odchc-date-picker__apply:hover {
+    background: #2563EB;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.odchc-date-picker__apply:active {
+    transform: translateY(0);
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+    .odchc-date-picker__container {
+        width: 100%;
+        height: 100%;
+        max-width: 100%;
+        max-height: 100%;
+        border-radius: 0;
+        transform: none;
+        top: 0;
+        left: 0;
+    }
+
+    .odchc-date-picker__body {
+        flex-direction: column;
+    }
+
+    .odchc-date-picker__left {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid #E2E8F0;
+        max-height: 200px;
+    }
+
+    .odchc-date-picker__calendars {
+        flex-direction: column;
+    }
+
+    .odchc-date-picker__calendar[data-calendar="right"] {
+        display: none;
+    }
+}
+
+/* Print Styles */
+@media print {
+    .odchc-date-picker {
+        display: none !important;
+    }
+}
