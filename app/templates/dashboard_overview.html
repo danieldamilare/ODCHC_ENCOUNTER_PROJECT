@@ -315,18 +315,32 @@
             <h3 class="text-3xl font-bold">{{ total_facilities }}</h3>
         </div>
 
-        <!-- Referrals -->
-        <div class="bg-gradient-to-br from-amber-500 to-amber-600 rounded-lg p-5 text-white powerbi-card">
+        <div class="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-lg p-5 text-white powerbi-card">
             <div class="flex items-start justify-between mb-3">
-                <div class="p-2 bg-white bg-opacity-20 rounded-lg">
-                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                 <div class="p-3 bg-white bg-opacity-20 rounded-lg">
+                    <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
                     </svg>
                 </div>
+                {% if total_utilization[1] != 0 %}
+                <div class="flex items-center gap-1 px-2 py-1 bg-white bg-opacity-20 rounded-md">
+                    {% if total_utilization[1] > 0 %}
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 10l7-7m0 0l7 7m-7-7v18"/>
+                    </svg>
+                    {% else %}
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
+                    </svg>
+                    {% endif %}
+                    <span class="text-sm font-bold">{{ "%.1f"|format(total_utilization[1]|abs) }}%</span>
+                </div>
+                {% endif %}
             </div>
-            <p class="text-xs font-semibold text-white text-opacity-90 uppercase tracking-wide mb-1">Referrals</p>
-            <h3 class="text-3xl font-bold">{{ "{:,}".format(referral_count) }}</h3>
+            <p class="text-xs font-semibold text-white text-opacity-90 uppercase tracking-wide mb-1">Total Utilization</p>
+            <h3 class="text-3xl font-bold">{{ "{:,}".format(total_utilization[0]) }}</h3>
         </div>
+
     </div>
 
     <!-- Grouped Bar Charts -->

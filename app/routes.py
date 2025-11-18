@@ -29,10 +29,19 @@ from openpyxl.styles import Font, Alignment
 from flask import g
 from app.filter_map import filter_config
 
+
+def get_facility_user_dashboard():
+    facility_id = get_current_user().facility.id
+    filter = Params().where(Facility, 'id', '=', facility_id)
+
+
 @app.route('/')
 @app.route('/index')
 @login_required
 def index():
+
+    if get_current_user().role.name != 'admin':
+        return get_facility_user_dashboard()
     return redirect(url_for('admin_overview'))
 
 @app.route('/auth/login', methods=['GET', 'POST'])
@@ -1003,13 +1012,11 @@ def build_filter(form: FlaskForm, filters: List[str], base_params: Optional[Para
             if col in ['scheme', 'outcome']:
                 value = int(value)
             params = params.where(model, col, op, value)
-
     return params
 
 @app.route('/dashboard/overview')
 @admin_required
-def admin_overview(): #overview don't need facility_filter
-    #date defualt to this month handle period where no date filter
+def admin_overview():
 
     start_date, end_date = parse_date()
     g.start_date = start_date
@@ -1027,7 +1034,7 @@ def admin_overview(): #overview don't need facility_filter
                                                     start_date = g.start_date, end_date = g.end_date)
     total_death = DashboardServices.get_total_death_outcome(without_date_filter, g.start_date, g.end_date)
     facilities_summary = DashboardServices.get_top_facilities_summaries(all_filter, g.start_date, g.end_date)
-    referral_count = DashboardServices.get_referral_count(all_filter)
+    total_utilization = DashboardServices.get_total_utilization(without_date_filter, g.start_date, g.end_date)
     encounter_scheme_grouped = DashboardServices.total_encounter_by_scheme_grouped(all_filter, g.start_date,
                                                                                    g.end_date)
 
@@ -1039,12 +1046,12 @@ def admin_overview(): #overview don't need facility_filter
 
     return render_template(
         'dashboard_overview.html',
-        title = 'Dashboard - Executive',
+        title = 'Dashboard',
         total_facilities = total_facilities,
         total_encounter = total_encounter,
         total_death = total_death,
         facilities_summary = facilities_summary,
-        referral_count = referral_count,
+        total_utilization = total_utilization,
         encounter_scheme_grouped = encounter_scheme_grouped,
         utilization_scheme_grouped = utilization_scheme_grouped,
         mortality_scheme_grouped = mortality_scheme_grouped,
@@ -1084,7 +1091,7 @@ def admin_utilization():
 
     return render_template(
         'dashboard_utilization.html',
-        title = 'Dashboard - Utilization',
+        title = 'Dashboard',
         total_utilization = total_utilization,
         utilization_per_scheme = utilization_per_scheme,
         utilization_age_distribution = utilization_age_distribution,
@@ -1132,7 +1139,7 @@ def admin_encounters():
 
     return render_template(
         'dashboard_encounters.html',
-        title = 'Dashboard - Encounter',
+        title = 'Dashboard',
         total_encounter = total_encounter,
         encounter_gender_distribution = encounter_gender_distribution,
         encounter_age_distribution = encounter_age_distribution,
@@ -1183,7 +1190,7 @@ def admin_mortality():
 
     return render_template(
         'dashboard_mortality.html',
-        title = 'Dashboard - Mortality',
+        title = 'Dashboard',
         mortality_type_distribution = mortality_type_distribution,
         mortality_age_group_distribution = mortality_age_group_distribution,
         mortality_facility_distribution = mortality_facility_distribution,

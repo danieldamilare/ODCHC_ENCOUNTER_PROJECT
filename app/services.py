@@ -1708,6 +1708,15 @@ class DashboardServices(BaseServices):
         used = set()
         result = []
 
+        def parse_key(item: str):
+            if item.startswith('<'):
+                return 0
+
+            elif '-' in item:
+                return int(item.split('-')[0])
+            else:
+                return int(item.split('&')[0])
+
         for row in rows:
             print(row)
             result.append({'age_group': row['age_group'], 'count': row['age_group_count']})
@@ -1716,6 +1725,9 @@ class DashboardServices(BaseServices):
         for age in age_group:
             if age not in used:
                 result.append({'age_group': age, 'count': 0})
+
+        result = sorted(result, key= lambda x: parse_key(x['age_group']))
+
         return result
 
     @classmethod
