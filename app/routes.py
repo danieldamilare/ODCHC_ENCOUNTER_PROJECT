@@ -29,11 +29,30 @@ from openpyxl.styles import Font, Alignment
 from flask import g
 from app.filter_map import filter_config
 
-
 def get_facility_user_dashboard():
     facility_id = get_current_user().facility.id
-    filter = Params().where(Facility, 'id', '=', facility_id)
+    param_filter = Params().where(Facility, 'id', '=', facility_id)
+    start_date = datetime.now().date().replace(day=1)
+    end_date=datetime.now().date()
+    with_date_param = param_filter.where(Encounter, 'date', '>=', start_date)\
+                            .where(Encounter, 'date', '<=', end_date)
+    total_encounter = DashboardServices.get_total_encounters(param_filter, start_date=start_date, end_date = end_date)
+    total_utilization = DashboardServices.get_total_utilization(param_filter, start_date = start_date, end_date = end_date)
+    total_mortality = DashboardServices.get_total_death_outcome(param_filter, start_date = start_date, end_date = end_date)
+    encounter_age_group = DashboardServices.encounter_age_group_distribution(with_date_param)
+    top_cause_of_mortality = DashboardServices.get_top_cause_of_mortality(with_date_param)
+    case_fatality = DashboardServices.case_fatality(with_date_param)
 
+    return render_template("facility_dashboard.html",
+                           start_date = start_date,
+                           end_date = end_date,
+                           total_encounter = total_encounter,
+                           total_utilization = total_utilization,
+                           total_mortality = total_mortality,
+                           encounter_age_group = encounter_age_group,
+                           top_cause_of_mortality = top_cause_of_mortality,
+                           case_fatality = case_fatality,
+                           )
 
 @app.route('/')
 @app.route('/index')
@@ -1087,6 +1106,7 @@ def admin_utilization():
     total_utilization = DashboardServices.get_total_utilization(without_date_filters, g.start_date, g.end_date)
     utilization_age_distribution = DashboardServices.utilization_age_group_distribution(all_filters)
     top_utilized_facilities = DashboardServices.get_top_utilization_facilities(all_filters)
+    service_utilization_rate =  DashboardServices.get_service_utilization_rate(without_date_filters, g.start_date, g.end_date)
     utilization_trend = DashboardServices.get_utilization_trend(without_date_filters, g.start_date, g.end_date)
 
     return render_template(
@@ -1099,6 +1119,7 @@ def admin_utilization():
         average_daily_utilization = average_daily_utilization,
         utilization_trend = utilization_trend,
         top_utilized_facilites = top_utilized_facilities,
+        service_utilization_rate = service_utilization_rate,
         utilization_per_lga = utilization_per_lga,
         start_date = g.start_date,
         end_date = g.end_date,

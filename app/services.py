@@ -2582,7 +2582,7 @@ class DashboardServices(BaseServices):
         query = '''
         SELECT
             CASE WHEN COUNT(DISTINCT ec.id) = 0 THEN 0
-            ELSE (COUNT(DISTINCT ec.id) /COUNT(*)) *100
+            ELSE ((COUNT(DISTINCT ec.id) * 1.0) /COUNT(*)) *100
             END AS rate
         FROM encounters as ec
         JOIN facility as fc on fc.id = ec.facility_id
@@ -2594,9 +2594,11 @@ class DashboardServices(BaseServices):
 
         res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         query, args = cls._apply_filter(query, **res)
+        print(query, args)
         # print(query, args)
         db = get_db()
         row = db.execute(query, args).fetchone()
+        print(dict(row))
         res = row['rate'] if row else 0
         return res or 0
 
