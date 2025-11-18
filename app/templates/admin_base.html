@@ -133,9 +133,25 @@
         .sidebar-collapsed .dashboard-dropdown button {
             justify-content: center;
         }
-        /* Hide submenu when sidebar is collapsed */
+        /* Show submenu as popup when sidebar is collapsed */
+        .sidebar-collapsed .dashboard-dropdown {
+            position: relative;
+        }
         .sidebar-collapsed #dashboard-submenu {
-            display: none !important;
+            position: absolute;
+            left: 100%;
+            top: 0;
+            min-width: 200px;
+            margin-left: 0.5rem;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            padding: 0.5rem;
+            z-index: 50;
+        }
+        .sidebar-collapsed #dashboard-submenu a {
+            padding-left: 0.75rem !important;
         }
         /* Ensure submenu icons are always visible */
         #dashboard-submenu svg {
@@ -388,6 +404,7 @@
                 if (button && submenu && chevron) {
                     button.addEventListener('click', (e) => {
                         e.preventDefault();
+                        e.stopPropagation();
                         const isHidden = submenu.classList.contains('hidden');
 
                         // Toggle submenu
@@ -402,6 +419,15 @@
 
                         // Update aria-expanded
                         button.setAttribute('aria-expanded', isHidden);
+                    });
+
+                    // Close dropdown when clicking outside
+                    document.addEventListener('click', (e) => {
+                        if (!dropdown.contains(e.target) && !submenu.classList.contains('hidden')) {
+                            submenu.classList.add('hidden');
+                            chevron.style.transform = 'rotate(0deg)';
+                            button.setAttribute('aria-expanded', 'false');
+                        }
                     });
                 }
             });
@@ -449,7 +475,7 @@
 
             // --- Keyboard Accessibility ---
             document.addEventListener('keydown', (e) => {
-                // Close mobile sidebar on Escapgge
+                // Close mobile sidebar on Escape
                 if (e.key === 'Escape' && mobileSidebarBackdrop.style.display === 'flex') {
                     closeSidebar();
                 }
@@ -458,6 +484,18 @@
                     userMenuDropdown.classList.add('hidden');
                     userMenuButton.setAttribute('aria-expanded', 'false');
                 }
+                // Close dashboard dropdown on Escape
+                dashboardDropdowns.forEach(dropdown => {
+                    const button = dropdown.querySelector('button');
+                    const submenu = dropdown.querySelector('#dashboard-submenu');
+                    const chevron = button.querySelector('svg:last-child');
+
+                    if (e.key === 'Escape' && submenu && !submenu.classList.contains('hidden')) {
+                        submenu.classList.add('hidden');
+                        chevron.style.transform = 'rotate(0deg)';
+                        button.setAttribute('aria-expanded', 'false');
+                    }
+                });
             });
         });
     </script>
