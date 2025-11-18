@@ -103,7 +103,7 @@ def seed_users():
 def seed_treatment_outcome():
     outcomes = [('Admitted/In Patient', 'General'), ('Out Patient', 'General'), ('Referral', 'General'),
             ('Neonatal Death (0 - 28 days)', 'Death'), ('Infant Death', 'Death'),
-            ('Under 5 deaths (1 - 5 years)',
+            ('Under 5 Deaths (1 - 5 years)',
              'Death'), ('Maternal Death (Pregnant women)', 'Death'),
             ('Other Death', 'Death')]
     for outcome in tqdm(outcomes, desc="Creating treatment outcomes"):

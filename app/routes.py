@@ -51,7 +51,7 @@ def get_facility_user_dashboard():
                            total_mortality = total_mortality,
                            encounter_age_group = encounter_age_group,
                            top_cause_of_mortality = top_cause_of_mortality,
-                           case_fatality = case_fatality,
+                           case_fatality = case_fatality
                            )
 
 @app.route('/')
@@ -88,7 +88,6 @@ def login() -> Any:
         # except Exception as e:
             # abort(500)
     return render_template('login.html', title='Sign in', form=form)
-
 
 @app.route('/auth/logout')
 @login_required
@@ -1157,7 +1156,6 @@ def admin_encounters():
     encounter_trend = DashboardServices.get_encounter_trend(without_date_filters, g.start_date, g.end_date)
     encounter_per_lga = DashboardServices.encounter_distribution_across_lga(without_lgas_filters)
 
-
     return render_template(
         'dashboard_encounters.html',
         title = 'Dashboard',
@@ -1174,7 +1172,6 @@ def admin_encounters():
         end_date = g.end_date,
         form = form
     )
-
 
 @app.route('/dashboard/mortality')
 @admin_required

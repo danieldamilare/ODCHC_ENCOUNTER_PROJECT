@@ -89,7 +89,7 @@ class AddEncounterForm(FlaskForm, FacilityMixin, OutcomeMixin):
     gender = SelectField('Gender', choices=[
                          ('M', 'Male'), ('F', 'Female')], validators=[DataRequired(),
                                                                       AnyOf(('M', 'F'))])
-    nin = StringField('Nin', validators=[DataRequired(), Length(min = 11, max= 11, message="Invalid NiN number")])
+    nin = StringField('NIN', validators=[DataRequired(), Length(min = 11, max= 11, message="Invalid NiN number")])
     diseases = FieldList(SelectField('Disease/Diagnosis',
                          validators=[DataRequired(), validate_diseases], coerce=int))
     services = FieldList(SelectField("Services",
@@ -136,7 +136,7 @@ class ANCEncounterForm(FlaskForm, OutcomeMixin, FacilityMixin): #only for pregna
     place_of_issue = StringField("Place of Issue of Kaadi Igbeayo", validators = [DataRequired()])
     hospital_number = StringField("Hospital Number", validators=[DataRequired()] )
     address = StringField("Address", validators = [DataRequired()])
-    nin = StringField('Nin', validators=[DataRequired(), Length(min = 11, max= 11, message="Invalid NiN number")])
+    nin = StringField('NIN', validators=[DataRequired(), Length(min = 11, max= 11, message="Invalid NiN number")])
     booking_date = DateField("Date of Booking", )
     facility = SelectField("Select Facility", coerce=int, validators=[validate_facility])
     outcome = SelectField('Treatment Outcome',  validators=[
@@ -214,8 +214,8 @@ class DeliveryEncounterForm(ANCEncounterForm):
 class ChildHealthEncounterForm(AddEncounterForm):
     client_name = StringField("Cient Name", validators=[DataRequired()])
     dob = DateField("Date of Birth", validators = [DataRequired()])
-    policy_number = StringField("Orin", validators= [DataRequired()])
-    nin = StringField("Mother NIN",  validators=[DataRequired(), Length(min=11, max=11, message="Invalid NIN Number")])
+    policy_number = StringField("ORIN", validators= [DataRequired()])
+    nin = StringField("Parent/Guardian's NIN",  validators=[DataRequired(), Length(min=11, max=11, message="Invalid NIN Number")])
     address = StringField("Parent's Address", validators=[DataRequired()])
     guardian_name = StringField("Parent/Guardian's Name", validators=[DataRequired()])
     phone_number = StringField("Parent/Guardian's Phone Number", validators=[DataRequired(), nigerian_phone_number])

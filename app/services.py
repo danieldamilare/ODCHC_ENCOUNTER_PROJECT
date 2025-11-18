@@ -1772,31 +1772,6 @@ class DashboardServices(BaseServices):
         return cls._run_query(query,
                               args,
                               lambda row: {'disease_name': row['disease_name'], 'count': row['count']})
-
-    @classmethod
-    def top_services(cls,
-                     params:Params):
-
-        query = '''
-             SELECT srv.name AS service_name, COUNT(srv.id) AS service_count
-             FROM encounters AS ec
-             JOIN encounters_services as ecs ON ecs.encounter_id = ec.id
-             JOIN services AS srv ON ecs.service_id = srv.id
-             JOIN facility AS fc ON fc.id = ec.facility_id
-        '''
-        args = ()
-        params = params.group(Service, 'id')
-        params = params.sort(None, 'service_count', 'DESC')
-        if not params.limit:
-            params = params.set_limit(10)
-
-        res:Dict = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
-        query, args = cls._apply_filter(query, **res)
-
-        return cls._run_query(query,
-                              args,
-                              lambda row: {'service_name': row['service_name'], 'count': row['service_count']})
-
     @classmethod
     def encounter_gender_distribution(cls,
                             params: Params):
@@ -1819,7 +1794,6 @@ class DashboardServices(BaseServices):
         return cls._run_query(query,
                              args,
                              lambda row: {'gender': row['gender'], 'count': row['gender_count']})
-
 
     @classmethod
     def encounter_age_group_distribution(cls,
