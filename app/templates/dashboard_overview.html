@@ -1,6 +1,9 @@
 {% extends "admin_base.html" %}
 
 {% block content %}
+<!-- Date Range Picker Styles -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/date-range-picker.css') }}">
+
 <style>
     /* Print Styles */
     @media print {
@@ -151,8 +154,16 @@
             <form id="filter-form" method="GET" class="p-4">
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
-                        {{ form.period.label(class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide") }}
-                        {{ form.period(class="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500") }}
+                        <label class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Date Range</label>
+                        <button type="button" id="date-range-btn" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white hover:bg-gray-50 text-left flex items-center justify-between transition-colors">
+                            <span id="date-range-display">{{ start_date.strftime('%b %d, %Y') }} - {{ end_date.strftime('%b %d, %Y') }}</span>
+                            <svg class="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                        </button>
+                        <!-- Hidden fields for date range -->
+                        <input type="hidden" id="start_date" name="start_date" value="{{ start_date.strftime('%Y-%m-%d') }}">
+                        <input type="hidden" id="end_date" name="end_date" value="{{ end_date.strftime('%Y-%m-%d') }}">
                     </div>
                     <div>
                         {{ form.scheme_id.label(class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide") }}
@@ -183,11 +194,39 @@
         </div>
     </div>
 
+    <!-- Date Range Picker Script -->
+    <script src="{{ url_for('static', filename='js/date-range-picker.js') }}"></script>
+
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         const filterForm = document.getElementById('filter-form');
         const applyBtn = document.getElementById('apply-filters-btn');
         const clearBtn = document.getElementById('clear-filters-btn');
+        const dateRangeBtn = document.getElementById('date-range-btn');
+        const dateRangeDisplay = document.getElementById('date-range-display');
+        const startDateInput = document.getElementById('start_date');
+        const endDateInput = document.getElementById('end_date');
+
+        // Initialize Date Range Picker
+        const dateRangePicker = new DateRangePicker({
+            initialStartDate: startDateInput.value,
+            initialEndDate: endDateInput.value,
+            onApply: function(result) {
+                // Format dates for display
+                dateRangeDisplay.textContent = result.fromDateString + ' - ' + result.toDateString;
+
+                // Update hidden fields (YYYY-MM-DD format)
+                startDateInput.value = result.fromDate.toISOString().split('T')[0];
+                endDateInput.value = result.toDate.toISOString().split('T')[0];
+            }
+        });
+
+        // Open date range picker when button is clicked
+        if (dateRangeBtn) {
+            dateRangeBtn.addEventListener('click', function() {
+                dateRangePicker.open();
+            });
+        }
 
         // Apply filters - submit form
         if (applyBtn) {
