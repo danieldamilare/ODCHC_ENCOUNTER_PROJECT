@@ -240,7 +240,7 @@ class AddFacilityForm(FlaskForm, SchemeMixin):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.scheme.choices  = list(InsuranceSchemeServices.get_all())
+        self.scheme.choices  = [scheme.scheme_name for scheme in InsuranceSchemeServices.get_all()]
 
 class AddCategoryForm(FlaskForm):
     category_name = StringField('Category Name', validators=[DataRequired()])
