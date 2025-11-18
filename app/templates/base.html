@@ -7,6 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Select2 for searchable dropdowns -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <title>{{ title }} - ODCHC Encounter System</title>
     <style>
         * {
@@ -107,6 +109,59 @@
 
         .skip-link:focus {
             top: 0;
+        }
+
+        /* Select2 Custom Styling */
+        .select2-container--default .select2-selection--single {
+            height: 42px !important;
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 0.5rem !important;
+            padding: 0.5rem 0.75rem !important;
+            font-family: 'Inter', sans-serif !important;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+            line-height: 26px !important;
+            padding-left: 0 !important;
+            color: #1e293b !important;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: 40px !important;
+            right: 8px !important;
+        }
+        .select2-container--default.select2-container--focus .select2-selection--single {
+            border-color: #0ea5e9 !important;
+            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1) !important;
+        }
+        .select2-dropdown {
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 0.5rem !important;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+        }
+        .select2-search--dropdown .select2-search__field {
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 0.375rem !important;
+            padding: 0.5rem !important;
+            font-family: 'Inter', sans-serif !important;
+        }
+        .select2-search--dropdown .select2-search__field:focus {
+            border-color: #0ea5e9 !important;
+            outline: none !important;
+            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1) !important;
+        }
+        .select2-results__option {
+            padding: 0.5rem 0.75rem !important;
+            font-family: 'Inter', sans-serif !important;
+        }
+        .select2-results__option--highlighted[aria-selected] {
+            background-color: #e0f2fe !important;
+            color: #0c4a6e !important;
+        }
+        .select2-results__option[aria-selected="true"] {
+            background-color: #0ea5e9 !important;
+            color: white !important;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__placeholder {
+            color: #94a3b8 !important;
         }
     </style>
 </head>
@@ -230,5 +285,54 @@
             <p class="text-sm text-[#0ea5e9] font-medium">Monitoring & Evaluation System</p>
         </div>
     </footer>
+
+    <!-- jQuery (required for Select2) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Select2 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+    <!-- Initialize Select2 on all select elements -->
+    <script>
+        $(document).ready(function() {
+            // Initialize Select2 on all select fields
+            // Target specific select fields to add search functionality
+            const selectorsToEnhance = [
+                'select[name="facility_id"]',     // Facility dropdowns
+                'select[name="lga"]',              // LGA dropdowns
+                'select[id^="diagnoses-"]',        // Diagnosis fields
+                'select[id^="services-"]',         // Service fields
+                'select[name$="_id"]',             // Any field ending with _id
+                '.searchable-select'               // Any element with this class
+            ];
+
+            // Combine all selectors
+            const combinedSelector = selectorsToEnhance.join(', ');
+
+            // Initialize Select2
+            $(combinedSelector).select2({
+                theme: 'default',
+                width: '100%',
+                placeholder: function() {
+                    return $(this).data('placeholder') || 'Select an option...';
+                },
+                allowClear: true,
+                minimumResultsForSearch: 5  // Show search only if more than 5 options
+            });
+
+            // Handle dynamically added select elements (for diagnosis/services)
+            $(document).on('DOMNodeInserted', function(e) {
+                if ($(e.target).is('select') || $(e.target).find('select').length > 0) {
+                    const newSelects = $(e.target).is('select') ? $(e.target) : $(e.target).find('select');
+                    newSelects.filter(combinedSelector).select2({
+                        theme: 'default',
+                        width: '100%',
+                        placeholder: 'Select an option...',
+                        allowClear: true,
+                        minimumResultsForSearch: 5
+                    });
+                }
+            });
+        });
+    </script>
 </body>
 </html>
