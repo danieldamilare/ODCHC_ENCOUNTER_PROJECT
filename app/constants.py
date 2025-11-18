@@ -50,3 +50,12 @@ class FacilityType(Enum):
     PRIVATE = "Private"
     SECONDARY = "Secondary"
     PRIMARY = "Primary"
+
+class AgeGroup(Enum):
+    LESS_THAN_ONE = '<1'
+    UNDER_FIVE = '1-5'
+    SIX_TO_FOURTEEN = '6-14'
+    FIFTEEN_TO_NINE = '15-19'
+    TWENTY_TO_FOURTY_FOUR = '20-44'
+    FOURTY_FIVE_TO_SIXTY_FOUR = '45-64'
+    SIXTY_AND_ABOVE = '65&AB'

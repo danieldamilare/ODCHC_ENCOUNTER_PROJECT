@@ -14,7 +14,7 @@ from app.models import (User, Facility, Disease, Encounter, TreatmentOutcome, Di
 from app.exceptions import MissingError, InvalidReferenceError, DuplicateError, QueryParameterError
 from app.exceptions import ValidationError, AuthenticationError, ServiceError
 from app import app
-from app.constants import ONDO_LGAS_LOWER, DeliveryMode, EncType, BabyOutcome, SchemeEnum
+from app.constants import ONDO_LGAS_LOWER, DeliveryMode, EncType, BabyOutcome, SchemeEnum, AgeGroup
 from copy import copy
 from app.filter_parser import FilterParser, Params
 from dateutil.relativedelta import relativedelta
@@ -1695,23 +1695,27 @@ class DashboardServices(BaseServices):
                                            })
 
     @classmethod
-    def _validate_date(cls, start_date, end_date, limit):
-        today = datetime.today().date()
-        start_date = start_date or today.replace(day=1)
-        end_date = end_date or today
-
-        if end_date < start_date:
-            raise ValidationError("Invalid Date Range")
-        if limit <= 0:
-            raise ValidationError("Invalid Display Row")
-
-        return start_date, end_date, limit
-
-    @classmethod
     def _run_query(cls, query: str, params: list, row_mapper):
         db = get_db()
         rows = db.execute(query, params)
         return [row_mapper(row) for row in rows]
+
+    @classmethod
+    def get_age_group(cls, query, args):
+        db = get_db()
+        rows = db.execute(query, args).fetchall()
+        age_group = [g.value for g in AgeGroup]
+        used = set()
+        result = []
+
+        for row in rows:
+            result.append({'age_group': row['age_group'], 'count': row['age_group_count']})
+            used.add(row['age_group'])
+
+        for age in age_group:
+            if age not in used:
+                result.append({'age_group': age, 'count': 0})
+        return result
 
     @classmethod
     def top_diseases(cls,
@@ -1818,10 +1822,7 @@ class DashboardServices(BaseServices):
         res  = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         query, args = cls._apply_filter(query, **res)
 
-        return cls._run_query(query,
-                              args,
-                              lambda row: {'age_group': row['age_group'], 'count': row['age_group_count']})
-
+        return cls.get_age_group(query, args)
 
     @classmethod
     def utilization_age_group_distribution(cls,
@@ -1839,15 +1840,13 @@ class DashboardServices(BaseServices):
         res  = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         query, args = cls._apply_filter(query, **res)
 
-        return cls._run_query(query,
-                              args,
-                              lambda row: {'age_group': row['age_group'], 'count': row['age_group_count']})
+        return cls.get_age_group(query, args)
 
     @classmethod
     def get_utilization_trend(cls, params: Params, start_date, end_date):
         # ensure at least 6 months range
         start_date = start_date.replace(day=1)
-        supposed_start = (end_date.replace(day=1) - relativedelta(months=6))
+        supposed_start = (end_date.replace(day=1) - relativedelta(month=6))
         if start_date > supposed_start:
             start_date = supposed_start
 
@@ -1892,7 +1891,7 @@ class DashboardServices(BaseServices):
     def get_encounter_trend(cls, params: Params, start_date, end_date):
         # ensure at least 6 months range
         start_date = start_date.replace(day=1)
-        supposed_start = (end_date.replace(day=1) - relativedelta(months=6))
+        supposed_start = (end_date.replace(day=1) - relativedelta(month=6))
         if start_date > supposed_start:
             start_date = supposed_start
 
@@ -2245,8 +2244,8 @@ class DashboardServices(BaseServices):
         params = params.where(TreatmentOutcome, 'type', '=', 'Death')
         res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         query, args = cls._apply_filter(query, **res)
-        return cls._run_query(query, args,
-                              lambda row: {'age_group': row['age_group'], 'count': row['count']})
+
+        return cls.get_age_group(query, args)
 
     @classmethod
     def get_top_cause_of_mortality(cls, params: Params):
@@ -2426,7 +2425,6 @@ class DashboardServices(BaseServices):
                               lambda row: {'facility_name': row['facility_name'],
                                             'count': row['count']})
 
-
     @classmethod
     def get_mortality_trend(cls, params: Params, start_date, end_date):
         query = '''
@@ -2439,7 +2437,7 @@ class DashboardServices(BaseServices):
         JOIN treatment_outcome as tc on tc.id = ec.outcome
         '''
         if (end_date - start_date).days < 30 * 6:
-            start_date = end_date.replace(month = end_date.month - 6, day = 1)
+            start_date = end_date.replace(day = 1) - relativedelta(month=6)
         params = params.where(TreatmentOutcome, 'type', '=', 'Death')
         params = params.where(Encounter, 'date', '>=', start_date)
         params = params.where(Encounter, 'date', '<=', end_date)

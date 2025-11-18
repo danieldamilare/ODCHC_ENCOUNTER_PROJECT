@@ -243,14 +243,13 @@ def seed_encounter(num: int = 1000, start_date: date = datetime.now().replace(mo
             selected_scheme = random.choice(facility.scheme)
             date = fake.date_between(start_date=start_date, end_date = end_date)
             policy_number =  ''.join(random.choices('0123456789', k=10))
-            age = random.randint(0, 90)
+            age = random.randint(15, 60)
             treatment = fake.sentence(nb_words=10)
             outcome = random.choice(outcome_ids)
             doctor_name = random.choice(["Dr. Owolabi", "Dr. Musa", "Dr. Adeola"])
             created_by = facility_user_link[facility.id]
             address = fake.address()
             client_name = fake.name()
-            gender = random.choice(["M", "F"])
             phone_number = "08020007040"
             nin  = ''.join(random.choices('0123456789', k=11))
             created_at = date
@@ -263,7 +262,7 @@ def seed_encounter(num: int = 1000, start_date: date = datetime.now().replace(mo
                 date = date,
                 client_name = client_name,
                 policy_number = policy_number,
-                gender = gender,
+                gender = 'F',
                 age = age,
                 treatment= treatment,
                 doctor_name= doctor_name,
