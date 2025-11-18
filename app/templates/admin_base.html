@@ -8,6 +8,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Choices.js for searchable dropdowns (no jQuery needed) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js@10.2.0/public/assets/styles/choices.min.css" />
     <script>
         tailwind.config = {
             theme: {
@@ -169,6 +171,63 @@
         .toggle-btn:hover {
             background-color: #e0f2fe;
             transform: scale(1.05);
+        }
+
+        /* Choices.js Custom Styling */
+        .choices {
+            margin-bottom: 0;
+            font-family: 'Inter', sans-serif;
+        }
+        .choices__inner {
+            min-height: 42px;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.5rem;
+            background-color: #fff;
+            font-size: 0.875rem;
+        }
+        .choices__inner:focus,
+        .choices.is-focused .choices__inner {
+            border-color: #0ea5e9;
+            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+        }
+        .choices__list--single {
+            padding: 0;
+        }
+        .choices__list--dropdown {
+            border: 1px solid #cbd5e1;
+            border-radius: 0.5rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            z-index: 100;
+        }
+        .choices__list--dropdown .choices__item--selectable {
+            padding: 0.5rem 0.75rem;
+        }
+        .choices__list--dropdown .choices__item--selectable.is-highlighted {
+            background-color: #e0f2fe;
+            color: #0c4a6e;
+        }
+        .choices__input {
+            background-color: #fff;
+            font-size: 0.875rem;
+            margin-bottom: 0;
+            padding: 0.25rem 0;
+        }
+        .choices__placeholder {
+            opacity: 0.5;
+        }
+        .choices[data-type*='select-one'] .choices__button {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23374151'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'/%3E%3C/svg%3E");
+            background-size: 12px;
+            width: 12px;
+            height: 12px;
+            opacity: 0.5;
+            border-radius: 0;
+            padding: 0;
+            margin: 0 0.5rem 0 0;
+        }
+        .choices[data-type*='select-one'] .choices__button:hover {
+            opacity: 1;
         }
     </style>
 </head>
@@ -496,6 +555,93 @@
                         button.setAttribute('aria-expanded', 'false');
                     }
                 });
+            });
+        });
+    </script>
+
+    <!-- Choices.js (no jQuery needed) -->
+    <script src="https://cdn.jsdelivr.net/npm/choices.js@10.2.0/public/assets/scripts/choices.min.js"></script>
+
+    <!-- Initialize Choices.js on all select elements -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Store all Choices instances
+            window.choicesInstances = window.choicesInstances || [];
+
+            // Function to initialize Choices on a select element
+            function initializeChoices(selectElement) {
+                // Skip if already initialized
+                if (selectElement.classList.contains('choices__input')) {
+                    return;
+                }
+
+                // Only initialize if select has more than 5 options
+                const optionCount = selectElement.options.length;
+                if (optionCount <= 5) {
+                    return;
+                }
+
+                const choices = new Choices(selectElement, {
+                    searchEnabled: true,
+                    searchChoices: true,
+                    searchPlaceholderValue: 'Type to search...',
+                    itemSelectText: '',
+                    removeItemButton: true,
+                    shouldSort: false,
+                    placeholder: true,
+                    placeholderValue: selectElement.getAttribute('data-placeholder') || 'Select an option...'
+                });
+
+                window.choicesInstances.push(choices);
+            }
+
+            // Target specific select fields to add search functionality
+            const selectorsToEnhance = [
+                'select[name="facility_id"]',     // Facility dropdowns
+                'select[name="lga"]',              // LGA dropdowns
+                'select[id^="diagnoses-"]',        // Diagnosis fields
+                'select[id^="services-"]',         // Service fields
+                'select[name$="_id"]',             // Any field ending with _id
+                'select[name="scheme_id"]',        // Scheme dropdowns
+                'select[name="gender"]',           // Gender dropdowns
+                '.searchable-select'               // Any element with this class
+            ];
+
+            // Initialize on existing elements
+            selectorsToEnhance.forEach(selector => {
+                document.querySelectorAll(selector).forEach(selectElement => {
+                    initializeChoices(selectElement);
+                });
+            });
+
+            // Watch for dynamically added select elements (for diagnosis/services)
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    mutation.addedNodes.forEach(function(node) {
+                        if (node.nodeType === 1) { // Element node
+                            // Check if the node itself is a select
+                            if (node.tagName === 'SELECT') {
+                                selectorsToEnhance.forEach(selector => {
+                                    if (node.matches(selector)) {
+                                        initializeChoices(node);
+                                    }
+                                });
+                            }
+                            // Check for select elements within the node
+                            selectorsToEnhance.forEach(selector => {
+                                node.querySelectorAll && node.querySelectorAll(selector).forEach(selectElement => {
+                                    initializeChoices(selectElement);
+                                });
+                            });
+                        }
+                    });
+                });
+            });
+
+            // Start observing the document for changes
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
             });
         });
     </script>
