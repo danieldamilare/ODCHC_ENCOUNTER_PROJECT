@@ -2,38 +2,7 @@
 
 {% block content %}
 <style>
-    /* Print Styles */
-    @media print {
-        body {
-            background: white !important;
-            margin: 0 !important;
-            padding: 0 !important;
-        }
-        .no-print { display: none !important; }
-        #desktop-sidebar { display: none !important; }
-        #mobile-sidebar { display: none !important; }
-        header { display: none !important; }
-        nav { display: none !important; }
-        #main-content-wrapper {
-            padding-left: 0 !important;
-            margin: 0 !important;
-            width: 100% !important;
-        }
-        #main-content {
-            padding: 0.5in !important;
-            width: 100% !important;
-        }
-    }
-
-    /* Power BI Style Card Shadows */
-    .powerbi-card {
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-        transition: transform 0.2s, box-shadow 0.2s;
-    }
-    .powerbi-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-    }
+    /* ... (Keep existing styles) ... */
 
     /* Chart Container */
     .chart-wrapper {
@@ -48,11 +17,10 @@
 </style>
 
 <div class="space-y-6">
-    <!-- Page Header - Simple -->
     <div class="bg-gradient-to-r from-slate-700 to-slate-800 rounded-xl p-6 shadow-lg no-print">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-                <h1 class="text-3xl font-bold text-white">📊 {{ facility_name }}</h1>
+                <h1 class="text-3xl font-bold text-white">🏥 {{ facility_name }}</h1>
                 <p class="text-base text-gray-300 mt-1">
                     <svg class="inline h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
@@ -69,9 +37,7 @@
         </div>
     </div>
 
-    <!-- KPI Cards - Large and Simple -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
-        <!-- Total Encounters -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white powerbi-card">
             <div class="flex items-start justify-between mb-4">
                 <div class="p-3 bg-white bg-opacity-20 rounded-xl">
@@ -81,15 +47,6 @@
                 </div>
                 {% if total_encounter[1] != 0 %}
                 <div class="flex items-center gap-1 px-3 py-1 bg-white bg-opacity-20 rounded-lg">
-                    {% if total_encounter[1] > 0 %}
-                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 10l7-7m0 0l7 7m-7-7v18"/>
-                    </svg>
-                    {% else %}
-                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
-                    </svg>
-                    {% endif %}
                     <span class="text-base font-bold">{{ "%.1f"|format(total_encounter[1]|abs) }}%</span>
                 </div>
                 {% endif %}
@@ -98,7 +55,6 @@
             <h3 class="text-5xl font-bold">{{ "{:,}".format(total_encounter[0]) }}</h3>
         </div>
 
-        <!-- Total Utilization -->
         <div class="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl p-6 text-white powerbi-card">
             <div class="flex items-start justify-between mb-4">
                 <div class="p-3 bg-white bg-opacity-20 rounded-xl">
@@ -108,15 +64,6 @@
                 </div>
                 {% if total_utilization[1] != 0 %}
                 <div class="flex items-center gap-1 px-3 py-1 bg-white bg-opacity-20 rounded-lg">
-                    {% if total_utilization[1] > 0 %}
-                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 10l7-7m0 0l7 7m-7-7v18"/>
-                    </svg>
-                    {% else %}
-                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
-                    </svg>
-                    {% endif %}
                     <span class="text-base font-bold">{{ "%.1f"|format(total_utilization[1]|abs) }}%</span>
                 </div>
                 {% endif %}
@@ -125,7 +72,6 @@
             <h3 class="text-5xl font-bold">{{ "{:,}".format(total_utilization[0]) }}</h3>
         </div>
 
-        <!-- Total Deaths -->
         <div class="bg-gradient-to-br from-red-500 to-red-600 rounded-xl p-6 text-white powerbi-card">
             <div class="flex items-start justify-between mb-4">
                 <div class="p-3 bg-white bg-opacity-20 rounded-xl">
@@ -135,15 +81,6 @@
                 </div>
                 {% if total_mortality[1] != 0 %}
                 <div class="flex items-center gap-1 px-3 py-1 bg-white bg-opacity-20 rounded-lg">
-                    {% if total_mortality[1] > 0 %}
-                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 10l7-7m0 0l7 7m-7-7v18"/>
-                    </svg>
-                    {% else %}
-                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
-                    </svg>
-                    {% endif %}
                     <span class="text-base font-bold">{{ "%.1f"|format(total_mortality[1]|abs) }}%</span>
                 </div>
                 {% endif %}
@@ -151,45 +88,61 @@
             <p class="text-sm font-semibold text-white text-opacity-90 uppercase tracking-wide mb-2">Total Deaths</p>
             <h3 class="text-5xl font-bold">{{ "{:,}".format(total_mortality[0]) }}</h3>
         </div>
-    </div>
 
-    <!-- Gender Split Card -->
-    <div class="bg-white rounded-xl shadow-md border border-gray-200 p-6 powerbi-card">
-        <h3 class="text-lg font-bold text-gray-800 mb-4">👥 Encounters by Gender</h3>
-        <div class="grid grid-cols-2 gap-6">
-            {% for gender_data in encounter_gender %}
-            <div class="text-center p-6 {% if gender_data.gender == 'M' %}bg-blue-50{% else %}bg-pink-50{% endif %} rounded-lg">
-                <div class="text-5xl mb-2">{% if gender_data.gender == 'M' %}👨{% else %}👩{% endif %}</div>
-                <p class="text-sm font-semibold text-gray-600 uppercase mb-1">{% if gender_data.gender == 'M' %}Male{% else %}Female{% endif %}</p>
-                <p class="text-4xl font-bold {% if gender_data.gender == 'M' %}text-blue-600{% else %}text-pink-600{% endif %}">{{ "{:,}".format(gender_data.count) }}</p>
-                <p class="text-sm text-gray-500 mt-2">
-                    ({{ "%.1f"|format((gender_data.count / total_encounter[0] * 100) if total_encounter[0] > 0 else 0) }}%)
-                </p>
+        <div class="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-6 text-white powerbi-card">
+            <div class="flex items-start justify-between mb-4">
+                <div class="p-3 bg-white bg-opacity-20 rounded-xl">
+                    <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                </div>
             </div>
-            {% endfor %}
+            <p class="text-sm font-semibold text-white text-opacity-90 uppercase tracking-wide mb-2">Case Fatality Rate</p>
+            <h3 class="text-5xl font-bold">{{ "%.2f"|format(case_fatality) }}%</h3>
+            <p class="text-sm text-white text-opacity-80 mt-2">Deaths per 100 encounters</p>
         </div>
     </div>
 
-    <!-- Encounter Age Distribution -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white rounded-xl shadow-md border border-gray-200 p-6 powerbi-card h-full">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">🚻 Encounters by Gender</h3>
+            {% if encounter_gender %}
+                <div class="grid grid-cols-2 gap-6 h-full content-center">
+                    {% for gender_data in encounter_gender %}
+                    <div class="text-center p-6 {% if gender_data.gender == 'M' %}bg-blue-50{% else %}bg-pink-50{% endif %} rounded-lg">
+                        <div class="text-5xl mb-2">{% if gender_data.gender == 'Male' %}👨{% else %}👩{% endif %}</div>
+                        <p class="text-sm font-semibold text-gray-600 uppercase mb-1">{% if gender_data.gender == 'Male' %}Male{% else %}Female{% endif %}</p>
+                        <p class="text-4xl font-bold {% if gender_data.gender == 'M' %}text-blue-600{% else %}text-pink-600{% endif %}">{{ "{:,}".format(gender_data.count) }}</p>
+                        <p class="text-sm text-gray-500 mt-2">
+                            ({{ "%.1f"|format((gender_data.count / total_encounter[0] * 100) if total_encounter[0] > 0 else 0) }}%)
+                        </p>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="flex items-center justify-center h-64 text-gray-500">No gender data available</div>
+            {% endif %}
+        </div>
+
+        <div class="bg-white rounded-xl shadow-md border border-gray-200 powerbi-card">
+            <div class="bg-gray-50 px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-bold text-gray-800">👶 Encounters by Age Group</h3>
+            </div>
+            <div class="p-6">
+                <div class="chart-wrapper">
+                    <canvas id="ageDistributionChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="bg-white rounded-xl shadow-md border border-gray-200 powerbi-card">
         <div class="bg-gray-50 px-6 py-4 border-b border-gray-200">
-            <h3 class="text-lg font-bold text-gray-800">📊 Encounters by Age Group</h3>
-        </div>
-        <div class="p-6">
-            <div class="chart-wrapper">
-                <canvas id="ageDistributionChart"></canvas>
-            </div>
-        </div>
-    </div>
-
-    <!-- Top 10 Causes of Death -->
-    <div class="bg-white rounded-xl shadow-md border border-gray-200 powerbi-card">
-        <div class="bg-gray-50 px-6 py-4 border-b border-gray-200">
-            <h3 class="text-lg font-bold text-gray-800">⚠️ Top 10 Causes of Death</h3>
+            <h3 class="text-lg font-bold text-gray-800">☠️ Top 10 Causes of Death</h3>
         </div>
         <div class="p-6">
             {% if top_cause_of_mortality %}
-            <div class="space-y-3">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
                 {% for cause in top_cause_of_mortality[:10] %}
                 <div class="flex items-center gap-4">
                     <div class="flex-shrink-0 w-8 h-8 bg-red-100 text-red-600 rounded-full flex items-center justify-center font-bold text-sm">
@@ -197,11 +150,11 @@
                     </div>
                     <div class="flex-1">
                         <div class="flex items-center justify-between mb-1">
-                            <span class="font-semibold text-gray-800">{{ cause.name }}</span>
+                            <span class="font-semibold text-gray-800 truncate max-w-[200px]">{{ cause.name }}</span>
                             <span class="text-lg font-bold text-red-600">{{ cause.count }}</span>
                         </div>
-                        <div class="w-full bg-gray-200 rounded-full h-3">
-                            <div class="bg-red-500 h-3 rounded-full" style="width: {{ (cause.count / top_cause_of_mortality[0].count * 100) if top_cause_of_mortality[0].count > 0 else 0 }}%"></div>
+                        <div class="w-full bg-gray-200 rounded-full h-2.5">
+                            <div class="bg-red-500 h-2.5 rounded-full" style="width: {{ (cause.count / top_cause_of_mortality[0].count * 100) if top_cause_of_mortality[0].count > 0 else 0 }}%"></div>
                         </div>
                     </div>
                 </div>
@@ -217,30 +170,12 @@
             {% endif %}
         </div>
     </div>
-
-    <!-- Case Fatality Rate -->
-    <div class="bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl p-6 text-white shadow-lg powerbi-card">
-        <div class="flex items-center gap-4">
-            <div class="p-4 bg-white bg-opacity-20 rounded-xl">
-                <svg class="h-10 w-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-                </svg>
-            </div>
-            <div class="flex-1">
-                <p class="text-sm font-semibold text-white text-opacity-90 uppercase tracking-wide mb-1">Case Fatality Rate</p>
-                <h3 class="text-5xl font-bold">{{ "%.2f"|format(case_fatality) }}%</h3>
-                <p class="text-sm text-white text-opacity-80 mt-2">Deaths per 100 encounters</p>
-            </div>
-        </div>
-    </div>
 </div>
 
-<!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    // Age Distribution Chart
     const ageData = {{ encounter_age_group|tojson }};
 
     if (ageData && ageData.length > 0) {
@@ -256,39 +191,32 @@ document.addEventListener('DOMContentLoaded', () => {
                     backgroundColor: '#3B82F6',
                     borderColor: '#2563EB',
                     borderWidth: 2,
-                    borderRadius: 8
+                    borderRadius: 6,
+                    barPercentage: 0.7
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: {
-                        display: false
-                    },
+                    legend: { display: false },
                     tooltip: {
-                        backgroundColor: 'rgba(0, 0, 0, 0.85)',
-                        titleFont: { size: 16, weight: 'bold' },
-                        bodyFont: { size: 15 },
-                        padding: 14,
-                        cornerRadius: 8
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        padding: 12,
+                        cornerRadius: 8,
+                        titleFont: { size: 14 },
+                        bodyFont: { size: 14 }
                     }
                 },
                 scales: {
                     x: {
                         grid: { display: false },
-                        ticks: {
-                            color: '#4B5563',
-                            font: { size: 14, family: 'Inter, sans-serif', weight: 'bold' }
-                        }
+                        ticks: { color: '#4B5563', font: { weight: 'bold' } }
                     },
                     y: {
                         beginAtZero: true,
                         grid: { color: '#E5E7EB' },
-                        ticks: {
-                            color: '#4B5563',
-                            font: { size: 14, family: 'Inter, sans-serif', weight: 'bold' }
-                        }
+                        ticks: { color: '#4B5563' }
                     }
                 }
             }

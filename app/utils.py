@@ -30,7 +30,10 @@ def admin_required(func):
     def wrapper(*args, **kwargs):
         user = get_current_user()
         if user is None or user.role != Role.admin:
-            flash("You  don't have access to that page", "error")
+            if user is not None:
+                flash("You  don't have access to that page", "error")
+            else:
+                flash("Please Login to access the system")
             return redirect(url_for('index'))
         return func(*args, **kwargs)
     return wrapper

@@ -37,11 +37,13 @@ def get_facility_user_dashboard():
     with_date_param = param_filter.where(Encounter, 'date', '>=', start_date)\
                             .where(Encounter, 'date', '<=', end_date)
     total_encounter = DashboardServices.get_total_encounters(param_filter, start_date=start_date, end_date = end_date)
+    encounter_gender = DashboardServices.encounter_gender_distribution(with_date_param)
     total_utilization = DashboardServices.get_total_utilization(param_filter, start_date = start_date, end_date = end_date)
     total_mortality = DashboardServices.get_total_death_outcome(param_filter, start_date = start_date, end_date = end_date)
     encounter_age_group = DashboardServices.encounter_age_group_distribution(with_date_param)
     top_cause_of_mortality = DashboardServices.get_top_cause_of_mortality(with_date_param)
     case_fatality = DashboardServices.case_fatality(with_date_param)
+    facility_name = get_current_user().facility.name
 
     return render_template("facility_dashboard.html",
                            start_date = start_date,
@@ -49,8 +51,10 @@ def get_facility_user_dashboard():
                            total_encounter = total_encounter,
                            total_utilization = total_utilization,
                            total_mortality = total_mortality,
+                           encounter_gender = encounter_gender,
                            encounter_age_group = encounter_age_group,
                            top_cause_of_mortality = top_cause_of_mortality,
+                           facility_name = facility_name,
                            case_fatality = case_fatality
                            )
 

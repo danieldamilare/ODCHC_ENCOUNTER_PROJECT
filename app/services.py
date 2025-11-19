@@ -342,9 +342,10 @@ class UserServices(BaseServices):
 
     @classmethod
     def get_view_by_id(cls, id: int):
-        and_filter = [('u.id', id, '=')]
+        params = Params().where(User, 'id', '=', id)
+        res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         try:
-            return next(cls.get_all(and_filter=and_filter))
+            return next(cls.get_all(**res))
         except StopIteration as e:
             raise MissingError("User does not exist")
 
@@ -1596,7 +1597,7 @@ class EncounterServices(BaseServices):
 
     @classmethod
     def get_encounter_by_facility(cls, facility_id: int) -> Iterator:
-        return cls.get_all(and_filter=[('ec.facility_id', facility_id, '=')])
+        return cls.get_all(params=Params().where(Encounter, 'id', '=', facility_id))
 
     @classmethod
     def get_view_by_id(cls, id: int) -> EncounterView:
@@ -1791,9 +1792,19 @@ class DashboardServices(BaseServices):
 
         res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         query, args = cls._apply_filter(query, **res)
-        return cls._run_query(query,
+
+        result =  cls._run_query(query,
                              args,
                              lambda row: {'gender': row['gender'], 'count': row['gender_count']})
+
+        gender = ['Male', 'Female']
+        used_gender = set(row['gender'] for row in result)
+        for row in gender:
+            if row not in used_gender:
+                result.append({'gender': row, 'count': 0})
+
+        return result
+
 
     @classmethod
     def encounter_age_group_distribution(cls,
@@ -2294,9 +2305,17 @@ class DashboardServices(BaseServices):
         params = params.group(Encounter, 'gender')
         res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         query, args = cls._apply_filter(query, **res)
-        return cls._run_query(query, args,
-                lambda row: {'gender': row['gender'], 'count': row['count']})
+        result =  cls._run_query(query,
+                             args,
+                             lambda row: {'gender': row['gender'], 'count': row['gender_count']})
 
+        gender = ['Male', 'Female']
+        used_gender = set(row['gender'] for row in result)
+        for row in gender:
+            if row not in used_gender:
+                result.append({'gender': row, 'count': 0})
+
+        return result
 
     @classmethod
     def total_mortality_by_scheme_grouped(cls, params: Params, start_date, end_date):
