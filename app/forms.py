@@ -312,6 +312,7 @@ class EncounterFilterForm(FlaskForm, FacilityMixin, SchemeMixin):
                                    validators=[Optional()])
     facility = SelectField('Facility', coerce=int, validators=[Optional()])
     scheme = SelectField('Scheme', coerce=int, validators = [Optional()])
+    term = StringField("")
     submit = SubmitField('Filter')
 
     def __init__(self, *args, **kwargs):

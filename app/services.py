@@ -2102,6 +2102,7 @@ class DashboardServices(BaseServices):
         query, filter_args = cls._apply_filter(query, **res)
 
         args = [start_date, end_date, prev_start_date, prev_end_date] + filter_args
+        print(query, args)
         # print(query, args)
 
         db = get_db()
