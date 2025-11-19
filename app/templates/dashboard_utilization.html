@@ -341,7 +341,7 @@
             <h3 class="text-xl font-bold truncate" title="{{ service_utilization_rate if service_utilization_rate else 'N/A' }}">
                 <p class="text-sm font-semibold text-white text-opacity-90 uppercase tracking-wide mb-2">Service Utilization Rate</p>
             </h3>
-            <p class="text-base font-semibold mt-2">{{ service_utilization_rate if service_utilization_rate else 'N/A' }} % </p>
+            <p class="text-4xl font-bold ">{{ "%.2f" | format(service_utilization_rate) if service_utilization_rate else 'N/A' }} % </p>
         </div>
     </div>
 
