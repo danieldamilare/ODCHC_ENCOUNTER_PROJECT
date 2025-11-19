@@ -179,26 +179,26 @@
 
     <!-- Enhanced Navbar - Full Width -->
     <nav class="border-b border-gray-200">
-        <!-- Organization Header - White Background with Blue Text -->
-        <div class="bg-white py-5 border-b border-gray-200">
-            <div class="flex items-center justify-center gap-4 px-6">
+        <!-- Compact Organization Header -->
+        <div class="bg-white py-2 border-b border-gray-200">
+            <div class="flex items-center justify-center gap-2 px-6">
                 <!-- Logo -->
                 <div class="relative flex-shrink-0">
                     <img src="{{ url_for('static', filename='odchc_logo.png') }}"
                          alt="ODCHC Logo"
-                         class="h-16 w-16 object-contain"
+                         class="h-8 w-8 object-contain"
                          onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                    <div class="h-16 w-16 bg-[#0ea5e9] rounded-xl hidden items-center justify-center shadow-lg">
-                        <span class="text-white font-bold text-xl">ODCHC</span>
+                    <div class="h-8 w-8 bg-[#0ea5e9] rounded-lg hidden items-center justify-center shadow-lg">
+                        <span class="text-white font-bold text-sm">OD</span>
                     </div>
                 </div>
 
-                <!-- Org Name -->
+                <!-- Org Name - Compact -->
                 <div class="text-center">
-                    <h1 class="text-[#0369a1] text-xl sm:text-2xl font-bold tracking-wide uppercase">
-                        Ondo State Contributory Health Commission
+                    <h1 class="text-[#0369a1] text-lg font-bold tracking-wide uppercase">
+                        ODCHC
                     </h1>
-                    <p class="text-[#0284c7] text-sm sm:text-base font-semibold mt-1">
+                    <p class="text-[#0284c7] text-xs font-semibold">
                         Monitoring & Evaluation System
                     </p>
                 </div>
@@ -208,29 +208,29 @@
         {% if current_user.is_authenticated %}
         <!-- Unified Navbar: Facility Name + Navigation + Logout -->
         <div class="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-lg">
-            <div class="flex items-center justify-between py-4 px-6">
+            <div class="flex flex-wrap items-center justify-between gap-4 py-3 px-6">
                 <!-- Left: Facility Name -->
-                <div class="flex items-center space-x-3 flex-shrink-0">
-                    <svg class="w-7 h-7 text-[#0ea5e9] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="flex items-center space-x-2 flex-shrink-0">
+                    <svg class="w-5 h-5 text-[#0ea5e9]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
                     </svg>
                     {% if current_user.role.name != "admin" %}
-                    <span class="text-base sm:text-lg font-bold text-[#0c4a6e] leading-tight">
+                    <span class="text-sm md:text-base font-bold text-[#0c4a6e]">
                         {{ current_user.facility.name if current_user.facility else 'User Portal' }}
                     </span>
                     {% else %}
-                    <span class="text-base sm:text-lg font-bold text-[#0c4a6e] leading-tight">
+                    <span class="text-sm md:text-base font-bold text-[#0c4a6e]">
                         Admin Portal
                     </span>
                     {% endif %}
                 </div>
 
                 <!-- Center: Navigation Links -->
-                <div class="flex items-center gap-4 mx-auto">
+                <div class="flex flex-wrap items-center gap-2 lg:gap-3 mx-auto">
                     <!-- Dashboard -->
                     <a href="{{ url_for('index') }}"
-                       class="nav-item text-slate-700 hover:text-[#0ea5e9] hover:bg-[#e0f2fe] px-6 py-2.5 rounded-lg text-base font-semibold transition-all flex items-center space-x-2 whitespace-nowrap">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       class="nav-item text-slate-700 hover:text-[#0ea5e9] hover:bg-[#e0f2fe] px-3 lg:px-4 py-2 rounded-lg text-sm lg:text-base font-semibold transition-all flex items-center space-x-1.5">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
                         </svg>
                         <span>Dashboard</span>
@@ -238,27 +238,27 @@
 
                     <!-- View Encounters -->
                     <a href="{{ url_for('encounters') }}"
-                       class="nav-item text-slate-700 hover:text-[#0ea5e9] hover:bg-[#e0f2fe] px-6 py-2.5 rounded-lg text-base font-semibold transition-all flex items-center space-x-2 whitespace-nowrap">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       class="nav-item text-slate-700 hover:text-[#0ea5e9] hover:bg-[#e0f2fe] px-3 lg:px-4 py-2 rounded-lg text-sm lg:text-base font-semibold transition-all flex items-center space-x-1.5">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                         </svg>
-                        <span>View Encounters</span>
+                        <span>View</span>
                     </a>
 
                     <!-- Add Encounter -->
                     <a href="{{ url_for('add_encounter') }}"
-                       class="nav-item text-slate-700 hover:text-[#0ea5e9] hover:bg-[#e0f2fe] px-6 py-2.5 rounded-lg text-base font-semibold transition-all flex items-center space-x-2 whitespace-nowrap">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       class="nav-item text-slate-700 hover:text-[#0ea5e9] hover:bg-[#e0f2fe] px-3 lg:px-4 py-2 rounded-lg text-sm lg:text-base font-semibold transition-all flex items-center space-x-1.5">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                         </svg>
-                        <span>Add Encounter</span>
+                        <span>Add</span>
                     </a>
 
                     <!-- Admin Link (if admin) -->
                     {% if current_user.role.name == "admin" %}
                     <a href="{{ url_for('admin_overview') }}"
-                       class="nav-item text-slate-700 hover:text-[#0ea5e9] hover:bg-[#e0f2fe] px-6 py-2.5 rounded-lg text-base font-semibold transition-all flex items-center space-x-2 whitespace-nowrap">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       class="nav-item text-slate-700 hover:text-[#0ea5e9] hover:bg-[#e0f2fe] px-3 lg:px-4 py-2 rounded-lg text-sm lg:text-base font-semibold transition-all flex items-center space-x-1.5">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                         </svg>
@@ -269,8 +269,8 @@
 
                 <!-- Right: Logout Button -->
                 <a href="{{ url_for('logout') }}"
-                   class="btn-logout text-white px-5 py-2.5 rounded-lg text-base font-semibold shadow-md flex items-center space-x-2 flex-shrink-0">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   class="btn-logout text-white px-3 lg:px-4 py-2 rounded-lg text-sm lg:text-base font-semibold shadow-md flex items-center space-x-1.5 flex-shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
                     </svg>
                     <span>Logout</span>
@@ -363,28 +363,28 @@
     {% endwith %}
 
     <!-- Main Content -->
-    <main id="main-content" class="py-8 sm:py-10 min-h-[calc(100vh-10rem)]">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <main id="main-content" class="py-6 min-h-[calc(100vh-10rem)]">
+        <div class="max-w-[1800px] mx-auto px-6">
             {% block content %}{% endblock %}
         </div>
     </main>
 
     <!-- Footer -->
-    <footer class="glass-card border-t border-slate-200/60 py-5 mt-auto">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-            <div class="flex items-center space-x-3">
+    <footer class="glass-card border-t border-slate-200/60 py-4 mt-auto">
+        <div class="max-w-[1800px] mx-auto px-6 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center space-x-2">
                 <img src="{{ url_for('static', filename='odchc_logo.png') }}"
                      alt="ODCHC Logo"
-                     class="h-10 w-10 object-contain"
+                     class="h-8 w-8 object-contain"
                      onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                <div class="h-10 w-10 bg-[#0ea5e9] rounded-lg hidden items-center justify-center">
-                    <span class="text-white font-bold text-base">ODCHC</span>
+                <div class="h-8 w-8 bg-[#0ea5e9] rounded-lg hidden items-center justify-center">
+                    <span class="text-white font-bold text-sm">OD</span>
                 </div>
-                <p class="text-sm text-slate-600 font-medium">
-                    © 2024 Ondo State Contributory Health Commission
+                <p class="text-xs md:text-sm text-slate-600 font-medium">
+                    © 2024 ODCHC
                 </p>
             </div>
-            <p class="text-sm text-[#0ea5e9] font-medium">Monitoring & Evaluation System</p>
+            <p class="text-xs md:text-sm text-[#0ea5e9] font-medium">Monitoring & Evaluation System</p>
         </div>
     </footer>
 
