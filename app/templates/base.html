@@ -178,7 +178,7 @@
     <a href="#main-content" class="skip-link">Skip to main content</a>
 
     <!-- Enhanced Navbar - Full Width -->
-    <nav class="top-0 z-50 shadow-lg border-b border-gray-200">
+    <nav class="border-b border-gray-200">
         <!-- Organization Header - White Background with Blue Text -->
         <div class="bg-white py-5 border-b border-gray-200">
             <div class="flex items-center justify-center gap-4 px-6">
@@ -207,7 +207,7 @@
 
         {% if current_user.is_authenticated %}
         <!-- Unified Navbar: Facility Name + Navigation + Logout -->
-        <div class="bg-white border-b border-gray-200">
+        <div class="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-lg">
             <div class="flex items-center justify-between py-4 px-6">
                 <!-- Left: Facility Name -->
                 <div class="flex items-center space-x-3 flex-shrink-0">
