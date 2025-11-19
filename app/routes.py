@@ -178,7 +178,8 @@ def add_delivery_encounter():
     try:
         registry_val = EncounterServices.get_anc_record_by_registry(orin)
     except MissingError:
-        pass
+        flash("Encounter not allowed: User is not registered for ANC.")
+        return redirect(url_for("add_encounter"))
     user = get_current_user()
 
     form = DeliveryEncounterForm()
@@ -202,31 +203,6 @@ def add_delivery_encounter():
     if form.validate_on_submit():
         try:
             res = form_to_dict(form, Encounter)
-            if not registry_val:
-                registry_val = EncounterServices.create_anc_encounter(
-                    lmp = form.lmp.data,
-                    policy_number= form.policy_number.data,
-                    kia_date= form.kia_date.data,
-                    client_name= form.client_name.data,
-                    booking_date = form.booking_date.data,
-                    parity = form.parity.data,
-                    place_of_issue = form.place_of_issue.data,
-                    address= form.address.data,
-                    date = form.date.data,
-                    hospital_number = form.hospital_number.data,
-                    expected_delivery_date= form.expected_delivery_date.data,
-                    anc_count = 1,
-                    facility_id = user.facility.id,
-                    gender = form.gender.data,
-                    age = form.age.data,
-                    scheme = scheme.id,
-                    nin = form.nin.data,
-                    phone_number = form.phone_number.data,
-                    doctor_name= form.doctor_name.data,
-                    outcome= form.outcome.data,
-                    created_by= get_current_user().id,
-                    treatment = form.treatment.data
-                )
 
             final_outcome = form.death_type.data if form.outcome.data == -1 else form.outcome.data
             res['outcome'] = final_outcome
@@ -242,6 +218,7 @@ def add_delivery_encounter():
             res['baby_details'] = form.babies_data
             res['anc_id'] = registry_val.id
             res['created_by'] = get_current_user().id
+            res['gender'] = 'F'
 
             print(res)
             EncounterServices.create_delivery_encounter(**res)
@@ -310,6 +287,7 @@ def add_anc_encounter():
                 res['facility_id'] = get_current_user().facility.id
             else:
                 res['facility_id'] = form.facility.data
+                res['gender'] = 'F'
 
             EncounterServices.create_anc_encounter(**res)
             flash("ANC Encounter added successfully", 'success')
