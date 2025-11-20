@@ -26,6 +26,16 @@ def validate_diseases(form, field):
             if not disease.data or int(disease.data) == 0:
                 raise ValidationError(
                     "Please select a valid disease from the list")
+def validate_nin(form, field):
+    pattern = re.compile(r'^\d{11}$')
+    if not pattern.match(field.data):
+        raise ValidationError("Invalid Nin: Nin must all be digit and 11 in length")
+
+def validate_orin(form, field):
+    print("In validate Orin")
+    pattern = re.compile(r'^\d{10}$')
+    if not pattern.match(field.data):
+        raise ValidationError("Invalid ORIN: ORIN must all be digit and 10 in length")
 class LoginForm(FlaskForm):
     username = StringField('Enter Username: ', validators=[DataRequired()])
     password = PasswordField('Enter Password: ', validators=[DataRequired()])
@@ -72,7 +82,7 @@ class SchemeMixin:
 class EncTypeForm(FlaskForm):
     encounter_list = [('ANC', 'ANC'), ('Delivery', 'Delivery'),
                       ('Child Health', 'Child Health')]
-    orin = StringField("Enter ORIN Number: ", validators=[DataRequired()])
+    orin = StringField("Enter ORIN Number: ", validators=[DataRequired(), validate_orin])
 
     enc_type = SelectField("Select Encounter Type", validators=[DataRequired()],
                            choices= encounter_list)
@@ -89,7 +99,7 @@ class AddEncounterForm(FlaskForm, FacilityMixin, OutcomeMixin):
     gender = SelectField('Gender', choices=[
                          ('M', 'Male'), ('F', 'Female')], validators=[DataRequired(),
                                                                       AnyOf(('M', 'F'))])
-    nin = StringField('NIN', validators=[DataRequired(), Length(min = 11, max= 11, message="Invalid NiN number")])
+    nin = StringField('NIN', validators=[DataRequired(), validate_nin])
     diseases = FieldList(SelectField('Disease/Diagnosis',
                          validators=[DataRequired(), validate_diseases], coerce=int))
     services = FieldList(SelectField("Services",
@@ -136,7 +146,7 @@ class ANCEncounterForm(FlaskForm, OutcomeMixin, FacilityMixin): #only for pregna
     place_of_issue = StringField("Place of Issue of Kaadi Igbeayo", validators = [DataRequired()])
     hospital_number = StringField("Hospital Number", validators=[DataRequired()] )
     address = StringField("Address", validators = [DataRequired()])
-    nin = StringField('NIN', validators=[DataRequired(), Length(min = 11, max= 11, message="Invalid NiN number")])
+    nin = StringField('NIN', validators=[DataRequired(), validate_nin])
     booking_date = DateField("Date of Booking", )
     facility = SelectField("Select Facility", coerce=int, validators=[validate_facility])
     outcome = SelectField('Treatment Outcome',  validators=[
@@ -214,8 +224,8 @@ class DeliveryEncounterForm(ANCEncounterForm):
 class ChildHealthEncounterForm(AddEncounterForm):
     client_name = StringField("Cient Name", validators=[DataRequired()])
     dob = DateField("Date of Birth", validators = [DataRequired()])
-    policy_number = StringField("ORIN", validators= [DataRequired()])
-    nin = StringField("Parent/Guardian's NIN",  validators=[DataRequired(), Length(min=11, max=11, message="Invalid NIN Number")])
+    policy_number = StringField("ORIN", validators= [DataRequired(), validate_orin])
+    nin = StringField("Parent/Guardian's NIN",  validators=[DataRequired(),validate_nin])
     address = StringField("Parent's Address", validators=[DataRequired()])
     guardian_name = StringField("Parent/Guardian's Name", validators=[DataRequired()])
     phone_number = StringField("Parent/Guardian's Phone Number", validators=[DataRequired(), nigerian_phone_number])

@@ -182,7 +182,7 @@ def add_delivery_encounter():
     try:
         registry_val = EncounterServices.get_anc_record_by_registry(orin)
     except MissingError:
-        flash("Encounter not allowed: User is not registered for ANC.")
+        flash("Encounter not allowed: User is not registered for ANC.", "error")
         return redirect(url_for("add_encounter"))
     user = get_current_user()
 
