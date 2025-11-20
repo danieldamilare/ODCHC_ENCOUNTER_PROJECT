@@ -2308,7 +2308,7 @@ class DashboardServices(BaseServices):
         query, args = cls._apply_filter(query, **res)
         result =  cls._run_query(query,
                              args,
-                             lambda row: {'gender': row['gender'], 'count': row['gender_count']})
+                             lambda row: {'gender': row['gender'], 'count': row['count']})
 
         gender = ['Male', 'Female']
         used_gender = set(row['gender'] for row in result)
