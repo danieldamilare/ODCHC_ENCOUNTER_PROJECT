@@ -36,6 +36,7 @@ def validate_orin(form, field):
     pattern = re.compile(r'^\d{10}$')
     if not pattern.match(field.data):
         raise ValidationError("Invalid ORIN: ORIN must all be digit and 10 in length")
+
 class LoginForm(FlaskForm):
     username = StringField('Enter Username: ', validators=[DataRequired()])
     password = PasswordField('Enter Password: ', validators=[DataRequired()])
@@ -87,6 +88,7 @@ class EncTypeForm(FlaskForm):
     enc_type = SelectField("Select Encounter Type", validators=[DataRequired()],
                            choices= encounter_list)
     submit = SubmitField("Proceed")
+
 class AddEncounterForm(FlaskForm, FacilityMixin, OutcomeMixin):
     policy_number = StringField('Policy Number', validators=[DataRequired()])
     client_name = StringField('Client Name', validators=[DataRequired()])
@@ -233,6 +235,13 @@ class ChildHealthEncounterForm(AddEncounterForm):
                           Optional()], coerce=int, render_kw={'id': 'outcome-select'})
     death_type = SelectField("Death Type", validators=[
                              Optional()], coerce=int, render_kw={'id': 'death-type-select'})
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        death = list(TreatmentOutcomeServices.get_all())
+        self.death_type.choices = [(d.id, d.name) for d in death 
+                           if not str(d).lower().startswith("maternal") and d.type.lower( ) == 'death']
+
 class AddFacilityForm(FlaskForm, SchemeMixin):
     name = StringField('Facility Name', validators=[DataRequired()])
     local_government = SelectField('Local Government',
