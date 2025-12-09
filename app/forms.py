@@ -240,7 +240,7 @@ class ChildHealthEncounterForm(AddEncounterForm):
         super().__init__(*args, **kwargs)
         death = list(TreatmentOutcomeServices.get_all())
         self.death_type.choices = [(d.id, d.name) for d in death 
-                           if not str(d).lower().startswith("maternal") and d.type.lower( ) == 'death']
+                           if not str(d.name).lower().startswith("maternal") and d.type.lower( ) == 'death']
 
 class AddFacilityForm(FlaskForm, SchemeMixin):
     name = StringField('Facility Name', validators=[DataRequired()])
