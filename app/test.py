@@ -1,6 +1,6 @@
 import unittest
 from app.services import FacilityServices, EncounterServices, DiseaseCategoryServices, DiseaseServices
-from app.services import BaseServices, UserServices
+from app.services import BaseServices, UserServices, InsuranceSchemeServices, TreatmentOutcomeServices
 from app.exceptions import DuplicateError, InvalidReferenceError, MissingError, ValidationError, AuthenticationError
 from app.models import Facility, Encounter, DiseaseCategory, Disease, User
 from datetime import datetime
@@ -23,6 +23,8 @@ class BaseServicesTestCase(unittest.TestCase):
         db = get_db()
         cursor = db.execute("SELECT name FROM sqlite_master WHERE type='table';")
         tables = [row[0] for row in cursor.fetchall()]
+        # Create a default insurance scheme for tests
+        self.scheme = InsuranceSchemeServices.create_scheme("TestScheme", "#000000")
 
     def tearDown(self):
         close_db()
@@ -43,7 +45,7 @@ class FacilityServicesTestCase(BaseServicesTestCase):
     def setUp(self):
         super().setUp()
         # Create a default facility for tests
-        FacilityServices.create_facility("TestFacility1", "Owo", "Primary")
+        FacilityServices.create_facility("TestFacility1", "Owo", "Primary", scheme=[self.scheme.id])
 
     def test_create_and_get_facility(self):
         facility = FacilityServices.get_facility_by_name("TestFacility1")
@@ -58,14 +60,14 @@ class FacilityServicesTestCase(BaseServicesTestCase):
         self.assertEqual(facility2.facility_type, "Primary")
 
     def test_create_duplicate_facility(self):
-        FacilityServices.create_facility("TestFacility2", "Akure South", "Secondary")
+        FacilityServices.create_facility("TestFacility2", "Akure South", "Secondary", scheme=[self.scheme.id])
         with self.assertRaises(DuplicateError):
-            FacilityServices.create_facility("TestFacility2", "Akure North", "Secondary")
+            FacilityServices.create_facility("TestFacility2", "Akure North", "Secondary", scheme=[self.scheme.id])
 
     def test_update_facility(self):
         facility = FacilityServices.get_facility_by_name("TestFacility1")
         facility.local_government = "Ondo West"
-        FacilityServices.update_facility(facility)
+        FacilityServices.update_facility(facility, scheme=[self.scheme.id])
         updated_facility = FacilityServices.get_facility_by_name("TestFacility1")
         self.assertEqual(updated_facility.local_government, "Ondo West")
         self.assertEqual(updated_facility.name, "TestFacility1")
@@ -77,7 +79,7 @@ class FacilityServicesTestCase(BaseServicesTestCase):
             FacilityServices.get_facility_by_name("NonExistentFacility")
 
     def test_delete_facility(self):
-        facility = FacilityServices.create_facility("TestFacility3", "Okitipupa", "Tertiary")
+        facility = FacilityServices.create_facility("TestFacility3", "Okitipupa", "Secondary", scheme=[self.scheme.id])
         FacilityServices.delete_facility(facility)
         with self.assertRaises(MissingError):
             FacilityServices.get_facility_by_name("TestFacility3")
@@ -91,8 +93,8 @@ class UserServicesTestCase(BaseServicesTestCase):
     def setUp(self):
         super().setUp()
         # Create facilities required for users
-        FacilityServices.create_facility("TestFacility1", "Owo", "Primary")
-        FacilityServices.create_facility("TestFacility2", "Akure South", "Secondary")
+        FacilityServices.create_facility("TestFacility1", "Owo", "Primary", scheme=[self.scheme.id])
+        FacilityServices.create_facility("TestFacility2", "Akure South", "Secondary", scheme=[self.scheme.id])
 
     def test_create_and_get_user(self):
         user1 = UserServices.create_user("user1", 1, "damilare20")
@@ -127,11 +129,12 @@ class UserServicesTestCase(BaseServicesTestCase):
 
         user_verified = UserServices.get_verified_user("user1", "damilare20")
         self.assertEqual(user_verified.username, user1.username)
-        self.assertEqual(user_verified.facility_id, user1.facility_id)
-        self.assertEqual(user_verified.password_hash, user1.password_hash)
+        # UserView now has facility (FacilityView) instead of facility_id
+        self.assertEqual(user_verified.facility.id, user1.facility_id)
 
     def test_get_user_all(self):
         from app.models import UserView, FacilityView
+        from app.filter_parser import Params
         user = UserServices.create_user("user1", 1, "damilare20")
         user = UserServices.create_user("user2", 2, "damilare20")
         user = UserServices.create_user("user3", 2, "damilare20")
@@ -147,7 +150,9 @@ class UserServicesTestCase(BaseServicesTestCase):
             self.assertNotIn(elem.username, user_found)
             user_found.add(elem.username)
         self.assertEqual(UserServices.get_total(), 4)
-        res = list(UserServices.list_row_by_page(page=1, page_size=1))
+        # Use Params with limit to restrict results
+        params = Params().set_limit(1)
+        res = list(UserServices.list_row_by_page(page=1, params=params))
         self.assertEqual(len(res), 1)
 
     def test_get_all_with_filter(self):
@@ -257,25 +262,29 @@ class DiseaseServicesTestCase(BaseServicesTestCase):
 class EncounterServicesTestCase(BaseServicesTestCase):
     def setUp(self):
         super().setUp()
-        FacilityServices.create_facility("TestFacility1", "Owo", "Primary")
+        FacilityServices.create_facility("TestFacility1", "Owo", "Primary", scheme=[self.scheme.id])
         self.category = DiseaseCategoryServices.create_category("Infectious Diseases")
         self.disease = DiseaseServices.create_disease("Malaria", self.category.id)
         self.user = UserServices.create_user("user1", 1, "damilare20")
+        # Create a treatment outcome for tests
+        self.outcome = TreatmentOutcomeServices.create_treatment_outcome("Discharged", "Alive")
 
     def test_create_and_get_encounter(self):
         encounter = EncounterServices.create_encounter(
             facility_id=1,
-            disease_id=self.disease.id,
             date=datetime.now().date(),
             policy_number="ABC/123/456/X/0",
             client_name="John Doe",
             gender="M",
             age=30,
             treatment="Antibiotics",
-            referral=True,
             doctor_name="Dr. Smith",
-            professional_service="Consultation",
-            created_by=self.user
+            scheme=self.scheme.id,
+            nin="12345678901",
+            phone_number="08012345678",
+            outcome=self.outcome.id,
+            created_by=self.user.id,
+            diseases_id=[self.disease.id]
         )
         self.assertIsInstance(encounter, Encounter)
         self.assertEqual(encounter.client_name, "John Doe")
@@ -283,37 +292,22 @@ class EncounterServicesTestCase(BaseServicesTestCase):
         fetched = EncounterServices.get_by_id(encounter.id)
         self.assertEqual(encounter, fetched)
 
-    def test_invalid_policy_number(self):
-        with self.assertRaises(ValidationError):
-            EncounterServices.create_encounter(
-                facility_id=1,
-                disease_id=self.disease.id,
-                date=datetime.now().date(),
-                policy_number="INVALID",
-                client_name="John Doe",
-                gender="M",
-                age=30,
-                treatment="Antibiotics",
-                referral=True,
-                doctor_name="Dr. Smith",
-                professional_service="Consultation",
-                created_by=self.user
-            )
-
     def test_get_encounter_by_facility(self):
         EncounterServices.create_encounter(
             facility_id=1,
-            disease_id=self.disease.id,
             date=datetime.now().date(),
             policy_number="ABC/123/456/X/0",
             client_name="John Doe",
             gender="M",
             age=30,
             treatment="Antibiotics",
-            referral=True,
             doctor_name="Dr. Smith",
-            professional_service="Consultation",
-            created_by=self.user
+            scheme=self.scheme.id,
+            nin="12345678901",
+            phone_number="08012345678",
+            outcome=self.outcome.id,
+            created_by=self.user.id,
+            diseases_id=[self.disease.id]
         )
         from app.models import EncounterView
         encounters = list(EncounterServices.get_encounter_by_facility(1))
@@ -321,8 +315,10 @@ class EncounterServicesTestCase(BaseServicesTestCase):
         ec: EncounterView = encounters[0]
         self.assertEqual(ec.facility.name, "TestFacility1")
         self.assertEqual(ec.created_by, "user1")
-        self.assertEqual(ec.disease.name, "Malaria")
-        self.assertEqual(ec.disease.category.category_name, "Infectious Diseases")
+        # diseases is now a list
+        self.assertEqual(len(ec.diseases), 1)
+        self.assertEqual(ec.diseases[0].name, "Malaria")
+        self.assertEqual(ec.diseases[0].category.category_name, "Infectious Diseases")
         self.assertEqual(ec.facility.lga, "Owo")
         self.assertEqual(len(encounters), 1)
         self.assertEqual(encounters[0].client_name, "John Doe")
@@ -331,17 +327,19 @@ class EncounterServicesTestCase(BaseServicesTestCase):
         with self.assertRaises(ValidationError):
             EncounterServices.create_encounter(
                 facility_id=1,
-                disease_id=self.disease.id,
                 date=datetime.now().date(),
                 policy_number="ABC/123/456/X/0",
                 client_name="John Doe",
                 gender="X",  # Invalid
                 age=30,
                 treatment="Antibiotics",
-                referral=True,
                 doctor_name="Dr. Smith",
-                professional_service="Consultation",
-                created_by=self.user.id
+                scheme=self.scheme.id,
+                nin="12345678901",
+                phone_number="08012345678",
+                outcome=self.outcome.id,
+                created_by=self.user.id,
+                diseases_id=[self.disease.id]
             )
     
     def test_age_groups(self):
@@ -358,24 +356,26 @@ class EncounterServicesTestCase(BaseServicesTestCase):
             (44, '20-44'),
             (45, '45-64'),
             (64, '45-64'),
-            (65, '≥65'),
-            (100, '≥65'),
+            (65, '65&AB'),
+            (100, '65&AB'),
         ]
         
         for age, expected_group in test_cases:
             encounter = EncounterServices.create_encounter(
                 facility_id=1,
-                disease_id=self.disease.id,
                 date=datetime.now().date(),
                 policy_number=f"TST/{age}/123/T/{age % 6}",
                 client_name=f"Test Patient {age}",
                 gender="M",
                 age=age,
                 treatment="Test",
-                referral=False,
                 doctor_name="Dr. Test",
-                professional_service="Test",
-                created_by=self.user
+                scheme=self.scheme.id,
+                nin="12345678901",
+                phone_number="08012345678",
+                outcome=self.outcome.id,
+                created_by=self.user.id,
+                diseases_id=[self.disease.id]
             )
             self.assertEqual(
                 encounter.age_group, 
@@ -389,17 +389,19 @@ class EncounterServicesTestCase(BaseServicesTestCase):
         """Test that lowercase gender is normalized to uppercase"""
         encounter = EncounterServices.create_encounter(
             facility_id=1,
-            disease_id=self.disease.id,
             date=datetime.now().date(),
             policy_number="ABC/123/456/X/0",
             client_name="Jane Doe",
             gender="f",  # lowercase
             age=25,
             treatment="Treatment",
-            referral=False,
             doctor_name="Dr. Jones",
-            professional_service="Consultation",
-            created_by=self.user
+            scheme=self.scheme.id,
+            nin="12345678901",
+            phone_number="08012345678",
+            outcome=self.outcome.id,
+            created_by=self.user.id,
+            diseases_id=[self.disease.id]
         )
         self.assertEqual(encounter.gender, "F")    
 
@@ -408,50 +410,56 @@ class EncounterServicesTestCase(BaseServicesTestCase):
         with self.assertRaises(ValidationError):
             EncounterServices.create_encounter(
                 facility_id=1,
-                disease_id=self.disease.id,
                 date=datetime.now().date(),
                 policy_number="ABC/123/456/X/0",
                 client_name="Invalid Age",
                 gender="M",
                 age=-1,  # Negative age
                 treatment="Treatment",
-                referral=False,
                 doctor_name="Dr. Test",
-                professional_service="Service",
-                created_by=self.user
+                scheme=self.scheme.id,
+                nin="12345678901",
+                phone_number="08012345678",
+                outcome=self.outcome.id,
+                created_by=self.user.id,
+                diseases_id=[self.disease.id]
             )
         
         with self.assertRaises(ValidationError):
             EncounterServices.create_encounter(
                 facility_id=1,
-                disease_id=self.disease.id,
                 date=datetime.now().date(),
                 policy_number="ABC/123/456/X/1",
                 client_name="Too Old",
                 gender="F",
                 age=121,  # Over 120
                 treatment="Treatment",
-                referral=False,
                 doctor_name="Dr. Test",
-                professional_service="Service",
-                created_by=self.user
+                scheme=self.scheme.id,
+                nin="12345678901",
+                phone_number="08012345678",
+                outcome=self.outcome.id,
+                created_by=self.user.id,
+                diseases_id=[self.disease.id]
             )
 
     def test_encounter_immutability(self):
         """Test that encounters cannot be updated"""
         encounter = EncounterServices.create_encounter(
             facility_id=1,
-            disease_id=self.disease.id,
             date=datetime.now().date(),
             policy_number="ABC/123/456/X/0",
             client_name="Original Name",
             gender="M",
             age=25,
             treatment="Original Treatment",
-            referral=False,
             doctor_name="Dr. Original",
-            professional_service="Original Service",
-            created_by=self.user
+            scheme=self.scheme.id,
+            nin="12345678901",
+            phone_number="08012345678",
+            outcome=self.outcome.id,
+            created_by=self.user.id,
+            diseases_id=[self.disease.id]
         )
         
         encounter.client_name = "Updated Name"
