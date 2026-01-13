@@ -5,11 +5,12 @@ from enum import Enum, auto
 from app.exceptions import MissingError
 from app import login
 from typing import Optional, List
-from app.constants import EncType, BabyOutcome, DeliveryMode
+from app.constants import EncType, BabyOutcome, DeliveryMode, FacilityOwnerShip, ModeOfEntry, FacilityType
 
 class Role(Enum):
     admin = auto()
     user = auto()
+
 @dataclass
 class Model:
     @classmethod
@@ -18,6 +19,7 @@ class Model:
             if (field.name == col):
                 return True
         return False
+
 @dataclass
 class User(Model):
     id: int
@@ -37,10 +39,12 @@ class Facility(Model):
     local_government: str
     # (health center -> primary, hospital -> secondary, private)
     facility_type: str
+    ownership: str
 
     @classmethod
     def get_name(cls) -> str:
         return "Facility"
+
 @dataclass
 class Disease(Model):
     id: int
@@ -59,6 +63,7 @@ class DiseaseCategory(Model):
     @classmethod
     def get_name(cls) -> str:
         return "Disease Category"
+
 @dataclass
 class Encounter(Model):
     id: int
@@ -71,9 +76,18 @@ class Encounter(Model):
     age_group: str
     scheme: int
     nin: str
+    address: str
+    hospital_number: str
     phone_number: str
     enc_type: EncType
+    referral_reason: Optional[str]
+    mode_of_entry: str
     treatment: Optional[str]
+    treatment_cost: Optional[int]
+    medication: str
+    medication_cost: Optional[int]
+    investigation: Optional[str]
+    investigation_cost: Optional[int]
     outcome: str
     doctor_name: Optional[str]
     created_by: int
@@ -137,6 +151,7 @@ class FacilityView:
     lga: str
     scheme: List[InsuranceScheme]
     facility_type: str
+    ownership: str
 
 @dataclass
 class DiseaseView:
@@ -149,6 +164,7 @@ class ServiceView:
     id: int
     name: str
     category: ServiceCategory
+
 @dataclass
 class EncounterView:
     id: int
@@ -159,8 +175,18 @@ class EncounterView:
     age: int
     nin: str
     phone_number: str
+    referral_reason: str
+    mode_of_entry: str
+    age_group: str
     enc_type: EncType
+    hospital_number: str
+    address: str
     treatment: Optional[str]
+    treatment_cost: Optional[int]
+    medication: Optional[str]
+    medication_cost: Optional[int]
+    investigation: Optional[str]
+    investigation_cost: Optional[int]
     doctor_name: Optional[str]
     treatment_outcome: TreatmentOutcome
     created_by: str
@@ -177,6 +203,8 @@ class EncounterView:
     @property
     def service_name(self):
         return ', '.join([service.name for service in self.services])
+
+
 @dataclass
 class ANCRegistry:
     id: int
@@ -214,12 +242,15 @@ class DeliveryEncounter:
     mode_of_delivery: DeliveryMode
     anc_count: int
     babies: List[DeliveryBaby]
+
 @dataclass
 class ANCEncounterView(EncounterView):
     anc: ANCRegistry
+
 @dataclass
 class DeliveryEncounterView(EncounterView):
     delivery: DeliveryEncounter
+
 @dataclass
 class ChildHealthEncounterView(EncounterView):
     health_details: ChildHealth

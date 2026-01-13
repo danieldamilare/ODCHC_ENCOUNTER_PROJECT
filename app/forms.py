@@ -1,12 +1,12 @@
 from wtforms import StringField, PasswordField, SubmitField, BooleanField, TextAreaField, HiddenField
-from wtforms import IntegerField, SelectField, DateField, FieldList, SelectMultipleField, FileField, FormField
+from wtforms import IntegerField, SelectField, DateField, FieldList, SelectMultipleField, FileField, FormField, DecimalField
 from wtforms.validators import DataRequired, Length, NumberRange, EqualTo, Optional, ValidationError, AnyOf
 from app.services import InsuranceSchemeServices, FacilityServices, TreatmentOutcomeServices
 from wtforms import widgets
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileAllowed, FileRequired
 from app.models import get_current_user
-from app.constants import LGA_CHOICES, DeliveryMode, BabyOutcome, FacilityType
+from app.constants import LGA_CHOICES, DeliveryMode, BabyOutcome, FacilityType, FacilityOwnerShip, ModeOfEntry, OutcomeEnum
 from app.config import Config
 import re
 
@@ -22,10 +22,11 @@ def validate_facility(form, field):
             "Admin User have to select a facility for encounter")
 
 def validate_diseases(form, field):
-        for disease in field:
-            if not disease.data or int(disease.data) == 0:
-                raise ValidationError(
-                    "Please select a valid disease from the list")
+    for disease in field:
+        if not disease.data or int(disease.data) == 0:
+            raise ValidationError(
+                "Please select a valid disease from the list")
+
 def validate_nin(form, field):
     pattern = re.compile(r'^\d{11}$')
     if not pattern.match(field.data):
@@ -110,6 +111,18 @@ class AddEncounterForm(FlaskForm, FacilityMixin, OutcomeMixin):
     outcome = SelectField('Treatment Outcome',  validators=[
                           Optional()], coerce=int, render_kw={'id': 'outcome-select'})
     phone_number = StringField("Phone Number", validators = [DataRequired(), nigerian_phone_number])
+    hospital_number = StringField("Hospital Number", validators=[DataRequired()] )
+    address = StringField("Patient Residential Address", validators = [DataRequired()])
+    age_group = SelectField("Age Group", validators = [Optional()])
+    referral_reason  = StringField("Referral Reason", validators = [Optional()])
+    investigation = TextAreaField("Investigations", validators = [Optional()])
+    investigation_cost = DecimalField("Cost of Investigations", validators = [Optional()])
+    medication = TextAreaField("Medications", validators = [Optional()])
+    medication_cost = DecimalField("Cost of medications", validators = [Optional()])
+    treatment_cost = DecimalField("Cost of Treatment", validators = [Optional()])
+    mode_of_entry = SelectField("Mode of Entry",
+                                choices = [(moe.value, moe.value) for moe in ModeOfEntry],
+                                validators = [DataRequired()])
     death_type = SelectField("Death Type", validators=[
                              Optional()], coerce=int, render_kw={'id': 'death-type-select'})
     submit = SubmitField('submit')
@@ -127,6 +140,15 @@ class AddEncounterForm(FlaskForm, FacilityMixin, OutcomeMixin):
         if self.outcome.data and self.outcome.data == -1 and not self.death_type.data:
             self.errors.setdefault('death_type', []).append("Please select a death type for 'Death' outcome.")
             return False
+
+        outcomes = list(TreatmentOutcomeServices.get_all())
+        referred_outcome = next((t for t in outcomes if t.name == OutcomeEnum.REFERRED.value), None)
+
+        if referred_outcome:
+            if self.outcome.data == referred_outcome.id and not self.referral_reason.data:
+                self.errors.setdefault('referral_reason', []).append("Please provide a reason for referral.")
+                return False
+
         return True
 
     def __init__(self, *args, **kwargs):
@@ -134,26 +156,18 @@ class AddEncounterForm(FlaskForm, FacilityMixin, OutcomeMixin):
         self.populate_facility_choices()
         self.populate_outcome_choices()
 
-class ANCEncounterForm(FlaskForm, OutcomeMixin, FacilityMixin): #only for pregnant women scheme, other scheme with delivery will use the encounter form scheme
+class ANCEncounterForm(AddEncounterForm):
+    #only for pregnant women scheme, other scheme with delivery will use the encounter form scheme
     policy_number = StringField('ORIN', validators=[DataRequired(), Length(min=10, max=10)])
     client_name = StringField('Client Name', validators=[DataRequired()])
-    treatment = TextAreaField('Treatment')
-    doctor_name = StringField('Doctor Name', validators=[
-                              DataRequired(), Length(min=2)])
     age = IntegerField('Age', validators=[DataRequired(), NumberRange(
         15, 60, 'Pregnancy age must be between 15 - 60')])
 
-    date = DateField('Date Of Visit', format="%Y-%m-%d", validators=[DataRequired()])
     kia_date = DateField("Date of Issue Of Kaadi Igbeayo", validators=[DataRequired()])
     place_of_issue = StringField("Place of Issue of Kaadi Igbeayo", validators = [DataRequired()])
-    hospital_number = StringField("Hospital Number", validators=[DataRequired()] )
-    address = StringField("Address", validators = [DataRequired()])
-    nin = StringField('NIN', validators=[DataRequired(), validate_nin])
     booking_date = DateField("Date of Booking", )
-    facility = SelectField("Select Facility", coerce=int, validators=[validate_facility])
     outcome = SelectField('Treatment Outcome',  validators=[
                           Optional()], coerce=int, render_kw={'id': 'outcome-select'})
-    phone_number = StringField("Phone Number", validators = [DataRequired(),nigerian_phone_number])
     lmp = DateField("Last Menstrual Period (in weeks)",
                                    validators=[DataRequired()] )
     expected_delivery_date = DateField("Expected Delivery Date",
@@ -191,6 +205,8 @@ class BabyForm(FlaskForm):
         super().__init__(*args, **kwargs)
         baby_outcome = [(x.value,  x.value) for x in BabyOutcome]
         self.outcome.choices = baby_outcome
+
+
 class DeliveryEncounterForm(ANCEncounterForm):
     date = DateField("Date of Delivery", validators= [DataRequired()])
     anc_count = IntegerField("Number of ANC Visit", validators=[DataRequired()])
@@ -223,6 +239,7 @@ class DeliveryEncounterForm(ANCEncounterForm):
             return False
         return valid
 
+
 class ChildHealthEncounterForm(AddEncounterForm):
     client_name = StringField("Cient Name", validators=[DataRequired()])
     dob = DateField("Date of Birth", validators = [DataRequired()])
@@ -239,7 +256,7 @@ class ChildHealthEncounterForm(AddEncounterForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         death = list(TreatmentOutcomeServices.get_all())
-        self.death_type.choices = [(d.id, d.name) for d in death 
+        self.death_type.choices = [(d.id, d.name) for d in death
                            if not str(d.name).lower().startswith("maternal") and d.type.lower( ) == 'death']
 
 class AddFacilityForm(FlaskForm, SchemeMixin):
@@ -249,6 +266,10 @@ class AddFacilityForm(FlaskForm, SchemeMixin):
                                    validators=[DataRequired('Please select a local government from list')])
     facility_type = SelectField('Facility Type',
                                 choices = [(fc.value, fc.value) for fc in FacilityType], validators=[DataRequired()])
+    ownership = SelectField("Ownership",
+                            choices = [(fo.value, fo.value) for fo in FacilityOwnerShip],
+                            coerce = lambda x: FacilityOwnerShip[x],
+                            validators = [DataRequired()])
 
     scheme = SelectMultipleField('Insurance Scheme', coerce=int,
                                  validators=[DataRequired(

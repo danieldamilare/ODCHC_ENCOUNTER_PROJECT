@@ -1,7 +1,7 @@
 from datetime import datetime
 from faker import Faker
 from app.db import get_db
-from app.constants import ONDO_LGAS_LIST
+from app.constants import ONDO_LGAS_LIST, AgeGroup, ModeOfEntry
 from app.models import Role
 import click
 from werkzeug.security import generate_password_hash
@@ -86,6 +86,7 @@ def seed_facilities():
             local_government= row['LGA'],
             facility_type = row['TYPE'],
             scheme = scheme_list,
+            ownership = row['OWNERSHIP'],
             commit = False
         )
     print("Successfully seeded facilities in the database")
@@ -101,7 +102,7 @@ def seed_users():
     print("Successfully Seeded User")
 
 def seed_treatment_outcome():
-    outcomes = [('Admitted/In Patient', 'General'), ('Out Patient', 'General'), ('Referral', 'General'),
+    outcomes = [('Admitted/In Patient', 'General'), ('Out Patient', 'General'), ('Referred', 'General'),
             ('Neonatal Death (0 - 28 days)', 'Death'), ('Infant Death', 'Death'),
             ('Under 5 Deaths (1 - 5 years)',
              'Death'), ('Maternal Death (Pregnant women)', 'Death'),
@@ -139,12 +140,22 @@ def seed_encounter(num: int = 1000, start_date: date = datetime.now().replace(mo
         date = fake.date_between(start_date=start_date, end_date = end_date)
         policy_number = f"{random.choice(policy_start)}/00{random.randint(1000, 99999)}/{random.randint(23, 26)}/C/{random.randint(0, 6)}"
         age = random.randint(0, 90)
+        age_group = random.choice(list(AgeGroup))
+        treatment_cost = random.randint(500, 10000)
+        investigation = fake.sentence(nb_words=20)
+        investigation_cost  = random.randint(500, 10000)
+        medication = fake.sentence(nb_words=20)
+        mode_of_entry = random.choice(list(ModeOfEntry))
+        medication_cost = random.randint(500, 10000)
         treatment = fake.sentence(nb_words=10)
+        hospital_number = fake.sentence(nb_words = 5)
+        address = fake.sentence(nb_words = 7)
         outcome = random.choice(outcome_ids)
         doctor_name = random.choice(["Dr. Owolabi", "Dr. Musa", "Dr. Adeola"])
         created_by = facility_user_link[facility.id]
         address = fake.address()
         client_name = fake.name()
+        referral_reason = fake.sentence(nb_words = 7) if outcome.name == 'Referred' else None
         gender = random.choice(["M", "F"])
         phone_number = "08020007040"
         nin  = ''.join(random.choices('0123456789', k=11))
@@ -171,12 +182,20 @@ def seed_encounter(num: int = 1000, start_date: date = datetime.now().replace(mo
                     address=  address,
                     facility_id = facility.id,
                     gender = 'F',
+                    treatment_cost = treatment_cost,
+                    medication = medication,
+                    medication_cost = medication_cost,
+                    referral_reason = referral_reason,
+                    investigation= investigation,
+                    investigation_cost = investigation_cost,
+                    age_group = age_group.value,
+                    mode_of_entry= mode_of_entry.name,
                     age = age,
                     scheme= selected_scheme.id,
                     phone_number = phone_number,
                     doctor_name = doctor_name,
                     outcome= outcome.id,
-                    created_by= facility_user_link[facility.id],
+                    created_by= created_by,
                     treatment= treatment,
                     nin= nin,
                     hospital_number= phone_number,
@@ -192,8 +211,17 @@ def seed_encounter(num: int = 1000, start_date: date = datetime.now().replace(mo
                     policy_number = policy_number,
                     client_name= client_name,
                     gender = gender,
+                    treatment_cost = treatment_cost,
+                    medication = medication,
+                    medication_cost = medication_cost,
+                    referral_reason = referral_reason,
+                    investigation= investigation,
+                    investigation_cost = investigation_cost,
+                    age_group = age_group.value,
+                    mode_of_entry= mode_of_entry.name,
                     treatment = treatment,
                     nin = nin,
+                    hospital_number = hospital_number,
                     scheme = selected_scheme.id,
                     doctor_name= doctor_name,
                     phone_number= phone_number,
@@ -221,7 +249,17 @@ def seed_encounter(num: int = 1000, start_date: date = datetime.now().replace(mo
                         phone_number= phone_number,
                         outcome= outcome.id,
                         age= age,
+                        hospital_number= hospital_number,
+                        address = address,
                         treatment = treatment,
+                        treatment_cost = treatment_cost,
+                        medication = medication,
+                        medication_cost = medication_cost,
+                        referral_reason = referral_reason,
+                        investigation= investigation,
+                        investigation_cost = investigation_cost,
+                        age_group = age_group.value,
+                        mode_of_entry= mode_of_entry.name,
                         doctor_name= doctor_name,
                         scheme = selected_scheme.id,
                         created_by = facility_user_link[facility.id],
@@ -251,8 +289,19 @@ def seed_encounter(num: int = 1000, start_date: date = datetime.now().replace(mo
             address = fake.address()
             client_name = fake.name()
             phone_number = "08020007040"
+            age_group = random.choice(list(AgeGroup))
+            treatment_cost = random.randint(500, 10000)
+            investigation = fake.sentence(nb_words=20)
+            investigation_cost  = random.randint(500, 10000)
+            medication = fake.sentence(nb_words=20)
+            mode_of_entry = random.choice(list(ModeOfEntry))
+            medication_cost = random.randint(500, 10000)
+            referral_reason = fake.sentence(nb_words = 7) if outcome.name == 'Referred' else None
+            hospital_number = fake.sentence(nb_words = 5)
+            address = fake.sentence(nb_words = 7)
+
             nin  = ''.join(random.choices('0123456789', k=11))
-            created_at = date
+
             baby_details = [{'gender': random.choice(['M', 'F']), 'outcome': random.choice(list(BabyOutcome)).value}
                             for i in range(random.randint(1, 4))]
 
@@ -265,7 +314,17 @@ def seed_encounter(num: int = 1000, start_date: date = datetime.now().replace(mo
                 gender = 'F',
                 age = age,
                 treatment= treatment,
+                treatment_cost = treatment_cost,
+                medication = medication,
+                medication_cost = medication_cost,
+                referral_reason = referral_reason,
+                investigation= investigation,
+                investigation_cost = investigation_cost,
+                age_group = age_group.value,
+                mode_of_entry= mode_of_entry.name,
                 doctor_name= doctor_name,
+                hospital_number = hospital_number,
+                address = address,
                 scheme = selected_scheme.id,
                 nin = nin,
                 phone_number = phone_number,
@@ -291,8 +350,17 @@ def seed_encounter(num: int = 1000, start_date: date = datetime.now().replace(mo
             client_name = fake.name()
             gender = random.choice(["M", "F"])
             phone_number = "08020007040"
+            age_group = random.choice(list(AgeGroup))
+            treatment_cost = random.randint(500, 10000)
+            investigation = fake.sentence(nb_words=20)
+            investigation_cost  = random.randint(500, 10000)
+            medication = fake.sentence(nb_words=20)
+            mode_of_entry = random.choice(list(ModeOfEntry))
+            medication_cost = random.randint(500, 10000)
             nin  = ''.join(random.choices('0123456789', k=11))
-            created_at = date
+            address = fake.sentence(nb_words = 7)
+            hospital_number = fake.sentence(nb_words = 4)
+            referral_reason = fake.sentence(nb_words = 7) if outcome.name == 'Referred' else None
 
             EncounterServices.create_encounter(
                         facility_id=facility.id,
@@ -304,7 +372,17 @@ def seed_encounter(num: int = 1000, start_date: date = datetime.now().replace(mo
                         phone_number= phone_number,
                         outcome= outcome.id,
                         age= age,
+                        hospital_number= hospital_number,
+                        address = address,
                         treatment = treatment,
+                        treatment_cost = treatment_cost,
+                        medication = medication,
+                        medication_cost = medication_cost,
+                        referral_reason = referral_reason,
+                        investigation= investigation,
+                        investigation_cost = investigation_cost,
+                        age_group = age_group.value,
+                        mode_of_entry= mode_of_entry.name,
                         doctor_name= doctor_name,
                         scheme = selected_scheme.id,
                         created_by = facility_user_link[facility.id],

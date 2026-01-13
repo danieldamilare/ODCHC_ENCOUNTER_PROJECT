@@ -16,3 +16,6 @@ app.cli.add_command(seed_db)
 app.cli.add_command(run_test_command)
 
 from app import routes, services, models
+from jinja2 import StrictUndefined
+
+app.jinja_env.undefined = StrictUndefined

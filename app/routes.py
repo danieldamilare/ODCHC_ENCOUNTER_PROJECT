@@ -115,6 +115,7 @@ def add_encounter():
                            title='Select Insurance Scheme',
                            schemes=schemes)
 
+
 @app.route("/add_encounter/amchis/child_health", methods=['GET', 'POST'])
 @login_required
 @scheme_access_required(SchemeEnum.AMCHIS)
@@ -430,7 +431,7 @@ def facilities() -> Any:
         limit = res
 
     primary_total = int(FacilityServices.get_total(Params().where(Facility, 'facility_type', '=', 'Primary')))
-    private_total = int(FacilityServices.get_total(Params().where(Facility, 'facility_type', '=', 'Private')))
+    tertiary_total = int(FacilityServices.get_total(Params().where(Facility, 'facility_type', '=', 'Tertiary')))
     secondary_total = int(FacilityServices.get_total(Params().where(Facility, 'facility_type', '=', 'Secondary')))
 
     facility_total = int(FacilityServices.get_total(param))
@@ -453,7 +454,7 @@ def facilities() -> Any:
                            facility_total=facility_total,
                            primary_total = primary_total,
                            secondary_total = secondary_total,
-                           private_total = private_total,
+                           tertiary_total = tertiary_total,
                            facility_form=facility_form,
                            filter_form=filter_form,
                            facility_list=facility_list,

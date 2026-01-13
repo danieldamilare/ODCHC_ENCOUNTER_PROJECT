@@ -12,6 +12,8 @@ def get_db():
             detect_types=sqlite3.PARSE_DECLTYPES
         )
     g.db.row_factory = sqlite3.Row
+    g.db.execute("PRAGMA journal_mode=WAL;")
+    g.db.execute("PRAGMA synchronous=NORMAL;")
     g.db.execute('PRAGMA foreign_keys = ON')
     return g.db
 

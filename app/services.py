@@ -14,7 +14,7 @@ from app.models import (User, Facility, Disease, Encounter, TreatmentOutcome, Di
 from app.exceptions import MissingError, InvalidReferenceError, DuplicateError, QueryParameterError
 from app.exceptions import ValidationError, AuthenticationError, ServiceError
 from app import app
-from app.constants import ONDO_LGAS_LOWER, DeliveryMode, EncType, BabyOutcome, SchemeEnum, AgeGroup
+from app.constants import ONDO_LGAS_LOWER, DeliveryMode, EncType, BabyOutcome, SchemeEnum, AgeGroup, ModeOfEntry, FacilityOwnerShip, FacilityType
 from copy import copy
 from app.filter_parser import FilterParser, Params
 from dateutil.relativedelta import relativedelta
@@ -299,6 +299,7 @@ class UserServices(BaseServices):
                 fc.name,
                 fc.local_government,
                 fc.facility_type,
+                fc.ownership,
                 u.username,
                 u.password_hash,
                 u.role AS role
@@ -331,7 +332,8 @@ class UserServices(BaseServices):
                     name=row['name'],
                     lga=row['local_government'],
                     facility_type=row['facility_type'],
-                    scheme=scheme_map[row['facility_id']]
+                    scheme=scheme_map[row['facility_id']],
+                    ownership = row['ownership']
                 )
             yield UserView(
                 id=row['user_id'],
@@ -407,7 +409,7 @@ class FacilityServices(BaseServices):
     table_name = 'facility'
     model = Facility
     LOCAL_GOVERNMENT = ONDO_LGAS_LOWER
-    columns_to_update = {'name', 'local_government', 'facility_type'}
+    columns_to_update = {'name', 'local_government', 'facility_type', "ownership"}
     MODEL_ALIAS_MAP = {
         Facility: 'fc',
         FacilityScheme: 'fsc'
@@ -416,13 +418,14 @@ class FacilityServices(BaseServices):
     @classmethod
     def create_facility(cls, name: str, local_government: str,
                         facility_type: str, scheme: List[int],
+                        ownership: str,
                         commit=True) -> Facility:
         db = get_db()
         if local_government.lower() not in FacilityServices.LOCAL_GOVERNMENT:
             raise ValidationError("Local Government does not exist in Akure")
         try:
-            cursor = db.execute(f'INSERT INTO {cls.table_name} (name, local_government, facility_type) VALUES (?, ?, ?)', (
-                name, local_government, facility_type))
+            cursor = db.execute(f'INSERT INTO {cls.table_name} (name, local_government, facility_type, ownership) VALUES (?, ?, ?, ?)', (
+                name, local_government, facility_type, ownership))
             new_id = cursor.lastrowid
             if scheme:
                 scheme_list = list(set((new_id, x) for x in scheme))
@@ -518,6 +521,7 @@ class FacilityServices(BaseServices):
             fc.id,
             fc.name as facility_name,
             fc.local_government,
+            fc.ownership,
             fc.facility_type
         FROM {cls.table_name} as fc
         JOIN facility_scheme as fsc on fsc.facility_id = fc.id
@@ -545,7 +549,8 @@ class FacilityServices(BaseServices):
                 lga=row['local_government'],
                 scheme=scheme_map[row['id']],
                 name=row['facility_name'],
-                facility_type=row['facility_type']
+                facility_type=row['facility_type'],
+                ownership = row['ownership']
             )
             yield facility
 
@@ -816,8 +821,10 @@ class EncounterServices(BaseServices):
     table_name = 'encounters'
     model = Encounter
     columns = {'id', 'facility_id', 'date', 'policy_number', 'client_name',
-               'gender', 'age', 'age_group', 'treatment', 'referral', 'doctor_name',
-               'created_by', 'created_at', "scheme", "outcome"
+               'gender', 'age',  'enc_type', 'address',  'scheme', 'nin', 'phone_number',
+               'hospital_number', 'referral_reason', 'age_group', "mode_of_entry",
+               "treatment", "treatment_cost", "medication", "medication_cost", "investigation", "investigation_cost", "doctor_name", "outcome",
+               'created_by', 'created_at'
                }
 
     MODEL_ALIAS_MAP = {Encounter: 'ec',
@@ -875,6 +882,16 @@ class EncounterServices(BaseServices):
                          scheme: int,
                          nin: str,
                          phone_number: str,
+                         mode_of_entry: str,
+                         address: str,
+                         hospital_number: str,
+                         age_group: str,
+                         referral_reason: Optional[str],
+                         treatment_cost:  Optional[int],
+                         investigation: Optional[str],
+                         investigation_cost: Optional[int],
+                         medication: Optional[int],
+                         medication_cost: Optional[int],
                          outcome: int,
                          created_by: int,
                          diseases_id: Optional[List[int]] = None,
@@ -894,11 +911,16 @@ class EncounterServices(BaseServices):
         try:
 
             cur = db.execute(f'''INSERT INTO {cls.table_name} (facility_id, date, policy_number
-                   , client_name, gender, age, treatment, doctor_name, nin, phone_number, enc_type,
-                   scheme, outcome, created_by, created_at) VALUES( ?, ?, ?, ?, ?, ?, ?,
-                   ?, ?, ?, ?, ?, ?, ?, ?)''', (facility_id, date, policy_number, client_name,
-                                          gender, age, treatment, doctor_name, nin, phone_number,
-                                          enc_type.value, scheme, outcome, created_by, created_at))
+                   , client_name, gender, age, age_group, scheme, nin, phone_number,
+                   enc_type, referral_reason, mode_of_entry, treatment, treatment_cost,
+                   medication, medication_cost, investigation, investigation_cost, outcome,
+                   doctor_name, address, hospital_number, created_by, created_at) VALUES( ?, ?, ?, ?, ?, ?, ?,
+                   ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                   (facility_id, date, policy_number, client_name, gender, age,
+                    age_group, scheme, nin, phone_number, enc_type.value, referral_reason,
+                    mode_of_entry, treatment, treatment_cost, medication, medication_cost,
+                    investigation, investigation_cost, outcome, doctor_name, address, hospital_number, created_by,
+                    created_at))
 
             new_id = cur.lastrowid
             if diseases_id:
@@ -939,6 +961,16 @@ class EncounterServices(BaseServices):
                                 doctor_name: Optional[str],
                                 scheme: int,
                                 nin: str,
+                                mode_of_entry: str,
+                                age_group: str,
+                                address: str,
+                                hospital_number: str,
+                                referral_reason: Optional[str],
+                                treatment_cost:  Optional[int],
+                                investigation: Optional[str],
+                                investigation_cost: Optional[int],
+                                medication: Optional[int],
+                                medication_cost: Optional[int],
                                 phone_number: str,
                                 created_by: int,
                                 anc_id: int,
@@ -947,7 +979,7 @@ class EncounterServices(BaseServices):
                                 mother_outcome: int,
                                 baby_details: List[Dict],
                                 commit: bool = True
-                                  ):
+                                ):
 
         db = get_db()
         try:
@@ -958,12 +990,22 @@ class EncounterServices(BaseServices):
                 client_name = client_name,
                 gender = gender,
                 age =  age,
-                treatment= treatment,
-                doctor_name = doctor_name,
+                age_group = age_group,
                 scheme = scheme,
+                address = address,
+                hospital_number = hospital_number,
                 nin = nin,
                 phone_number = phone_number,
                 enc_type  = EncType.DELIVERY,
+                referral_reason = referral_reason,
+                mode_of_entry = mode_of_entry,
+                treatment= treatment,
+                treatment_cost = treatment_cost,
+                medication = medication,
+                medication_cost = medication_cost,
+                investigation = investigation,
+                investigation_cost = investigation_cost,
+                doctor_name = doctor_name,
                 outcome = mother_outcome,
                 created_by = created_by,
                 commit = False
@@ -1006,9 +1048,17 @@ class EncounterServices(BaseServices):
                              booking_date: date,
                              parity: int,
                              place_of_issue: str,
-                             address: str,
                              date: date,
+                             mode_of_entry: str,
+                             age_group: str,
+                             address: str,
                              hospital_number: str,
+                             referral_reason: Optional[str],
+                             treatment_cost:  Optional[int],
+                             investigation: Optional[str],
+                             investigation_cost: Optional[int],
+                             medication: Optional[int],
+                             medication_cost: Optional[int],
                              expected_delivery_date: date,
                              anc_count: int,
                              facility_id: int,
@@ -1031,17 +1081,28 @@ class EncounterServices(BaseServices):
                 policy_number = policy_number,
                 client_name = client_name,
                 gender = gender,
-                age= age,
-                treatment= treatment,
-                doctor_name = doctor_name,
+                age =  age,
+                age_group = age_group,
                 scheme = scheme,
                 nin = nin,
-                phone_number= phone_number,
-                enc_type = EncType.ANC,
+                phone_number = phone_number,
+                enc_type  = EncType.ANC,
+                referral_reason = referral_reason,
+                mode_of_entry = mode_of_entry,
+                address = address,
+                hospital_number = hospital_number,
+                treatment= treatment,
+                treatment_cost = treatment_cost,
+                medication = medication,
+                medication_cost = medication_cost,
+                investigation = investigation,
+                investigation_cost = investigation_cost,
+                doctor_name = doctor_name,
                 outcome = outcome,
-                created_by= created_by,
+                created_by = created_by,
                 commit = False
             )
+
             anc_service = db.execute('''SELECT id from services where LOWER(name) LIKE ?''', ('%antenatal%',)).fetchone()
             if not anc_service:
                 raise MissingError("ANC service not found in services table")
@@ -1090,11 +1151,20 @@ class EncounterServices(BaseServices):
                          doctor_name: Optional[str],
                          scheme: int,
                          nin: str,
+                         hospital_number: str,
                          phone_number: str,
                          outcome: int,
                          created_by: int,
                          address: str,
                          guardian_name: str,
+                         mode_of_entry: str,
+                         age_group: str,
+                         referral_reason: Optional[str],
+                         treatment_cost:  Optional[int],
+                         investigation: Optional[str],
+                         investigation_cost: Optional[int],
+                         medication: Optional[int],
+                         medication_cost: Optional[int],
                          dob: date,
                          diseases_id: Optional[List[int]] = None,
                          services_id: Optional[List[int]] = None,
@@ -1103,27 +1173,41 @@ class EncounterServices(BaseServices):
         db = get_db()
         try:
             new_enc = cls.create_encounter(
-                facility_id= facility_id,
+                facility_id = facility_id,
                 date = date,
-                policy_number= policy_number,
+                policy_number = policy_number,
                 client_name = client_name,
                 gender = gender,
-                age = age,
-                treatment = treatment,
-                doctor_name = doctor_name,
+                age =  age,
+                age_group = age_group,
                 scheme = scheme,
                 nin = nin,
+                hospital_number = hospital_number,
+                address= address,
                 phone_number = phone_number,
-                enc_type = EncType.CHILDHEALTH,
+                enc_type  = EncType.CHILDHEALTH,
+                referral_reason = referral_reason,
+                mode_of_entry = mode_of_entry,
+                treatment= treatment,
+                treatment_cost = treatment_cost,
+                medication = medication,
+                medication_cost = medication_cost,
+                investigation = investigation,
+                investigation_cost = investigation_cost,
+                doctor_name = doctor_name,
+                outcome = outcome,
+                created_by = created_by,
                 services_id= services_id,
                 diseases_id = diseases_id,
-                created_by = created_by,
-                outcome=outcome,
-                commit=False)
+                commit = False
+            )
+
             query = '''
             INSERT INTO child_health_encounters(encounter_id, orin, dob, address, guardian_name)
             VALUES(?, ?, ?, ?, ?)'''
             db.execute(query, (new_enc.id, policy_number, dob, address, guardian_name))
+            if commit:
+                db.commit()
             return new_enc
         except Exception as e:
             db.rollback()
@@ -1166,27 +1250,38 @@ class EncounterServices(BaseServices):
         query = '''
             SELECT
                 ec.id,
+                ec.facility_id,
+                ec.date,
+                ec.policy_number,
                 ec.client_name,
                 ec.gender,
                 ec.age,
+                ec.age_group,
                 ec.enc_type,
                 ec.nin,
                 ec.phone_number,
-                ec.policy_number,
-                ec.date,
-                ec.facility_id ,
                 isc.id as scheme_id,
                 isc.scheme_name,
                 isc.color_scheme,
                 ec.doctor_name,
+                ec.referral_reason,
+                ec.mode_of_entry,
+                ec.treatment_cost,
+                ec.medication,
+                ec.medication_cost,
+                ec.investigation,
+                ec.investigation_cost,
                 tc.name as treatment_outcome,
                 tc.type as treatment_type,
                 tc.id as treatment_id,
                 ec.created_at,
                 ec.treatment,
+                ec.address,
+                ec.hospital_number,
                 fc.name as facility_name,
                 fc.facility_type,
                 fc.local_government as lga,
+                fc.ownership,
                 u.username AS created_by
             FROM encounters AS ec
             JOIN insurance_scheme as isc on isc.id = ec.scheme
@@ -1443,7 +1538,17 @@ class EncounterServices(BaseServices):
                 policy_number=row['policy_number'],
                 client_name=row['client_name'],
                 gender=row['gender'],
+                hospital_number= row['hospital_number'],
+                address = row['address'],
                 date=row['date'],
+                mode_of_entry= row['mode_of_entry'],
+                treatment_cost= row['treatment_cost'],
+                age_group = row['age_group'],
+                investigation= row['investigation'],
+                investigation_cost = row['investigation_cost'],
+                medication= row['medication'],
+                medication_cost = row['medication_cost'],
+                referral_reason= row['referral_reason'],
                 treatment_outcome= TreatmentOutcome(id = row['treatment_id'],
                                             name = row['treatment_outcome'],
                                             type = row['treatment_type']),
@@ -1548,7 +1653,8 @@ class EncounterServices(BaseServices):
                 name=row['facility_name'],
                 lga=row['lga'],
                 scheme=scheme_map[row['facility_id']],
-                facility_type=row['facility_type']
+                facility_type=row['facility_type'],
+                ownership = row['ownership']
             )
 
             insurance_scheme=InsuranceScheme(id=row['scheme_id'],
@@ -1710,13 +1816,10 @@ class DashboardServices(BaseServices):
         result = []
 
         def parse_key(item: str):
-            if item.startswith('<'):
-                return 0
-
-            elif '-' in item:
-                return int(item.split('-')[0])
-            else:
-                return int(item.split('&')[0])
+            for idx, group in enumerate(AgeGroup):
+                if group.value == item:
+                    return idx
+            return 999
 
         for row in rows:
             print(row)

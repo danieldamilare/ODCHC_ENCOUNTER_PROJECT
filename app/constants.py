@@ -47,15 +47,34 @@ class SchemeEnum(Enum):
     AMCHIS = 'AMCHIS'
 
 class FacilityType(Enum):
-    PRIVATE = "Private"
+    TERTIARY = "Tertiary"
     SECONDARY = "Secondary"
     PRIMARY = "Primary"
 
+class FacilityOwnerShip(Enum):
+    PRIVATE = "Private"
+    PUBLIC = "Public"
+
+class ModeOfEntry(Enum):
+    OUTPATIENT = "Outpatient"
+    REFERRED = "Referred In"
+    EMERGENCY = "Emergency"
+
 class AgeGroup(Enum):
-    LESS_THAN_ONE = '<1'
-    UNDER_FIVE = '1-5'
-    SIX_TO_FOURTEEN = '6-14'
-    FIFTEEN_TO_NINE = '15-19'
-    TWENTY_TO_FOURTY_FOUR = '20-44'
-    FOURTY_FIVE_TO_SIXTY_FOUR = '45-64'
-    SIXTY_AND_ABOVE = '65&AB'
+    LESS_THAN_28_DAYS = '0-28 DAYS'
+    LESS_THAN_11_MONTHS = '29 DAYS - 11 MONTHS'
+    LESS_THAN_5_YEARS = "12 MONTHS - 59 MONTHS"
+    FIVE_TO_TWELVE = '5-12 YEARS'
+    THIRTEEN_TO_NINETEEN_ = '13-19 YEARS'
+    TWENTY_TO_FIFTY_NINE = '20- 59 YEARS'
+    SIXTY_AND_ABOVE = '60+ YEARS'
+
+class OutcomeEnum(Enum):
+    INPATIENT = "Admitted/In Patient"
+    OUTPATIENT = "Out Patient"
+    REFERRED = "Referred"
+    NEONATAL_DEATH = "Neonatal Death (0 - 28 days)"
+    INFANT_DEATH = "infant Death"
+    UNDER_FIVE_DEATH = "Under 5 Deaths (1 - 5 years)"
+    MATERNAL_DEATH = "Maternal Death (Pregnant Women)"
+    OTHER_DEATH = "Other Death"

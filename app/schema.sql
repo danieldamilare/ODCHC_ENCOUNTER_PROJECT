@@ -2,7 +2,8 @@ CREATE TABLE facility (
         id INTEGER PRIMARY KEY,
         name TEXT UNIQUE NOT NULL,
         local_government VARCHAR(100) NOT NULL COLLATE NOCASE,
-        facility_type VARCHAR(10) NOT NULL
+        facility_type VARCHAR(10) NOT NULL,
+        ownership VARCHAR(10) COLLATE NOCASE CHECK (ownership IN ('public', 'private'))
     );
 
 CREATE TABLE users (
@@ -35,21 +36,20 @@ CREATE TABLE encounters (
         gender CHAR(1) NOT NULL CHECK (gender IN ('M', 'F')),
         age INTEGER NOT NULL CHECK (age >= 0 AND age <= 120),
         enc_type TEXT NOT NULL COLLATE NOCASE CHECK (enc_type IN ('general', 'anc', 'delivery', 'child_health')),
+        address TEXT NOT NULL,
         scheme INTEGER NOT NULL,
         nin TEXT NOT NULL CHECK(LENGTH(nin) = 11),
         phone_number TEXT NOT NULL,
-        age_group VARCHAR(10) GENERATED ALWAYS AS (
-            CASE
-                WHEN age < 1 THEN '<1'
-                WHEN age <= 5 THEN '1-5'
-                WHEN age <= 14 THEN '6-14'
-                WHEN age <= 19 THEN '15-19'
-                WHEN age <= 44 THEN '20-44'
-                WHEN age <= 64 THEN '45-64'
-                ELSE '65&AB'
-            END
-        ) STORED,
+        hospital_number TEXT NOT NULL,
+        referral_reason TEXT,
+        age_group VARCHAR(20) NOT NULL,
+        mode_of_entry VARCHAR(25) NOT NULL,
         treatment TEXT,
+        treatment_cost INTEGER NOT NULL DEFAULT 0,
+        medication TEXT,
+        medication_cost INTEGER NOT NULL DEFAULT 0,
+        investigation TEXT,
+        investigation_cost INTEGER NOT NULL DEFAULT 0,
         doctor_name VARCHAR(255) NOT NULL,
         outcome INTEGER NOT NULL,
         created_by INTEGER NOT NULL,
