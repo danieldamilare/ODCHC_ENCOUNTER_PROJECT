@@ -6,7 +6,8 @@ from wtforms import widgets
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileAllowed, FileRequired
 from app.models import get_current_user
-from app.constants import LGA_CHOICES, DeliveryMode, BabyOutcome, FacilityType, FacilityOwnerShip, ModeOfEntry, OutcomeEnum
+from app.constants import (LGA_CHOICES, DeliveryMode, BabyOutcome, FacilityType,
+                           FacilityOwnerShip, ModeOfEntry, OutcomeEnum, AgeGroup)
 from app.config import Config
 import re
 
@@ -64,7 +65,7 @@ class OutcomeMixin:
             [('0', 'Select Treatment Outcome')] +
             [(s.id, s.name) for s in outcomes if s.type.lower() != 'death']
         )
-        self.outcome.choices += [(s.id, s.name) for s in outcomes if s.type.lower() == 'death' and s.name.lower().startswith('maternal death')]
+        self.outcome.choices += [(s.id, s.name) for s in outcomes if s.type.lower() == 'death' and s.name ==  OutcomeEnum.MATERNAL_DEATH.value]
 
 class FacilityMixin:
     def populate_facility_choices(self):
@@ -109,11 +110,13 @@ class AddEncounterForm(FlaskForm, FacilityMixin, OutcomeMixin):
                          validators=[DataRequired()], coerce=int))
     facility = SelectField("Select Facility", coerce=int, validators=[validate_facility])
     outcome = SelectField('Treatment Outcome',  validators=[
-                          Optional()], coerce=int, render_kw={'id': 'outcome-select'})
+                          DataRequired()], coerce=int, render_kw={'id': 'outcome-select'})
     phone_number = StringField("Phone Number", validators = [DataRequired(), nigerian_phone_number])
     hospital_number = StringField("Hospital Number", validators=[DataRequired()] )
     address = StringField("Patient Residential Address", validators = [DataRequired()])
-    age_group = SelectField("Age Group", validators = [Optional()])
+    age_group = SelectField("Age Group", validators = [Optional()],
+                            choices = [('', "Select Age Group")] + [(x.value, x.value) for x in list(AgeGroup)])
+
     referral_reason  = StringField("Referral Reason", validators = [Optional()])
     investigation = TextAreaField("Investigations", validators = [Optional()])
     investigation_cost = DecimalField("Cost of Investigations", validators = [Optional()])
@@ -121,10 +124,16 @@ class AddEncounterForm(FlaskForm, FacilityMixin, OutcomeMixin):
     medication_cost = DecimalField("Cost of medications", validators = [Optional()])
     treatment_cost = DecimalField("Cost of Treatment", validators = [Optional()])
     mode_of_entry = SelectField("Mode of Entry",
-                                choices = [(moe.value, moe.value) for moe in ModeOfEntry],
+                                choices = [('', "Select Mode of Entry")] + [(moe.value, moe.value) for moe in ModeOfEntry],
                                 validators = [DataRequired()])
     death_type = SelectField("Death Type", validators=[
                              Optional()], coerce=int, render_kw={'id': 'death-type-select'})
+
+    total_cost = DecimalField("Total Cost",
+                              validators=[Optional()],
+                              default=0,
+                              render_kw={'readonly': True, 'class': 'bg-slate-100 text-slate-500 cursor-not-allowed'})
+
     submit = SubmitField('submit')
 
 
@@ -136,9 +145,14 @@ class AddEncounterForm(FlaskForm, FacilityMixin, OutcomeMixin):
         if not any(d.data for d in self.diseases) and not any(s.data for s in self.services):
             self.errors.setdefault('services', []).append("Please select at least one disease or service.")
             return False
+
         # Require death type if outcome is death
         if self.outcome.data and self.outcome.data == -1 and not self.death_type.data:
             self.errors.setdefault('death_type', []).append("Please select a death type for 'Death' outcome.")
+            return False
+
+        if self.age.data == 0 and not self.age_group.data:
+            self.errors.setdefault('age_group', []).append("Age Group is required for age 0")
             return False
 
         outcomes = list(TreatmentOutcomeServices.get_all())
@@ -148,7 +162,6 @@ class AddEncounterForm(FlaskForm, FacilityMixin, OutcomeMixin):
             if self.outcome.data == referred_outcome.id and not self.referral_reason.data:
                 self.errors.setdefault('referral_reason', []).append("Please provide a reason for referral.")
                 return False
-
         return True
 
     def __init__(self, *args, **kwargs):
@@ -347,18 +360,18 @@ class EncounterFilterForm(FlaskForm, FacilityMixin, SchemeMixin):
         'Start Date', format='%Y-%m-%d', validators=[Optional()])
     end_date = DateField('End Date', format='%Y-%m-%d',
                          validators=[Optional()])
-    local_government = SelectField('Local Government',
+    lga = SelectField('Local Government',
                                    choices=LGA_CHOICES,
                                    validators=[Optional()])
-    facility = SelectField('Facility', coerce=int, validators=[Optional()])
-    scheme = SelectField('Scheme', coerce=int, validators = [Optional()])
-    term = StringField("")
-    submit = SubmitField('Filter')
+    facility_id = SelectField('Facility', coerce=int, validators=[Optional()])
+    scheme_id = SelectField('Scheme', coerce=int, validators = [Optional()])
+    outcome =SelectField("Treatment Outcome", coerce=int, validators = [Optional()])
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.populate_facility_choices()
-        self.populate_scheme_choices()
+        self.facility_id.choices = [('0', 'Select Facility')] + [(f.id, f.name) for f in FacilityServices.get_all()]
+        self.scheme_id.choices = [('0', "Select Scheme")] + [(s.id, s.scheme_name) for s in InsuranceSchemeServices.get_all()]
+        self.outcome.choices = [('0', 'Select Treatment Outcome')] +[(t.id, t.name) for t in TreatmentOutcomeServices.get_all()]
 
 class FacilityFilterForm(FlaskForm, SchemeMixin):
     scheme = SelectField("Scheme", validators= [Optional()], coerce=int)
@@ -388,20 +401,9 @@ class DashboardFilterForm(FlaskForm):
     class Meta:
         csrf = False
 
-    period = SelectField(
-        'Date Range',
-        choices=[
-            ('this_month', 'This Month'),
-            ('last_3_months', 'Last 3 Months'),
-            ('last_year', 'Last Year'),
-        ],
-        default='this_month',
-        validators=[Optional()]
-    )
-
     scheme_id = SelectField(
         'Insurance Scheme',
-        choices=[('', 'All Schemes')],  # Populated dynamically
+        choices=[('', 'Select Schemes')],  # Populated dynamically
         coerce=lambda x: int(x) if x else None,
         validators=[Optional()]
     )
@@ -409,7 +411,7 @@ class DashboardFilterForm(FlaskForm):
     gender = SelectField(
         'Gender',
         choices=[
-            ('', 'All'),
+            ('', 'Select Gender'),
             ('M', 'Male'),
             ('F', 'Female')
         ],
@@ -424,18 +426,18 @@ class DashboardFilterForm(FlaskForm):
 
         # Populate schemes from database
         schemes = InsuranceSchemeServices.get_all()
-        self.scheme_id.choices = [('', 'All Schemes')] + [
+        self.scheme_id.choices = [('', 'Select Schemes')] + [
             (str(s.id), s.scheme_name.upper()) for s in schemes
         ]
 
 class AdminDashboardFilterForm(DashboardFilterForm):
     facility_id = SelectField('Facility',
-                              choices = [('', 'All Facilities')],
+                              choices = [('', 'Select Facilities')],
                               validators = [Optional()])
     lga =  SelectField('Local Government',
-                    choices = [('', 'All LGAs')] + LGA_CHOICES[1:],
+                    choices = [('', 'Select LGAs')] + LGA_CHOICES[1:],
                     validators = [Optional()])
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         facilities = [(str( f.id ), f.name.upper()) for f in FacilityServices.get_all()]
-        self.facility_id.choices = [('', 'All Facilities')]  + facilities
+        self.facility_id.choices = [('', 'Select Facilities')]  + facilities

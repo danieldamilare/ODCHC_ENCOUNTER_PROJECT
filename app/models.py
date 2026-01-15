@@ -218,6 +218,8 @@ class ANCRegistry:
     address: str
     phone_number: str
     nin: str
+    age: int
+    age_group: str
     lmp: date
     expected_delivery_date: date
     anc_count: int

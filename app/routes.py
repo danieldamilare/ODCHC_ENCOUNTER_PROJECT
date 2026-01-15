@@ -27,6 +27,7 @@ import pandas as pd
 from openpyxl import load_workbook
 from openpyxl.styles import Font, Alignment
 from flask import g
+from flask import send_file
 from app.filter_map import filter_config
 
 def get_facility_user_dashboard():
@@ -163,6 +164,8 @@ def add_child_health_encounter():
             return redirect(url_for('add_encounter'))
         except (InvalidReferenceError, ValidationError, ServiceError, MissingError) as e:
             flash(str(e), 'error')
+    elif form.errors:
+        flash("Encounter not submitted. Please check and correct errors before submitting", 'error')
 
     return render_template('add_child_health_encounter.html',
                            title = "Add Child Health Encounter",
@@ -198,6 +201,9 @@ def add_delivery_encounter():
         form.address.data = registry_val.address
         form.parity.data = registry_val.parity
         form.lmp.data = registry_val.lmp
+        form.anc_count.data = registry_val.anc_count
+        form.age.data = registry_val.age
+        form.age_group.data = registry_val.age_group
         form.nin.data = registry_val.nin
         form.phone_number.data = registry_val.phone_number
         form.expected_delivery_date.data = registry_val.expected_delivery_date
@@ -233,6 +239,9 @@ def add_delivery_encounter():
         except (ServiceError, ValidationError, MissingError) as e:
             flash(str(e), "error")
             return redirect(url_for('add_amchis_encounter'))
+
+    elif form.errors:
+        flash("Encounter not submitted. Please check and correct errors before submitting", 'error')
 
     baby_outcome_choices = [(b.value, b.value) for b in BabyOutcome]
 
@@ -300,6 +309,8 @@ def add_anc_encounter():
 
         except (ServiceError, ValidationError, MissingError) as e:
             flash(str(e), "error")
+    elif form.errors:
+        flash("Encounter not submitted. Please check and correct errors before submitting", 'error')
 
     return render_template("add_anc_encounter.html",
                             title = "Add ANC Encounter",
@@ -390,6 +401,8 @@ def add_scheme_encounter(scheme_id) -> Any:
             flash(str(e), 'error')
         # except:
             # abort(500)
+    elif form.errors:
+        flash("Encounter not submitted. Please check and correct errors before submitting", 'error')
 
     if request.method == 'GET':
         form.date.data = date.today()
@@ -526,7 +539,6 @@ def view_facilities(pid: int) -> Any:
     first_month_day = today.replace(day=1)
 
 
-    print("Testing params in user_count")
     user_count = UserServices.get_total(params= Params().where(User, 'facility_id', '=', pid))
 
     filters = Params()
@@ -534,7 +546,6 @@ def view_facilities(pid: int) -> Any:
             .where(Encounter, 'date', '>=', first_month_day)
             .where(Encounter, 'date', '<=', today))
 
-    print('Testing params in monthly encounter count')
     month_encounter_count = EncounterServices.get_total(params = filters)
     filters = filters.set_limit(10)
     filters = filters.sort(Encounter, 'date', 'DESC')
@@ -888,26 +899,11 @@ def encounters():
     user = get_current_user()
     page = int(request.args.get('page', 1))
     filter_form = EncounterFilterForm(request.args)
+    user = get_current_user()
+    if user.facility:
+        filter_form.scheme.choices = [(s.id, s.name) for s in user.facility.scheme]
 
-    filters = Params()
-
-    if filter_form.start_date.data:
-        start_date = datetime.strptime(
-            filter_form.start_date.data, '%Y-%m-%d').date()
-        filters = filters.where(Encounter, 'date', '>=', start_date)
-
-    if filter_form.end_date.data:
-        end_date = datetime.strptime(
-            filter_form.end_date.data, '%Y-%m-%d').date()
-        filters = filters.where(Encounter, 'date', '<=', end_date)
-
-    if user.role == Role.user:
-        filters = filters.where(Encounter, 'facility_id', '=', user.facility.id)
-    else:
-        if lga := filter_form.local_government.data:
-            filters = filters.where(Facility, 'local_government', '=', lga)
-        if facility_id := filter_form.facility.data:
-            filters = filters.where(Encounter, 'facility_id', '=', facility_id)
+    filters = build_filter(filter_form, ['period', 'scheme_id', 'outcome', 'facility_id'])
 
     encounter_list = list(EncounterServices.list_row_by_page(page,
                                                              params=filters))
@@ -958,23 +954,9 @@ def parse_date(period: str = None):
             # If parsing fails, fall back to default
             pass
 
-    # Fall back to period-based date selection (legacy support)
-    if not period:
-        period = 'this_month'
-
     today = date.today()
     start_date = today.replace(day=1)
     end_date = today
-
-    if period == 'this_month':
-        start_date = today.replace(day=1)
-    elif period == 'last_3_months':
-        start_date = today - timedelta(days=90)
-    elif period == 'last_year':
-        start_date = today.replace(year=today.year - 1)
-    else:
-        # Default to this month instead of raising error
-        start_date = today.replace(day=1)
 
     return start_date, end_date
 
@@ -985,34 +967,36 @@ def build_filter(form: FlaskForm, filters: List[str], base_params: Optional[Para
 
     for fil in filters:
         model, col, op =filter_config[fil]
-        value = getattr(form, fil).data
 
-        if fil == 'period' and value:
-            start_date, end_date = parse_date(value)
+        if fil == 'period':
+            start_date, end_date = parse_date()
             params = params.where(Encounter, 'date', '>=', start_date)
             params = params.where(Encounter, 'date', '<=', end_date)
             g.start_date = start_date
             g.end_date = end_date
-            g.period = value
 
         elif fil == 'facility_id':
+            value = getattr(form, fil).data
             if user.role.name != 'admin':
                 params = params.where(Encounter, 'facility_id', '=', user.facility.id)
                 g.facility_id = user.facility.id
-            elif  value:
+            elif value:
                 params = params.where(model, col, op, int(value))
                 g.facility_id = value
 
-        elif fil == 'local_government':
+        elif fil == 'lga':
+            value = getattr(form, fil).data
             if user.role.name == 'admin' and value:
                 params = params.where(model, col, op, value)
-                g.local_government = value
+                g.lga = value
 
-        elif value:
-            # Convert to int for ID fields
-            if col in ['scheme', 'outcome']:
-                value = int(value)
-            params = params.where(model, col, op, value)
+        else:
+            temp = getattr(form, fil)
+            if temp and temp.data:
+                value = temp.data
+                if col in ['scheme', 'outcome']:
+                    value = int(value)
+                params = params.where(model, col, op, value)
     return params
 
 @app.route('/dashboard/overview')
@@ -1226,7 +1210,6 @@ def reports():
                            year_choices=year_choices,
                            month_choices=month_choices)
 
-
 def get_report_data():
     report_type = request.args.get('report_type')
     facility_id_str = request.args.get('facility_id')
@@ -1260,6 +1243,9 @@ def get_report_data():
         start_date, report_data = ReportServices.generate_categorization_report(
             month=month, year=year)
         report_title = "Disease Categorization Report "
+    elif report_type == 'nhia_encounter':
+        start_date, report_data = ReportServices.generate_nhia_encounter_report(month= month, year = year)
+        report_title = "NHIA Encounter Report"
     else:
         raise ValidationError("Invalid report type selected.")
 
@@ -1442,8 +1428,15 @@ def download_report():
         output_buffer = append_encounter_header(report_data, start_date)
     elif report_type == 'categorization':
         output_buffer = append_categorization_header(report_data, start_date)
+    elif report_type == "nhia_encounter":
+        output_buffer =   io.BytesIO()
+        with pd.ExcelWriter(output_buffer, engine = 'openpyxl') as writer:
+            report_data.to_excel(writer, index=False)
+    else:
+        flash("Invalid report type", "error")
+        return redirect(url_for("view_report"))
+
     output_buffer.seek(0)
-    from flask import send_file
     return send_file(
         output_buffer,
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

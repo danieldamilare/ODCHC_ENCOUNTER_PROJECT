@@ -110,6 +110,8 @@ CREATE TABLE treatment_outcome(
 CREATE TABLE anc_registry(
     id INTEGER PRIMARY KEY,
     orin CHAR(10) NOT NULL CHECK(LENGTH(orin) = 10),
+    age INTEGER NOT NULL CHECK(age >= 15 AND age <= 60),
+    age_group TEXT NOT NULL,
     kia_date date NOT NULL,
     client_name TEXT NOT NULL COLLATE NOCASE,
     booking_date date NOT NULL,

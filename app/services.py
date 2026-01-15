@@ -150,7 +150,7 @@ class BaseServices:
             if or_conditions:
                 conditions.append("(" + " OR ".join(or_conditions) + ")")
 
-        where = ' WHERE ' if not 'WHERE' in base_query.upper() else ' AND '
+        where = ' WHERE ' if not 'WHERE' in base_query.upper() else ' '
 
         if conditions:
             query += where + " AND ".join(conditions)
@@ -596,9 +596,7 @@ class InsuranceSchemeServices(BaseServices):
     @classmethod
     def get_scheme_by_enum(cls, scheme: SchemeEnum) -> InsuranceScheme:
         query = f'''SELECT * from {cls.table_name} where scheme_name = ?'''
-        print(query)
         db = get_db()
-        # print(scheme, scheme.value)
         result = db.execute(query, (scheme.value, )).fetchone()
         if not result:
             raise MissingError(f"{scheme.value} not in insurance scheme")
@@ -831,7 +829,7 @@ class EncounterServices(BaseServices):
          Facility: 'fc',
          TreatmentOutcome: 'tc',
          InsuranceScheme: 'isc',
-         EncounterDiseases: 'eds'}
+         EncounterDiseases: 'ecd'}
 
     @classmethod
     def get_total(cls,
@@ -861,7 +859,6 @@ class EncounterServices(BaseServices):
             base_arg=[],
             **res
         )
-        # print(query)
         db = get_db()
 
         res =db.execute(query, args).fetchone()
@@ -1028,7 +1025,6 @@ class EncounterServices(BaseServices):
             ''', (anc_id,))
 
             baby_list = [(new_enc.id, baby['gender'], baby['outcome']) for baby in baby_details]
-            # print(baby_list)
 
             db.executemany("""INSERT INTO delivery_babies(encounter_id, gender, outcome)
                            VALUES (?, ?, ?)""", baby_list)
@@ -1121,11 +1117,11 @@ class EncounterServices(BaseServices):
                 cur = db.execute(
                 '''INSERT INTO anc_registry(orin, kia_date, client_name,
                 booking_date, parity, place_of_issue, hospital_number, address, lmp,
-                expected_delivery_date, anc_count, status, nin, phone_number) VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                expected_delivery_date, anc_count, status, nin, phone_number, age, age_group) VALUES (
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
                 (policy_number, kia_date, client_name, booking_date, parity,
                 place_of_issue, hospital_number, address, lmp, expected_delivery_date,
-                anc_count, "active", nin, phone_number))
+                anc_count, "active", nin, phone_number, age, age_group))
                 anc_id = cur.lastrowid
 
             new_id = new_enc.id
@@ -1239,6 +1235,8 @@ class EncounterServices(BaseServices):
             phone_number= row['phone_number'],
             expected_delivery_date= row['expected_delivery_date'],
             anc_count= row['anc_count'],
+            age = row['age'],
+            age_group = row['age_group'],
             status= row['status']
         )
 
@@ -1300,7 +1298,6 @@ class EncounterServices(BaseServices):
             base_arg=[],
             **res
         )
-        # print(query)
 
         db = get_db()
         return db.execute(query, args).fetchall()
@@ -1427,6 +1424,8 @@ class EncounterServices(BaseServices):
             ar.lmp,
             ar.nin,
             ar.phone_number,
+            ar.age_group,
+            ar.age,
             ar.expected_delivery_date as edd,
             ae.anc_count,
             ar.status as anc_status
@@ -1453,6 +1452,8 @@ class EncounterServices(BaseServices):
                 lmp = row['lmp'],
                 nin = row['nin'],
                 phone_number = row['phone_number'],
+                age = row['age'],
+                age_group = row['age_group'],
                 expected_delivery_date= row['edd'],
                 anc_count= row['anc_count'],
                 status = row['anc_status']
@@ -1822,7 +1823,6 @@ class DashboardServices(BaseServices):
             return 999
 
         for row in rows:
-            print(row)
             result.append({'age_group': row['age_group'], 'count': row['age_group_count']})
             used.add(row['age_group'])
 
@@ -2129,7 +2129,6 @@ class DashboardServices(BaseServices):
         res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         query, args = cls._apply_filter(base_query = inner_query, **res)
         new_query = f'SELECT outcome, COUNT(*) as outcome_count FROM ({query}) GROUP BY outcome'
-        # print(new_query, args)
         return cls._run_query(query =new_query,
                       params = args,
                       row_mapper = lambda row: {'outcome': row['outcome'],
@@ -2205,14 +2204,11 @@ class DashboardServices(BaseServices):
         query, filter_args = cls._apply_filter(query, **res)
 
         args = [start_date, end_date, prev_start_date, prev_end_date] + filter_args
-        print(query, args)
-        # print(query, args)
 
         db = get_db()
         row = db.execute(query, args).fetchone()
         current = row['current_count'] if row else 0
         prev = row['prev_count'] if row else 0
-        # print(current, prev)
 
         pct_change = 0.0
         if prev:
@@ -2388,7 +2384,6 @@ class DashboardServices(BaseServices):
 
         res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         query, args = cls._apply_filter(query, **res)
-        # print(query, args)
         return cls._run_query(query, args,
                               lambda row: {'name': row['cause_name'], 'count': row['count']})
 
@@ -2556,14 +2551,12 @@ class DashboardServices(BaseServices):
 
         res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         query, args = cls._apply_filter(query, **res)
-        # print(query, args)
         db = get_db()
         rows = db.execute(query, args).fetchall()
         df = pd.DataFrame([dict(row) for row in rows])
         if df.empty:
             return {}
 
-        # print(df)
         df['date'] = pd.to_datetime(df['date'])
         df['date'] = df['date'].dt.to_period(freq='M')
         rows =  db.execute('SELECT tc.name  as death_type from \
@@ -2575,7 +2568,6 @@ class DashboardServices(BaseServices):
         df = df.reindex(pd.MultiIndex.from_product([all_month, death_type], names = ['date', 'death_type']),
                         fill_value=0).reset_index()
         df.date = df.date.astype(str)
-        # print(df)
         pivot = df.pivot_table(
             index = 'date',
             columns = 'death_type',
@@ -2667,10 +2659,9 @@ class DashboardServices(BaseServices):
 
         res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         query, args = cls._apply_filter(query, **res)
-        # print(query, args)
+
         db = get_db()
         row = db.execute(query, args).fetchone()
-        # print( dict(row))
         res = row['count'] if row else 0
         return res or 0
 
@@ -2691,11 +2682,9 @@ class DashboardServices(BaseServices):
 
         res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         query, args = cls._apply_filter(query, **res)
-        print(query, args)
-        # print(query, args)
         db = get_db()
         row = db.execute(query, args).fetchone()
-        print(dict(row))
+
         res = row['rate'] if row else 0
         return res or 0
 
@@ -2721,10 +2710,8 @@ class DashboardServices(BaseServices):
         db = get_db()
         res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
 
-        # print(res)
 
         query, args = cls._apply_filter(base_query= query, **res)
-        # print(query, args)
         args = [prev_start_date, prev_end_date, start_date, end_date] + args
         row = db.execute(query, args).fetchone()
 
@@ -2790,6 +2777,12 @@ class DashboardServices(BaseServices):
 
 class ReportServices(BaseServices):
 
+    MODEL_ALIAS_MAP = {Encounter: 'ec',
+         Facility: 'fc',
+         TreatmentOutcome: 'tc',
+         InsuranceScheme: 'isc',
+         EncounterDiseases: 'ecd'}
+
     @classmethod
     def get_start_end_date(cls, month: Optional[int], year: Optional[int]):
         filter_date = datetime.now().date()
@@ -2827,8 +2820,8 @@ class ReportServices(BaseServices):
                 ec.gender,
                 ec.age_group
             FROM encounters AS ec
-            LEFT JOIN encounters_diseases as ed on ed.encounter_id = ec.id
-            JOIN diseases as dis on dis.id = ed.disease_id
+            LEFT JOIN encounters_diseases as ecd on ed.encounter_id = ec.id
+            JOIN diseases as dis on dis.id = ecd.disease_id
             WHERE ec.date >= ? and ec.date <= ?
             AND ec.facility_id = ?
         '''
@@ -2841,7 +2834,7 @@ class ReportServices(BaseServices):
         if df.empty:
             raise MissingError("No report available for this timeframe!")
 
-        age_groups = ['<1', '1-5', '6-14', '15-19', '20-44', '45-64', '65&AB']
+        age_groups = [ag.value for ag in AgeGroup]
         gender = ['M', 'F']
 
         table = df.pivot_table(
@@ -2857,8 +2850,8 @@ class ReportServices(BaseServices):
         )
         # table
 
-        table[('TOTAL', 'M')] = table.filter(like='M').sum(axis=1)
-        table[('TOTAL', 'F')] = table.filter(like='F').sum(axis=1)
+        table[('TOTAL', 'M')] = table.loc[:, (slice(None), 'M')].sum(axis=1)
+        table[('TOTAL', 'F')] = table.loc[:, (slice(None), 'F')].sum(axis=1)
         table['GRAND TOTAL'] = table[('TOTAL', 'M')] + table[('TOTAL', 'F')]
         table.loc['TOTAL'] = table.sum()
         table = table.reset_index()
@@ -2896,7 +2889,7 @@ class ReportServices(BaseServices):
         if df.empty:
             raise MissingError("No report available for this timeframe!")
 
-        age_groups = ['<1', '1-5', '6-14', '15-19', '20-44', '45-64', '65&AB']
+        age_groups = [ag.value for ag in AgeGroup]
         gender = ['M', 'F']
 
         table = df.pivot_table(
@@ -2912,8 +2905,8 @@ class ReportServices(BaseServices):
             axis=1
         )
 
-        table[('TOTAL', 'M')] = table.filter(like='M').sum(axis=1)
-        table[('TOTAL', 'F')] = table.filter(like='F').sum(axis=1)
+        table[('TOTAL', 'M')] = table.loc[:, (slice(None), 'M')].sum(axis=1)
+        table[('TOTAL', 'F')] = table.loc[:, (slice(None), 'F')].sum(axis=1)
         table['GRAND TOTAL'] = table[('TOTAL', 'M')] + table[('TOTAL', 'F')]
         table.loc['TOTAL'] = table.sum()
         table = table.reset_index()
@@ -2921,6 +2914,91 @@ class ReportServices(BaseServices):
         table.columns.name = ''
         table.rename(columns={'facility_name': 'Facilities'}, inplace=True)
         return start_date, table
+
+
+    @classmethod
+    def generate_nhia_encounter_report(cls, month: Optional[int] = None,
+                                       year: Optional[int] = None) -> Tuple:
+        # 1. Base Query (Note: No GROUP BY yet)
+        if month and (month > 12 or month < 1):
+            raise ValidationError("Invalid month selection")
+
+        start_date, end_date = cls.get_start_end_date(month, year)
+
+        query = '''
+        SELECT
+            "Ondo State" as STATE,
+            fc.name as "FACILITY NAME",
+            fc.facility_type as "FACILITY TYPE",
+            fc.ownership as "FACILITY OWNERSHIP",
+            fc.local_government as LGA,
+            ec.date as "ENCOUNTER DATE(DD/MM/YYYY)",
+            ec.nin as NIN,
+            ec.hospital_number as "HOSPITAL NUMBER",
+            ec.policy_number as "ENROLLEE NUMBER",
+            ec.client_name as "ENROLLEE NAME",
+            ec.address as "RESIDENTIAL ADDRESS",
+            ec.phone_number as "PHONE NUMBER",
+            ec.gender as GENDER,
+            isc.scheme_name as "TYPE OF PROGRAMME",
+            ec.age_group as "AGE GROUP",
+            ec.mode_of_entry as "MODE OF ENTRY",
+            ec.investigation as INVESTIGATION,
+            COALESCE(ec.investigation_cost, 0) as "COST OF INVESTIGATION",
+            ec.treatment as TREATMENT,
+            COALESCE(ec.treatment_cost, 0) as "COST OF TREATMENT",
+            ec.medication as MEDICATION,
+            COALESCE(ec.medication_cost, 0) as "COST OF MEDICATION",
+            tc.name as OUTCOME,
+            ec.referral_reason as "REASON FOR REFERRAL",
+            GROUP_CONCAT(dis.name, ', ') as DIAGNOSIS
+        FROM encounters as ec
+        LEFT JOIN facility as fc on fc.id = ec.facility_id
+        LEFT JOIN treatment_outcome as tc on tc.id = ec.outcome
+        LEFT JOIN insurance_scheme as isc on isc.id = ec.scheme
+        LEFT JOIN encounters_diseases as ecd on ecd.encounter_id = ec.id
+        LEFT JOIN diseases as dis on dis.id = ecd.disease_id
+        WHERE ec.date >= ? AND ec.date <= ?
+        GROUP BY ec.id
+        '''
+
+        db = get_db()
+
+        rows = db.execute(query, (start_date, end_date)).fetchall()
+        print("query", query, "start_date", start_date, "end_date", end_date)
+
+        if not rows:
+            raise MissingError("No report available for this timeframe!")
+
+        df = pd.DataFrame([dict(row) for row in rows])
+        print("df", df)
+        cols_to_sum = ['COST OF INVESTIGATION', 'COST OF TREATMENT', 'COST OF MEDICATION']
+
+        for col in cols_to_sum:
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+
+        df['TOTAL COST'] = df[cols_to_sum].sum(axis=1)
+
+        df['CLAIMS AMOUNT SUBMITTED'] = ''
+        df['CLAIMS PAID AMOUNT'] = ''
+        df['CLAIMS AMOUNT REJECTED'] = ''
+        df['REASON FOR REJECTION'] = ''
+
+        date_col = 'ENCOUNTER DATE(DD/MM/YYYY)'
+        if date_col in df.columns:
+             df[date_col] = pd.to_datetime(df[date_col]).dt.strftime("%d/%m/%Y")
+
+        new_order = [
+            'STATE', 'LGA', 'FACILITY NAME', 'FACILITY TYPE', 'FACILITY OWNERSHIP',
+            'ENCOUNTER DATE(DD/MM/YYYY)', 'NIN', 'HOSPITAL NUMBER', 'ENROLLEE NUMBER',
+            'TYPE OF PROGRAMME', 'ENROLLEE NAME', 'RESIDENTIAL ADDRESS', 'PHONE NUMBER',
+            'GENDER', 'AGE GROUP', 'MODE OF ENTRY', # Removed 'NATURE OF VISIT', 'TYPE OF SERVICE' as they aren't in query
+            'INVESTIGATION', "COST OF INVESTIGATION", 'DIAGNOSIS', 'TREATMENT', 'COST OF TREATMENT',
+            'MEDICATION', 'COST OF MEDICATION', 'TOTAL COST', 'OUTCOME', 'REASON FOR REFERRAL',
+            'CLAIMS AMOUNT SUBMITTED', 'CLAIMS PAID AMOUNT', 'CLAIMS AMOUNT REJECTED', "REASON FOR REJECTION"
+        ]
+        df = df.reindex(columns=new_order)
+        return start_date, df
 
     @classmethod
     def generate_categorization_report(cls, month: Optional[None], year: Optional[None]):
@@ -2963,6 +3041,7 @@ class ReportServices(BaseServices):
         table.rename(columns={'facility_name': 'Facilities'}, inplace=True)
 
         return start_date, table
+
 
 class UploadServices(BaseServices):
 
