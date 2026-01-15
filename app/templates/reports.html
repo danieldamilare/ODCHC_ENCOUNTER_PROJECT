@@ -39,6 +39,7 @@
                             <option value="utilization">Service Utilization (by Facility)</option>
                             <option value="encounter">Encounter Summary (All Facilities)</option>
                             <option value="categorization">Disease Categorization (All Facilities)</option>
+                            <option value="nhia_encounter"> NHIA Encounter Report Format</option>
                         </select>
                         <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                             <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -159,7 +160,7 @@
 
         // Add an event listener to run the function whenever the selection changes
         reportTypeSelect.addEventListener('change', toggleFacilitySelector);
-        
+
         // Run the function once on page load to set the initial state
         toggleFacilitySelector();
     });
