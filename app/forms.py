@@ -377,7 +377,8 @@ class FacilityFilterForm(FlaskForm, SchemeMixin):
     scheme = SelectField("Scheme", validators= [Optional()], coerce=int)
     lga = SelectField("LGA", validators= [Optional()], choices = LGA_CHOICES)
     name = StringField("", validators= [Optional()])
-    facility_type = SelectField("LGA", validators = [Optional()], choices = [])
+    facility_type = SelectField("Facility Type", validators = [Optional()], choices = [(x.name, x.name) for x in FacilityType])
+    ownership = SelectField("Ownership", validators = [Optional()], choices = [(x.name, x.name) for x in FacilityOwnerShip])
     limit = SelectField("Number", validators=[Optional()], coerce = int, default=Config.ADMIN_PAGE_PAGINATION)
     class Meta:
         csrf = False
