@@ -5,7 +5,7 @@ from app import app
 import arrow
 from datetime import date, datetime, timedelta
 from typing import Any
-from app.constants import SchemeEnum
+from app.constants import SchemeEnum, AgeGroup
 from dataclasses import fields as datafield
 from app.models import get_current_user, Role
 
@@ -80,6 +80,19 @@ def calculate_gestational_age(dt: date) -> str:
     if days_remaining:
         days_pretty = f" and {days_remaining} {'day' if days_remaining == 1 else 'days'}"
     return weeks_pretty + days_pretty
+
+def get_age_group(age: int) -> str:
+    if age < 5:
+        return AgeGroup.LESS_THAN_5_YEARS.value
+    elif age >= 5 and age <= 12:
+        return AgeGroup.FIVE_TO_TWELVE.value
+    elif age >=13 and age <= 19:
+        return AgeGroup.THIRTEEN_TO_NINETEEN_.value
+    elif age >= 20 and age <= 59:
+        return AgeGroup.TWENTY_TO_FIFTY_NINE.value
+    elif age >= 60:
+        return AgeGroup.SIXTY_AND_ABOVE.value
+
 
 def calculate_edd(dt: date) -> date:
     return dt + timedelta(days=280)

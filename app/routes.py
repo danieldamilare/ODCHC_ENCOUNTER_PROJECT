@@ -8,7 +8,7 @@ from app.exceptions import AuthenticationError, MissingError, ValidationError
 from app.exceptions import InvalidReferenceError, DuplicateError, ServiceError
 from urllib.parse import urlparse
 from app.config import Config
-from app.utils import form_to_dict, admin_required, humanize_datetime_filter, calculate_gestational_age, scheme_access_required
+from app.utils import form_to_dict, admin_required, humanize_datetime_filter, calculate_gestational_age, scheme_access_required, get_age_group
 from app.forms import LoginForm, AddEncounterForm, AddFacilityForm, EditFacilityForm, AddDiseaseForm, ExcelUploadForm, DashboardFilterForm, EncTypeForm, DeliveryEncounterForm, AddServiceForm
 from app.forms import AddUserForm, AddCategoryForm, DeleteUserForm, EditUserForm, EditDiseaseForm, EncounterFilterForm, AdminDashboardFilterForm, ANCEncounterForm, ChildHealthEncounterForm, FacilityFilterForm
 from app.constants import ONDO_LGAS_LIST, SchemeEnum, BabyOutcome
@@ -47,6 +47,7 @@ def get_facility_user_dashboard():
     facility_name = get_current_user().facility.name
 
     return render_template("facility_dashboard.html",
+                           title  = f"{facility_name} - Dashboard",
                            start_date = start_date,
                            end_date = end_date,
                            total_encounter = total_encounter,
@@ -147,6 +148,7 @@ def add_child_health_encounter():
             res['guardian_name'] = form.guardian_name.data
             res['dob'] = form.dob.data
             res['created_by'] = get_current_user().id
+            res['age_group'] = form.age_group.data if form.age.data == 0 else get_age_group(form.age.data)
             diseases = [disease.data for disease in form.diseases]
             services = [service.data for service in form.services]
             res['diseases_id'] = diseases
@@ -227,6 +229,7 @@ def add_delivery_encounter():
             res['anc_count'] = registry_val.anc_count if registry_val else 1
             res['mode_of_delivery'] = form.mode_of_delivery.data
             res['baby_details'] = form.babies_data
+            res['age_group'] = form.age_group.data if form.age.data == 0 else get_age_group(form.age.data)
             res['anc_id'] = registry_val.id
             res['created_by'] = get_current_user().id
             res['gender'] = 'F'
@@ -293,6 +296,7 @@ def add_anc_encounter():
             final_outcome = form.death_type.data if form.outcome.data == -1 else form.outcome.data
             res['outcome'] = final_outcome
             res['scheme'] = scheme.id
+            res['age_group'] = form.age_group.data if form.age.data == 0 else get_age_group(form.age.data)
             res['created_by'] = get_current_user().id
             res['anc_count'] = (
                 registry_val.anc_count + 1 if registry_val
@@ -386,11 +390,12 @@ def add_scheme_encounter(scheme_id) -> Any:
             res['services_id'] = services
             user = get_current_user()
             res['created_by'] = user.id
+            res['age_group'] = form.age_group.data if form.age.data == 0 else get_age_group(form.age.data)
             if user.role.name != 'admin':
                 res['facility_id'] = user.facility.id
             else:
                 if not form.facility.data:
-                    raise ValidationError("Please select a facility", "error")
+                    raise ValidationError("Admin user has to select a facility", "error")
                 res['facility_id'] = form.facility.data
 
             res['scheme'] = scheme_id
@@ -902,7 +907,7 @@ def encounters():
     filter_form = EncounterFilterForm(request.args)
     user = get_current_user()
     if user.facility:
-        filter_form.scheme.choices = [(s.id, s.name) for s in user.facility.scheme]
+        filter_form.scheme_id.choices = [(s.id, s.scheme_name) for s in user.facility.scheme]
 
     filters = build_filter(filter_form, ['period', 'scheme_id', 'outcome', 'facility_id'])
 
