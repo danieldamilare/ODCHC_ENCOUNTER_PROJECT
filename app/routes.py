@@ -563,6 +563,7 @@ def view_facilities(pid: int) -> Any:
                        user_page=page - 1) if page > 1 else None
 
     return render_template('view_facilities.html',
+                           title = f"Viewing Facility: {facility.name}",
                            month_encounter_count=month_encounter_count,
                            facility=facility,
                            recent_encounters=recent_encounters,

@@ -150,10 +150,9 @@ class BaseServices:
             if or_conditions:
                 conditions.append("(" + " OR ".join(or_conditions) + ")")
 
-        where = ' WHERE ' if not 'WHERE' in base_query.upper() else ' '
 
         if conditions:
-            query += where + " AND ".join(conditions)
+            query += " WHERE " + " AND ".join(conditions)
 
         # --- GROUP BY Clause ---
         if group_by:
@@ -2768,6 +2767,7 @@ class DashboardServices(BaseServices):
             params = params.set_limit(10)
         res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         query, args = cls._apply_filter(query,  **res)
+        print(query)
 
         return cls._run_query(query, args,
                               lambda row: {'facility_name': row['facility_name'],

@@ -281,7 +281,6 @@ class AddFacilityForm(FlaskForm, SchemeMixin):
                                 choices = [(fc.value, fc.value) for fc in FacilityType], validators=[DataRequired()])
     ownership = SelectField("Ownership",
                             choices = [(fo.value, fo.value) for fo in FacilityOwnerShip],
-                            coerce = lambda x: FacilityOwnerShip[x],
                             validators = [DataRequired()])
 
     scheme = SelectMultipleField('Insurance Scheme', coerce=int,
