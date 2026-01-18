@@ -1073,7 +1073,7 @@ def admin_utilization():
 
     utilization_per_scheme = DashboardServices.get_utilization_per_scheme(all_filters)
     utilization_per_lga = DashboardServices.utilization_distribution_across_lga(without_lgas_filters)
-    top_diseases = DashboardServices.top_diseases(all_filters)
+    top_utilized_items = DashboardServices.top_utilized_items(all_filters)
     average_daily_utilization = DashboardServices.get_average_utilization_per_day(without_date_filters, g.start_date, g.end_date)
     total_utilization = DashboardServices.get_total_utilization(without_date_filters, g.start_date, g.end_date)
     utilization_age_distribution = DashboardServices.utilization_age_group_distribution(all_filters)
@@ -1087,7 +1087,7 @@ def admin_utilization():
         total_utilization = total_utilization,
         utilization_per_scheme = utilization_per_scheme,
         utilization_age_distribution = utilization_age_distribution,
-        top_diseases = top_diseases,
+        top_utilized_items = top_utilized_items,
         average_daily_utilization = average_daily_utilization,
         utilization_trend = utilization_trend,
         top_utilized_facilites = top_utilized_facilities,

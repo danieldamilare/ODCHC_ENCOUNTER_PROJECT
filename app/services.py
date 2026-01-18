@@ -1834,37 +1834,20 @@ class DashboardServices(BaseServices):
         return result
 
     @classmethod
-    def top_diseases(cls,
+    def top_utilized_items(cls,
                      params:Params):
 
         query = '''
         SELECT
-         cause_name || " (" || cause_type || ")" as disease_name,
+         vui.item_name || " (" || vui.item_type || ")" as disease_name,
          COUNT(*) as count
-        FROM
-        ( SELECT
-                ecs.encounter_id as encounter_id,
-                ecs.service_id as cause_id,
-                'Service' as cause_type,
-                srv.name as cause_name
-            FROM encounters_services as ecs
-            JOIN services as srv on ecs.service_id = srv.id
-            UNION ALL
+        FROM view_utilization_items as vui
 
-            SELECT
-                ecd.encounter_id as encounter_id,
-                ecd.disease_id as cause_id,
-                'Disease' as cause_type,
-                dis.name as cause_name
-            FROM encounters_diseases as ecd
-            JOIN diseases as dis on ecd.disease_id = dis.id
-        ) as temp
-
-        JOIN encounters as ec on temp.encounter_id = ec.id
+        JOIN encounters as ec on vui.encounter_id = ec.id
         JOIN facility as fc on fc.id = ec.facility_id
         JOIN treatment_outcome as tc on tc.id = ec.outcome
         '''
-        params = params.group(None, 'cause_id')
+        params = params.group(None, 'disease_name')
         params = params.sort(None, 'Count', 'DESC')
         if not params.limit:
             params = params.set_limit(10)
@@ -1931,8 +1914,7 @@ class DashboardServices(BaseServices):
         query = '''
             SELECT age_group, COUNT(*) as age_group_count
             FROM encounters as ec
-            LEFT JOIN encounters_diseases as ecd on ecd.encounter_id = ec.id
-            LEFT JOIN encounters_services as ecs on ecs.encounter_id = ec.id
+            LEFT JOIN  view_utilization_items as vui on vui.encounter_id = ec.id
             JOIN facility as fc ON fc.id = ec.facility_id
         '''
 
@@ -1953,8 +1935,7 @@ class DashboardServices(BaseServices):
         query = '''
             SELECT ec.date, COUNT(*) AS date_count
             FROM encounters AS ec
-            LEFT JOIN encounters_diseases as ecd on ecd.encounter_id = ec.id
-            LEFT JOIN encounters_services as ecs on ecs.encounter_id = ec.id
+            LEFT JOIN  view_utilization_items as vui on vui.encounter_id = ec.id
             JOIN facility AS fc ON fc.id = ec.facility_id
         '''
 
@@ -2101,8 +2082,7 @@ class DashboardServices(BaseServices):
             isc.scheme_name as encounter_scheme,
             isc.color_scheme as color_scheme
         FROM encounters as ec
-        LEFT JOIN encounters_diseases as ecd on ecd.encounter_id = ec.id
-        LEFT JOIN encounters_services as ecs on ecs.encounter_id = ec.id
+        LEFT JOIN  view_utilization_items as vui on vui.encounter_id = ec.id
         JOIN insurance_scheme as isc on isc.id = ec.scheme
         JOIN facility as fc on ec.facility_id = fc.id
         '''
@@ -2161,8 +2141,7 @@ class DashboardServices(BaseServices):
             COALESCE(SUM(CASE WHEN ec.date BETWEEN ? AND ? THEN 1 ELSE 0 END), 0) AS current_count,
             COALESCE(SUM(CASE WHEN ec.date BETWEEN ? AND ? THEN 1 ELSE 0 END), 0) AS prev_count
         FROM encounters AS ec
-        LEFT JOIN encounters_diseases as ecd on ecd.encounter_id = ec.id
-        LEFT JOIN encounters_services as ecs on ecs.encounter_id = ec.id
+        LEFT JOIN  view_utilization_items as vui on vui.encounter_id = ec.id
         JOIN facility AS fc ON fc.id = ec.facility_id
         '''
 
@@ -2246,8 +2225,7 @@ class DashboardServices(BaseServices):
             fc.local_government as lga,
             COUNT(*) as count
         FROM encounters as ec
-        LEFT JOIN encounters_diseases as ecd on ecd.encounter_id = ec.id
-        LEFT JOIN encounters_services as ecs on ecs.encounter_id = ec.id
+        LEFT JOIN  view_utilization_items as vui on vui.encounter_id = ec.id
         JOIN facility as fc on fc.id = ec.facility_id
         '''
         params = params.group(Facility, 'local_government')
@@ -2270,8 +2248,7 @@ class DashboardServices(BaseServices):
             isc.scheme_name,
             isc.color_scheme
         FROM encounters as ec
-        LEFT JOIN encounters_diseases as ecd on ecd.encounter_id = ec.id
-        LEFT JOIN encounters_services as ecs on ecs.encounter_id = ec.id
+        LEFT JOIN  view_utilization_items as vui on vui.encounter_id = ec.id
         JOIN insurance_scheme as isc on isc.id = ec.scheme
         JOIN facility as fc on fc.id = ec.facility_id
         '''
@@ -2348,33 +2325,14 @@ class DashboardServices(BaseServices):
     def get_top_cause_of_mortality(cls, params: Params):
         query = '''
         SELECT
-         cause_name || " (" || cause_type || ")" as cause_name,
+         vui.item_name || " (" || vui.item_type || ")" as cause_name,
          COUNT(*) as count
-        FROM
-        ( SELECT
-                ecs.encounter_id as encounter_id,
-                ecs.service_id as cause_id,
-                'Service' as cause_type,
-                srv.name as cause_name
-            FROM encounters_services as ecs
-            JOIN services as srv on ecs.service_id = srv.id
-            UNION ALL
-
-            SELECT
-                ecd.encounter_id as encounter_id,
-                ecd.disease_id as cause_id,
-                'Disease' as cause_type,
-                dis.name as cause_name
-            FROM encounters_diseases as ecd
-            JOIN diseases as dis on ecd.disease_id = dis.id
-        ) as temp
-
-        JOIN encounters as ec on temp.encounter_id = ec.id
+        FROM view_utilization_items as vui
+        JOIN encounters as ec on vui.encounter_id = ec.id
         JOIN facility as fc on fc.id = ec.facility_id
         JOIN treatment_outcome as tc on tc.id = ec.outcome
         '''
         params = params.where(TreatmentOutcome, 'type', '=', 'Death')
-        params = params.group(None, 'cause_id')
         params = params.group(None, 'cause_name')
         params = params.sort(None, 'count', 'DESC')
 
@@ -2650,8 +2608,7 @@ class DashboardServices(BaseServices):
             END as count
         FROM encounters as ec
         JOIN facility as fc on fc.id = ec.facility_id
-        LEFT JOIN encounters_diseases as ecd on ec.id =  ecd.encounter_id
-        LEFT JOIN encounters_services as ecs on ec.id =  ecs.encounter_id
+        LEFT JOIN view_utilization_items as vui on ec.id =  vui.encounter_id
         '''
         params = params.where(Encounter, 'date', '>=', start_date)\
                         .where(Encounter, 'date', "<=", end_date)
@@ -2673,8 +2630,7 @@ class DashboardServices(BaseServices):
             END AS rate
         FROM encounters as ec
         JOIN facility as fc on fc.id = ec.facility_id
-        LEFT JOIN encounters_diseases as ecd on ec.id = ecd.encounter_id
-        LEFT JOIN encounters_services as ecs on ec.id = ecs.encounter_id
+        LEFT JOIN view_utilization_items as vui on ec.id =  vui.encounter_id
         '''
         params = params.where(Encounter, 'date', '>=', start_date)\
                         .where(Encounter, 'date', "<=", end_date)
@@ -2816,12 +2772,11 @@ class ReportServices(BaseServices):
         query = '''
             SELECT
                 ec.policy_number,
-                dis.name AS disease_name,
+                vui.item_name AS disease_name,
                 ec.gender,
                 ec.age_group
             FROM encounters AS ec
-            LEFT JOIN encounters_diseases as ecd on ed.encounter_id = ec.id
-            JOIN diseases as dis on dis.id = ecd.disease_id
+            LEFT JOIN view_utilization_items as vui on vui.encounter_id = ec.id
             WHERE ec.date >= ? and ec.date <= ?
             AND ec.facility_id = ?
         '''
