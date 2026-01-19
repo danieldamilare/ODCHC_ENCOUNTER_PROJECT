@@ -182,11 +182,11 @@ class EncounterView:
     hospital_number: str
     address: str
     treatment: Optional[str]
-    treatment_cost: Optional[int]
+    treatment_cost: Optional[float]
     medication: Optional[str]
-    medication_cost: Optional[int]
+    medication_cost: Optional[float]
     investigation: Optional[str]
-    investigation_cost: Optional[int]
+    investigation_cost: Optional[float]
     doctor_name: Optional[str]
     treatment_outcome: TreatmentOutcome
     created_by: str

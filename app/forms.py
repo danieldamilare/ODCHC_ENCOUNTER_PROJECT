@@ -66,13 +66,14 @@ class OutcomeMixin:
             [(s.id, s.name) for s in outcomes if s.type.lower() != 'death']
         )
         self.outcome.choices += [(s.id, s.name) for s in outcomes if s.type.lower() == 'death' and s.name ==  OutcomeEnum.MATERNAL_DEATH.value]
+        self.death_type.choices = [('0', '')]
 
 class FacilityMixin:
     def populate_facility_choices(self):
         """Populate facility choices from database"""
         self.facility.choices = (
             [('0', 'Select Facility')] +
-            [(f.id, f.name) for f in FacilityServices.get_all()]
+            [(f.id, f.name) for f in sorted(FacilityServices.get_all(), key  =  lambda x: x.name)]
         )
 
 class SchemeMixin:
@@ -91,61 +92,55 @@ class EncTypeForm(FlaskForm):
                            choices= encounter_list)
     submit = SubmitField("Proceed")
 
-class AddEncounterForm(FlaskForm, FacilityMixin, OutcomeMixin):
-    policy_number = StringField('Policy Number', validators=[DataRequired()])
+# 1. THE BASE FORM (Shared Fields Only)
+class BaseEncounterForm(FlaskForm, FacilityMixin, OutcomeMixin):
+    # --- Common Fields ---
+    policy_number = StringField('Policy Number / ORIN', validators=[DataRequired()])
     client_name = StringField('Client Name', validators=[DataRequired()])
-    treatment = TextAreaField('Treatment')
-    doctor_name = StringField('Doctor Name', validators=[
-                              DataRequired(), Length(min=2)])
-    age = IntegerField('Age', validators=[DataRequired(), NumberRange(
-        0, 120, 'Age must be between 0 - 120 ')])
     date = DateField('Date Of Visit', format="%Y-%m-%d", validators=[DataRequired()])
-    gender = SelectField('Gender', choices=[
-                         ('M', 'Male'), ('F', 'Female')], validators=[DataRequired(),
-                                                                      AnyOf(('M', 'F'))])
+
+    gender = SelectField('Gender', choices=[('M', 'Male'), ('F', 'Female')],
+                         validators=[DataRequired(), AnyOf(('M', 'F'))])
+    age = IntegerField('Age', validators=[DataRequired(), NumberRange(0, 120)])
+    age_group = SelectField("Age Group", validators=[Optional()],
+                            choices=[('', "Select Age Group")] + [(x.value, x.value) for x in list(AgeGroup)])
+
+    # Contact Info
+    phone_number = StringField("Phone Number", validators=[DataRequired(), nigerian_phone_number])
+    hospital_number = StringField("Hospital Number", validators=[DataRequired()])
+    address = StringField("Residential Address", validators=[DataRequired()])
     nin = StringField('NIN', validators=[DataRequired(), validate_nin])
-    diseases = FieldList(SelectField('Disease/Diagnosis',
-                         validators=[DataRequired(), validate_diseases], coerce=int))
-    services = FieldList(SelectField("Services",
-                         validators=[DataRequired()], coerce=int))
+
+    # Facility & Outcome
     facility = SelectField("Select Facility", coerce=int, validators=[validate_facility])
-    outcome = SelectField('Treatment Outcome',  validators=[
-                          DataRequired()], coerce=int, render_kw={'id': 'outcome-select'})
-    phone_number = StringField("Phone Number", validators = [DataRequired(), nigerian_phone_number])
-    hospital_number = StringField("Hospital Number", validators=[DataRequired()] )
-    address = StringField("Patient Residential Address", validators = [DataRequired()])
-    age_group = SelectField("Age Group", validators = [Optional()],
-                            choices = [('', "Select Age Group")] + [(x.value, x.value) for x in list(AgeGroup)])
+    outcome = SelectField('Treatment Outcome', coerce=int, validators=[DataRequired()], render_kw={'id': 'outcome-select'})
+    death_type = SelectField("Death Type", coerce=int, validators=[Optional()], render_kw={'id': 'death-type-select'})
+    referral_reason = StringField("Referral Reason", validators=[Optional()])
 
-    referral_reason  = StringField("Referral Reason", validators = [Optional()])
-    investigation = TextAreaField("Investigations", validators = [Optional()])
-    investigation_cost = DecimalField("Cost of Investigations", validators = [Optional()])
-    medication = TextAreaField("Medications", validators = [Optional()])
-    medication_cost = DecimalField("Cost of medications", validators = [Optional()])
-    treatment_cost = DecimalField("Cost of Treatment", validators = [Optional()])
-    mode_of_entry = SelectField("Mode of Entry",
-                                choices = [('', "Select Mode of Entry")] + [(moe.value, moe.value) for moe in ModeOfEntry],
-                                validators = [DataRequired()])
-    death_type = SelectField("Death Type", validators=[
-                             Optional()], coerce=int, render_kw={'id': 'death-type-select'})
+    # Medical Details
+    treatment = TextAreaField('Treatment')
+    doctor_name = StringField('Doctor Name', validators=[DataRequired(), Length(min=2)])
 
-    total_cost = DecimalField("Total Cost",
-                              validators=[Optional()],
-                              default=0,
-                              render_kw={'readonly': True, 'class': 'bg-slate-100 text-slate-500 cursor-not-allowed'})
+    # Costs
+    investigation = TextAreaField("Investigations", validators=[Optional()])
+    investigation_cost = DecimalField("Cost of Investigations", validators=[Optional()])
+    medication = TextAreaField("Medications", validators=[Optional()])
+    medication_cost = DecimalField("Cost of medications", validators=[Optional()])
+    treatment_cost = DecimalField("Cost of Treatment", validators=[Optional()])
+    total_cost = DecimalField("Total Cost", validators=[Optional()], default=0,
+                              render_kw={'readonly': True, 'class': 'bg-slate-100'})
 
-    submit = SubmitField('submit')
+    mode_of_entry = SelectField("Mode of Entry", choices=[('', "Select Mode")] + [(m.value, m.value) for m in ModeOfEntry], validators=[DataRequired()])
+    submit = SubmitField('Submit')
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.populate_facility_choices()
 
     def validate(self, extra_validators=None):
-        valid = super().validate(extra_validators)
-        if not valid:
+        """Common validation logic for ALL encounters"""
+        if not super().validate(extra_validators):
             return False
-        # Require either disease or service
-        if not any(d.data for d in self.diseases) and not any(s.data for s in self.services):
-            self.errors.setdefault('services', []).append("Please select at least one disease or service.")
-            return False
-
         # Require death type if outcome is death
         if self.outcome.data and self.outcome.data == -1 and not self.death_type.data:
             self.errors.setdefault('death_type', []).append("Please select a death type for 'Death' outcome.")
@@ -164,48 +159,40 @@ class AddEncounterForm(FlaskForm, FacilityMixin, OutcomeMixin):
                 return False
         return True
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.populate_facility_choices()
-        self.populate_outcome_choices()
-
-class ANCEncounterForm(AddEncounterForm):
-    #only for pregnant women scheme, other scheme with delivery will use the encounter form scheme
-    policy_number = StringField('ORIN', validators=[DataRequired(), Length(min=10, max=10)])
-    client_name = StringField('Client Name', validators=[DataRequired()])
-    age = IntegerField('Age', validators=[DataRequired(), NumberRange(
-        15, 60, 'Pregnancy age must be between 15 - 60')])
-
-    kia_date = DateField("Date of Issue Of Kaadi Igbeayo", validators=[DataRequired()])
-    place_of_issue = StringField("Place of Issue of Kaadi Igbeayo", validators = [DataRequired()])
-    booking_date = DateField("Date of Booking", )
-    outcome = SelectField('Treatment Outcome',  validators=[
-                          Optional()], coerce=int, render_kw={'id': 'outcome-select'})
-    lmp = DateField("Last Menstrual Period (in weeks)",
-                                   validators=[DataRequired()] )
-    expected_delivery_date = DateField("Expected Delivery Date",
-                                       validators=[DataRequired()])
-    gestational_age = StringField("Gestational Age",
-                                         validators = [DataRequired()])
-    parity = IntegerField("Number of Previous Baby",
-                          validators=[DataRequired()])
-    submit = SubmitField('submit')
+class AddEncounterForm(BaseEncounterForm):
+    diseases = FieldList(SelectField('Disease/Diagnosis', validators=[DataRequired(), validate_diseases], coerce=int))
+    services = FieldList(SelectField("Services", validators=[DataRequired()], coerce=int))
 
     def validate(self, extra_validators=None):
-        print("facility choices", self.facility.choices)
-        print("outcome choices", self.outcome.choices)
         valid = super().validate(extra_validators)
         if not valid:
             return False
-        # Require death type if outcome is death
-        if self.outcome.data and self.outcome.data == -1 and not self.death_type.data:
-            self.errors.setdefault('death_type', []).append("Please select a death type for 'Death' outcome.")
+        # Require either disease or service
+        if not any(d.data for d in self.diseases) and not any(s.data for s in self.services):
+            self.errors.setdefault('services', []).append("Please select at least one disease or service.")
             return False
-        return True
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.populate_facility_choices()
+        self.populate_outcome_choices()
+
+class ANCEncounterForm(BaseEncounterForm):
+    #only for pregnant women scheme, other scheme with delivery will use the encounter form scheme
+    # --- Specific Fields ---
+    kia_date = DateField("Date of Issue (Kaadi Igbeayo)", validators=[DataRequired()])
+    place_of_issue = StringField("Place of Issue", validators=[DataRequired()])
+    booking_date = DateField("Date of Booking", validators=[Optional()])
+
+    # Pregnancy Vitals
+    lmp = DateField("LMP", validators=[DataRequired()])
+    expected_delivery_date = DateField("EDD", validators=[DataRequired()])
+    gestational_age = StringField("Gestational Age", validators=[DataRequired()])
+    gender = SelectField('Gender', choices=[('M', 'Male'), ('F', 'Female')],
+                         default= 'F', validators=[DataRequired(), AnyOf(('M', 'F'))])
+    parity = IntegerField("Parity", validators=[DataRequired()])
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.populate_maternal_outcome_choices()
 
 class BabyForm(FlaskForm):
@@ -258,9 +245,7 @@ class ChildHealthEncounterForm(AddEncounterForm):
     dob = DateField("Date of Birth", validators = [DataRequired()])
     policy_number = StringField("ORIN", validators= [DataRequired(), validate_orin])
     nin = StringField("Parent/Guardian's NIN",  validators=[DataRequired(),validate_nin])
-    address = StringField("Parent's Address", validators=[DataRequired()])
     guardian_name = StringField("Parent/Guardian's Name", validators=[DataRequired()])
-    phone_number = StringField("Parent/Guardian's Phone Number", validators=[DataRequired(), nigerian_phone_number])
     outcome = SelectField('Treatment Outcome',  validators=[
                           Optional()], coerce=int, render_kw={'id': 'outcome-select'})
     death_type = SelectField("Death Type", validators=[
@@ -268,9 +253,11 @@ class ChildHealthEncounterForm(AddEncounterForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.address.label.text = "Parent's Address"
+        self.phone_number.label.text = "Parent/Guardian's Phone Number"
         death = list(TreatmentOutcomeServices.get_all())
         self.death_type.choices = [(d.id, d.name) for d in death
-                           if not str(d.name).lower().startswith("maternal") and d.type.lower( ) == 'death']
+                           if d.name != OutcomeEnum.MATERNAL_DEATH]
 
 class AddFacilityForm(FlaskForm, SchemeMixin):
     name = StringField('Facility Name', validators=[DataRequired()])
@@ -368,7 +355,7 @@ class EncounterFilterForm(FlaskForm, FacilityMixin, SchemeMixin):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.facility_id.choices = [('0', 'Select Facility')] + [(f.id, f.name) for f in FacilityServices.get_all()]
+        self.facility_id.choices = [('0', 'Select Facility')] + [(f.id, f.name) for f in sorted(FacilityServices.get_all(), key = lambda x: x.name)]
         self.scheme_id.choices = [('0', "Select Scheme")] + [(s.id, s.scheme_name) for s in InsuranceSchemeServices.get_all()]
         self.outcome.choices = [('0', 'Select Treatment Outcome')] +[(t.id, t.name) for t in TreatmentOutcomeServices.get_all()]
 
@@ -439,5 +426,5 @@ class AdminDashboardFilterForm(DashboardFilterForm):
                     validators = [Optional()])
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        facilities = [(str( f.id ), f.name.upper()) for f in FacilityServices.get_all()]
+        facilities = [(str( f.id ), f.name.upper()) for f in sorted(FacilityServices.get_all(), key = lambda x: x.name)]
         self.facility_id.choices = [('', 'Select Facilities')]  + facilities

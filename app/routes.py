@@ -301,11 +301,11 @@ def add_anc_encounter():
             res['anc_count'] = (
                 registry_val.anc_count + 1 if registry_val
                 else 1)
+            res['gender'] = 'F'
             if user.role.name.lower() != 'admin':
                 res['facility_id'] = get_current_user().facility.id
             else:
                 res['facility_id'] = form.facility.data
-                res['gender'] = 'F'
 
             EncounterServices.create_anc_encounter(**res)
             flash("ANC Encounter added successfully", 'success')
@@ -314,7 +314,10 @@ def add_anc_encounter():
         except (ServiceError, ValidationError, MissingError) as e:
             flash(str(e), "error")
     elif form.errors:
+        print(form.errors)
         flash("Encounter not submitted. Please check and correct errors before submitting", 'error')
+    else:
+        print("Not doing anything")
 
     return render_template("add_anc_encounter.html",
                             title = "Add ANC Encounter",
