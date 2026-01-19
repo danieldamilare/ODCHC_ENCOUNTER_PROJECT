@@ -415,7 +415,7 @@ class FacilityServices(BaseServices):
     }
 
     @classmethod
-    def create_facility(cls, name: str, local_government: str,
+    def create_facility(cls, name: str, lga: str,
                         facility_type: str, scheme: List[int],
                         ownership: str,
                         commit=True) -> Facility:
@@ -424,7 +424,7 @@ class FacilityServices(BaseServices):
             raise ValidationError("Local Government does not exist in Akure")
         try:
             cursor = db.execute(f'INSERT INTO {cls.table_name} (name, local_government, facility_type, ownership) VALUES (?, ?, ?, ?)', (
-                name, local_government, facility_type, ownership))
+                name, lga, facility_type, ownership))
             new_id = cursor.lastrowid
             if scheme:
                 scheme_list = list(set((new_id, x) for x in scheme))
@@ -518,13 +518,15 @@ class FacilityServices(BaseServices):
         query = f'''
         SELECT
             fc.id,
-            fc.name as facility_name,
+            fc.name,
             fc.local_government,
             fc.ownership,
             fc.facility_type
         FROM {cls.table_name} as fc
-        JOIN facility_scheme as fsc on fsc.facility_id = fc.id
+        LEFT JOIN facility_scheme as fsc on fsc.facility_id = fc.id
         '''
+        params = params if params else Params()
+        params = params.group(Facility, 'id')
         res = {}
         if params:
             res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
@@ -533,6 +535,8 @@ class FacilityServices(BaseServices):
             base_query=query,
             **res
         )
+        print("In facility Service")
+        print(query, args)
 
         db = get_db()
         facility_rows = list(db.execute(query, args).fetchall())
@@ -547,7 +551,7 @@ class FacilityServices(BaseServices):
                 id=row['id'],
                 lga=row['local_government'],
                 scheme=scheme_map[row['id']],
-                name=row['facility_name'],
+                name=row['name'],
                 facility_type=row['facility_type'],
                 ownership = row['ownership']
             )

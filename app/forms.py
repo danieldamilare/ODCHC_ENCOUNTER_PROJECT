@@ -76,6 +76,13 @@ class FacilityMixin:
             [(f.id, f.name) for f in sorted(FacilityServices.get_all(), key  =  lambda x: x.name)]
         )
 
+    def populate_facility_type(self):
+        self.facility_type.choices = ([("", "--SELECT--")] +
+                                      [(x.name, x.name) for x in FacilityType])
+    def populate_facility_ownership(self):
+        self.ownership.choices = ([("", "--SELECT--")] +
+                                  [(x.name, x.name) for x in FacilityOwnerShip])
+
 class SchemeMixin:
     def populate_scheme_choices(self):
         """Populate scheme choices from database"""
@@ -261,7 +268,7 @@ class ChildHealthEncounterForm(AddEncounterForm):
 
 class AddFacilityForm(FlaskForm, SchemeMixin):
     name = StringField('Facility Name', validators=[DataRequired()])
-    local_government = SelectField('Local Government',
+    lga = SelectField('Local Government',
                                    choices=LGA_CHOICES,
                                    validators=[DataRequired('Please select a local government from list')])
     facility_type = SelectField('Facility Type',
@@ -359,7 +366,7 @@ class EncounterFilterForm(FlaskForm, FacilityMixin, SchemeMixin):
         self.scheme_id.choices = [('0', "Select Scheme")] + [(s.id, s.scheme_name) for s in InsuranceSchemeServices.get_all()]
         self.outcome.choices = [('0', 'Select Treatment Outcome')] +[(t.id, t.name) for t in TreatmentOutcomeServices.get_all()]
 
-class FacilityFilterForm(FlaskForm, SchemeMixin):
+class FacilityFilterForm(FlaskForm, SchemeMixin, FacilityMixin):
     scheme = SelectField("Scheme", validators= [Optional()], coerce=int)
     lga = SelectField("LGA", validators= [Optional()], choices = LGA_CHOICES)
     name = StringField("", validators= [Optional()])
@@ -368,6 +375,11 @@ class FacilityFilterForm(FlaskForm, SchemeMixin):
     limit = SelectField("Number", validators=[Optional()], coerce = int, default=Config.ADMIN_PAGE_PAGINATION)
     class Meta:
         csrf = False
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.populate_facility_ownership()
+        self.populate_facility_type()
+        self.populate_scheme_choices()
 
 class DiseaseFilterForm(FlaskForm):
     name = StringField("name", validators= [Optional()])

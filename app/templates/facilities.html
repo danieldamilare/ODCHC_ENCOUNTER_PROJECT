@@ -21,34 +21,32 @@
         transform: translateY(-2px);
         box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.15);
     }
-    .table-row {
-        transition: all 0.15s ease;
+    /* Active filter styling */
+    .facility-card.active-filter {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        ring: 2px;
+        ring-offset: 2px;
     }
+    /* Specific ring colors for active states */
+    #card-all.active-filter { --tw-ring-color: #2563eb; box-shadow: 0 0 0 2px #2563eb; }
+    #card-primary.active-filter { --tw-ring-color: #059669; box-shadow: 0 0 0 2px #059669; }
+    #card-secondary.active-filter { --tw-ring-color: #7c3aed; box-shadow: 0 0 0 2px #7c3aed; }
+    #card-tertiary.active-filter { --tw-ring-color: #d97706; box-shadow: 0 0 0 2px #d97706; }
+
+    .table-row { transition: all 0.15s ease; }
     .table-row:hover {
         background: linear-gradient(to right, #f8fafc, #f1f5f9);
         transform: translateX(3px);
-        box-shadow: -3px 0 0 #3b82f6; /* Blue accent on hover */
+        box-shadow: -3px 0 0 #3b82f6;
     }
-    .action-btn {
-        transition: all 0.15s ease;
-    }
-    .action-btn:hover {
-        transform: scale(1.1);
-    }
-    .modal-content {
-        animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    }
+    .action-btn { transition: all 0.15s ease; }
+    .action-btn:hover { transform: scale(1.1); }
+    .modal-content { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
     @keyframes slideUp {
-        from {
-            opacity: 0;
-            transform: translateY(20px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
     }
-    /* Print Styles */
     @media print {
          body { background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         .no-print { display: none !important; }
@@ -81,8 +79,12 @@
             </button>
         </div>
 
+        {% set current_type = request.args.get('facility_type', 'all') %}
+
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div class="facility-card bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-5 border-2 border-blue-200">
+            <a href="{{ url_for('facilities') }}" id="card-all"
+               class="facility-card block bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-5 border-2 border-blue-200 cursor-pointer
+               {% if not request.args.get('facility_type') %}active-filter ring-2 ring-blue-500{% endif %}">
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm font-semibold text-blue-600 uppercase tracking-wide">Total Facilities</p>
@@ -92,62 +94,115 @@
                         <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
                     </div>
                 </div>
-            </div>
-            <div class="facility-card bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-5 border-2 border-emerald-200">
+            </a>
+
+            <a href="{{ url_for('facilities', facility_type='Primary') }}" id="card-primary"
+               class="facility-card block bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-5 border-2 border-emerald-200 cursor-pointer
+               {% if current_type == 'Primary' %}active-filter ring-2 ring-emerald-500{% endif %}">
                  <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm font-semibold text-emerald-600 uppercase tracking-wide">Primary Care</p>
-                        <p class="text-3xl font-bold text-slate-900 mt-1">
-                            {{ primary_total }}
-                        </p>
+                        <p class="text-3xl font-bold text-slate-900 mt-1">{{ primary_total }}</p>
                     </div>
                     <div class="w-12 h-12 bg-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
                         <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     </div>
                 </div>
-            </div>
-             <div class="facility-card bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-5 border-2 border-purple-200">
+            </a>
+
+            <a href="{{ url_for('facilities', facility_type='Secondary') }}" id="card-secondary"
+                class="facility-card block bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-5 border-2 border-purple-200 cursor-pointer
+                {% if current_type == 'Secondary' %}active-filter ring-2 ring-purple-500{% endif %}">
                  <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm font-semibold text-purple-600 uppercase tracking-wide">Secondary</p>
-                        <p class="text-3xl font-bold text-slate-900 mt-1">
-                             {{ secondary_total }}
-                        </p>
+                        <p class="text-3xl font-bold text-slate-900 mt-1">{{ secondary_total }}</p>
                     </div>
                     <div class="w-12 h-12 bg-purple-600 rounded-xl flex items-center justify-center shadow-lg">
                         <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z"/></svg>
                     </div>
                 </div>
-            </div>
-             <div class="facility-card bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-5 border-2 border-amber-200">
+            </a>
+
+            <a href="{{ url_for('facilities', facility_type='Tertiary') }}" id="card-tertiary"
+                class="facility-card block bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-5 border-2 border-amber-200 cursor-pointer
+                {% if current_type == 'Tertiary' %}active-filter ring-2 ring-amber-500{% endif %}">
                  <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm font-semibold text-amber-600 uppercase tracking-wide">Tertiary</p>
-                        <p class="text-3xl font-bold text-slate-900 mt-1">
-                             {{ tertiary_total }}
-                        </p>
+                        <p class="text-3xl font-bold text-slate-900 mt-1">{{ tertiary_total }}</p>
                     </div>
                     <div class="w-12 h-12 bg-amber-600 rounded-xl flex items-center justify-center shadow-lg">
                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     </div>
                 </div>
-            </div>
+            </a>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-lg border border-slate-200 mb-8 overflow-hidden">
+        <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center cursor-pointer"
+             onclick="document.getElementById('advanced-filters').classList.toggle('hidden')">
+            <h3 class="text-sm font-bold text-slate-700 uppercase tracking-wide flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
+                Advanced Filters
+            </h3>
+            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </div>
+
+        <div id="advanced-filters" class="p-6 hidden">
+            <form method="GET" action="{{ url_for('facilities') }}">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div class="col-span-1 md:col-span-2 lg:col-span-1">
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Search Facility Name</label>
+                        {{ filter_form.name(class="w-full rounded-lg border-slate-300 text-sm focus:ring-blue-500 focus:border-blue-500", placeholder="e.g. General Hospital...") }}
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Facility Type</label>
+                        {{ filter_form.facility_type(class="w-full rounded-lg border-slate-300 text-sm focus:ring-blue-500 focus:border-blue-500") }}
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Local Government</label>
+                        {{ filter_form.lga(class="w-full rounded-lg border-slate-300 text-sm focus:ring-blue-500 focus:border-blue-500") }}
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Ownership</label>
+                        {{ filter_form.ownership(class="w-full rounded-lg border-slate-300 text-sm focus:ring-blue-500 focus:border-blue-500") }}
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Scheme</label>
+                        {{ filter_form.scheme(class="w-full rounded-lg border-slate-300 text-sm focus:ring-blue-500 focus:border-blue-500") }}
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Rows per page</label>
+                        {{ filter_form.limit(class="w-full rounded-lg border-slate-300 text-sm focus:ring-blue-500 focus:border-blue-500") }}
+                    </div>
+                </div>
+
+                <div class="mt-6 flex justify-end gap-3 pt-4 border-t border-slate-100">
+                    <a href="{{ url_for('facilities') }}" class="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
+                        Clear Filters
+                    </a>
+                    <button type="submit" class="px-4 py-2 text-sm font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-md hover:shadow-lg transition-all">
+                        Apply Filters
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
     <div class="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
-
         <div class="px-6 py-5 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-blue-50">
             <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <div>
-                    <h2 class="text-xl font-bold text-slate-900">All Facilities</h2>
+                    <h2 class="text-xl font-bold text-slate-900">Facility List</h2>
                     <p class="text-sm text-slate-600 mt-1">
                         Showing <span class="font-semibold text-slate-900">{{ facility_list|length }}</span> facility entries
-                    </p>
-                </div>
-                <div class="flex-1 max-w-2xl">
-                    <p class="text-sm text-slate-500 italic text-right lg:text-left">
-                        Full search and filtering coming soon.
                     </p>
                 </div>
             </div>
@@ -233,7 +288,7 @@
             <div class="text-center py-16">
                  <svg class="w-20 h-20 text-slate-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
                 <p class="text-slate-500 text-xl font-semibold">No facilities found</p>
-                <p class="text-slate-400 mt-2">Add your first healthcare facility to get started</p>
+                <p class="text-slate-400 mt-2">Adjust your filters or add a new facility</p>
                 <button onclick="document.getElementById('open-add-facility-modal-btn').click()"
                          class="inline-flex items-center mt-6 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold shadow-lg">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
@@ -247,7 +302,6 @@
         <div class="px-6 py-5 border-t border-slate-200 bg-slate-50">
             <div class="flex items-center justify-between">
                 <div class="text-sm text-slate-600">
-                    {# Add page info here if available, e.g., Showing 1-10 of 25 #}
                     Page navigation
                 </div>
                 <nav class="flex items-center gap-2" aria-label="Pagination">
@@ -279,7 +333,10 @@
             </div>
         </div>
         {% endif %}
-    </div> </div><div id="add-facility-modal" class="fixed inset-0 z-50 overflow-y-auto hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    </div>
+</div>
+
+<div id="add-facility-modal" class="fixed inset-0 z-50 overflow-y-auto hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
     <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         <div id="modal-backdrop" class="fixed inset-0 bg-slate-900 bg-opacity-60 backdrop-blur-sm transition-opacity opacity-0" aria-hidden="true"></div>
         <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
@@ -321,20 +378,20 @@
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                             <div>
-                                <label for="{{ facility_form.local_government.id }}" class="block text-sm font-semibold text-slate-900 mb-2">
-                                    {{ facility_form.local_government.label.text }}
+                                <label for="{{ facility_form.lga.id }}" class="block text-sm font-semibold text-slate-900 mb-2">
+                                    {{ facility_form.lga.label.text }}
                                     <span class="text-red-500">*</span>
                                 </label>
                                 <div class="relative">
                                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                         <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                                     </div>
-                                    {{ facility_form.local_government(class="block w-full pl-10 pr-10 py-3 border-2 border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none bg-white") }}
+                                    {{ facility_form.lga(class="block w-full pl-10 pr-10 py-3 border-2 border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none bg-white") }}
                                     <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                                         <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                                     </div>
                                 </div>
-                                {% for error in facility_form.local_government.errors %}<p class="text-red-600 text-sm font-medium mt-2 flex items-center"><svg class="h-4 w-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>{{ error }}</p>{% endfor %}
+                                {% for error in facility_form.lga.errors %}<p class="text-red-600 text-sm font-medium mt-2 flex items-center"><svg class="h-4 w-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>{{ error }}</p>{% endfor %}
                             </div>
                             <div>
                                 <label for="{{ facility_form.facility_type.id }}" class="block text-sm font-semibold text-slate-900 mb-2">
@@ -393,7 +450,6 @@
         // Modal functionality
         const modal = document.getElementById('add-facility-modal');
         const openBtn = document.getElementById('open-add-facility-modal-btn');
-        // Corrected selector for close buttons
         const closeBtns = document.querySelectorAll('#close-add-facility-modal-btn, #close-add-facility-modal-btn-2');
         const backdrop = document.getElementById('modal-backdrop');
 
@@ -402,16 +458,15 @@
             modal.classList.remove('hidden');
             setTimeout(() => {
                 if (backdrop) backdrop.classList.replace('opacity-0', 'opacity-100');
-            }, 10); // Short delay for transition start
+            }, 10);
         }
 
         function closeModal() {
              if (!modal) return;
             if (backdrop) backdrop.classList.replace('opacity-100', 'opacity-0');
-            // Wait for opacity transition before hiding
             setTimeout(() => {
                 modal.classList.add('hidden');
-            }, 300); // Should match transition duration
+            }, 300);
         }
 
         if (openBtn) openBtn.addEventListener('click', openModal);
@@ -430,14 +485,6 @@
         {% if facility_form.errors %}
             openModal();
         {% endif %}
-
-        // Remove Search/Filter JS
-        // const searchInput = document.getElementById('facilitySearch');
-        // const typeFilter = document.getElementById('typeFilter');
-        // const rows = document.querySelectorAll('.table-row');
-        // function filterTable() { ... }
-        // if (searchInput) searchInput.addEventListener('input', filterTable);
-        // if (typeFilter) typeFilter.addEventListener('change', filterTable);
     });
 </script>
 {% endblock %}

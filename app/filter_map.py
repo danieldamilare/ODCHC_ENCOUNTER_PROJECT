@@ -11,3 +11,11 @@ filter_config = {
     'outcome': (Encounter, 'outcome', '='),
     'end_date': (Encounter, 'date', '<='),
 }
+
+facility_filter_config = {
+    'lga': (Facility, 'local_government', '='),
+    'facility_type': (Facility, 'facility_type', '='),
+    'ownership': (Facility, 'ownership', '='),
+    'scheme':  (FacilityScheme, 'scheme_id', '='),
+    'name':  (FacilityScheme, 'name', 'LIKE')
+}

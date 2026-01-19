@@ -17,7 +17,7 @@ from app.filter_parser import Params
 from flask_wtf import FlaskForm
 from copy import copy
 from app.services import DashboardServices, ReportServices
-from typing import Optional, List
+from typing import Optional, List, Dict
 from datetime import datetime, date, timedelta
 from typing import Any
 import json
@@ -425,61 +425,75 @@ def add_scheme_encounter(scheme_id) -> Any:
 @app.route('/admin/facilities', methods=['GET', 'POST'])
 @admin_required
 def facilities() -> Any:
+    # 1. Handle Creation (POST)
     facility_form = AddFacilityForm()
     if facility_form.validate_on_submit():
         res = form_to_dict(facility_form, Facility)
+        # Handle list/multi-select scheme data
         res['scheme'] = facility_form.scheme.data
         try:
             FacilityServices.create_facility(**res)
-            flash("You have successfuly created a new facility", 'success')
+            flash("You have successfully created a new facility", 'success')
             return redirect(url_for('facilities'))
         except (ValidationError, DuplicateError) as e:
             flash(str(e), 'error')
 
+    # 2. Handle Filtering (GET)
     filter_form = FacilityFilterForm(request.args)
     param = Params()
-    if (res:= filter_form.facility_type.data):
-        param = param.where(Facility, 'facility_type', '=', res)
 
-    if (res := filter_form.lga.data):
-        param = param.where(Facility, "lga", '=', res)
+    if filter_form.facility_type.data:
+        param = param.where(Facility, 'facility_type', '=', filter_form.facility_type.data)
 
-    if (res := filter_form.name.data):
-        param = (param.where(Facility, 'name', 'LIKE', f'%{res}%'))
+    if filter_form.lga.data:
+        # Note: DB column is 'local_government', form field is 'lga'
+        param = param.where(Facility, 'local_government', '=', filter_form.lga.data)
 
-    limit = 0
-    if (res := filter_form.limit.data):
-        limit = res
+    if filter_form.name.data:
+        param = param.where(Facility, 'name', 'LIKE', f'%{filter_form.name.data}%')
 
-    primary_total = int(FacilityServices.get_total(Params().where(Facility, 'facility_type', '=', 'Primary')))
-    tertiary_total = int(FacilityServices.get_total(Params().where(Facility, 'facility_type', '=', 'Tertiary')))
-    secondary_total = int(FacilityServices.get_total(Params().where(Facility, 'facility_type', '=', 'Secondary')))
+    if filter_form.limit.data:
+        param.set_limit(filter_form.limit.data)
 
-    facility_total = int(FacilityServices.get_total(param))
+    print(param)
 
-    page: int = int(request.args.get('page', 1))
+    # 3. Calculate Totals for Cards
+    # (These should ideally be GLOBAL totals, unaffected by filters, so the cards act as constants)
+    primary_total = FacilityServices.get_total(Params().where(Facility, 'facility_type', '=', 'Primary'))
+    secondary_total = FacilityServices.get_total(Params().where(Facility, 'facility_type', '=', 'Secondary'))
+    tertiary_total = FacilityServices.get_total(Params().where(Facility, 'facility_type', '=', 'Tertiary'))
 
-    facility_list = list(FacilityServices.list_row_by_page(page, param.set_limit(limit)))
+    # Global Total for the "Total Facilities" card
+    facility_total = FacilityServices.get_total(Params())
 
-    res = {**request.args}
-    res['page'] = page + 1
-    next_url: Optional[str] = (url_for('facilities', **res)
-                               if FacilityServices.has_next_page(page, params=param) else None)
-    res['page'] = page - 1
-    prev_url = (url_for('facilities', **res) if page > 1 else None)
+    # 4. Get Table Data (Filtered)
+    page = int(request.args.get('page', 1))
+    facility_list = list(FacilityServices.list_row_by_page(page, param))
+
+    # Pagination Logic
+    res_args = {**request.args}
+    res_args['page'] = page + 1
+    next_url = url_for('facilities', **res_args) if FacilityServices.has_next_page(page, params=param) else None
+
+    res_args['page'] = page - 1
+    prev_url = url_for('facilities', **res_args) if page > 1 else None
 
     return render_template('facilities.html',
                            title='Facilities',
                            prev_url=prev_url,
                            next_url=next_url,
+                           # Pass GLOBAL totals to cards
                            facility_total=facility_total,
-                           primary_total = primary_total,
-                           secondary_total = secondary_total,
-                           tertiary_total = tertiary_total,
+                           primary_total=primary_total,
+                           secondary_total=secondary_total,
+                           tertiary_total=tertiary_total,
+                           # Pass Forms & List
                            facility_form=facility_form,
                            filter_form=filter_form,
                            facility_list=facility_list,
-                           current_page=page)
+                           current_page=page,
+                           # Pass current_type for CSS Active State
+                           current_type= filter_form.facility_type.data)
 
 
 @app.route('/admin/facilities/edit/<int:pid>', methods=['GET', 'POST'])
@@ -970,7 +984,7 @@ def parse_date(period: str = None):
     return start_date, end_date
 
 
-def build_filter(form: FlaskForm, filters: List[str], base_params: Optional[Params] = None) -> Params:
+def build_filter(form: FlaskForm, filters: List[str], base_params: Optional[Params] = None, filter_config: Dict = filter_config) -> Params:
     params = Params() if not base_params else base_params
     user = get_current_user()
 
