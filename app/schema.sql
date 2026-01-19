@@ -164,6 +164,24 @@ CREATE TABLE delivery_babies(
     FOREIGN KEY(encounter_id) REFERENCES encounters(id) ON DELETE RESTRICT
 );
 
+CREATE VIEW view_utilization_items AS
+SELECT
+    ecd.encounter_id,
+    ecd.disease_id as item_id,
+    dis.name as item_name,
+    "Disease" as item_type
+FROM encounters_diseases as ecd
+JOIN diseases as dis on dis.id = ecd.disease_id
+UNION ALL
+SELECT
+    ecs.encounter_id,
+    ecs.service_id as item_id,
+    srv.name as item_name,
+    "Service" as item_type
+FROM encounters_services as ecs
+JOIN services as srv on srv.id = ecs.service_id;
+
+
 CREATE INDEX idx_anc_status ON anc_registry(status);
 CREATE INDEX idx_anc_orin ON anc_registry(orin);
 CREATE iNDEX idx_child_health_encounter_id ON child_health_encounters(encounter_id);
