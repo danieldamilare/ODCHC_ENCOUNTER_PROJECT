@@ -1,0 +1,107 @@
+Diagnosis,Category,ICD10_Code
+Malaria,Communicable Disease,B50
+Typhoid Fever,Communicable Disease,A01
+Cholera,Communicable Disease,A00
+Tuberculosis (Pulmonary),Communicable Disease,A15
+HIV/AIDS,Communicable Disease,B20
+Viral Hepatitis B,Communicable Disease,B16
+Viral Hepatitis C,Communicable Disease,B17
+Meningitis (Bacterial),Communicable Disease,G00
+Measles,Communicable Disease,B05
+Chickenpox (Varicella),Communicable Disease,B01
+Tetanus,Communicable Disease,A35
+Diphtheria,Communicable Disease,A36
+Whooping Cough (Pertussis),Communicable Disease,A37
+Pneumonia (Unspecified),Communicable Disease,J18
+Acute Bronchitis,Communicable Disease,J20
+Acute Gastroenteritis,Communicable Disease,A09
+Dysentery (Shigellosis),Communicable Disease,A03
+Urinary Tract Infection,Communicable Disease,N39
+Skin Fungal Infection (Tinea),Communicable Disease,B35
+Scabies,Communicable Disease,B86
+Otitis Media (Acute),Communicable Disease,H66
+Conjunctivitis (Infectious),Communicable Disease,H10
+Cellulitis,Communicable Disease,L03
+Sepsis,Communicable Disease,A41
+Sexually Transmitted Infection (Unspecified),Communicable Disease,A64
+Gonorrhea,Communicable Disease,A54
+Syphilis,Communicable Disease,A51
+Viral Upper Respiratory Infection,Communicable Disease,J06
+Helminthiasis (Intestinal Worms),Communicable Disease,B82
+Filariasis,Communicable Disease,B74
+Hypertension,Non-Communicable Disease,I10
+Diabetes Mellitus Type 2,Non-Communicable Disease,E11
+Asthma,Non-Communicable Disease,J45
+Chronic Obstructive Pulmonary Disease,Non-Communicable Disease,J44
+Stroke,Non-Communicable Disease,I64
+Ischemic Heart Disease,Non-Communicable Disease,I25
+Heart Failure,Non-Communicable Disease,I50
+Chronic Kidney Disease,Non-Communicable Disease,N18
+Peptic Ulcer Disease,Non-Communicable Disease,K27
+Gastroesophageal Reflux Disease,Non-Communicable Disease,K21
+Migraine,Non-Communicable Disease,G43
+Epilepsy,Non-Communicable Disease,G40
+Osteoarthritis,Non-Communicable Disease,M19
+Rheumatoid Arthritis,Non-Communicable Disease,M06
+Anemia (Iron Deficiency),Non-Communicable Disease,D50
+Sickle Cell Disease,Non-Communicable Disease,D57
+Thyroid Disorder (Unspecified),Non-Communicable Disease,E07
+Cancer (Unspecified),Non-Communicable Disease,C80
+Breast Cancer,Non-Communicable Disease,C50
+Cervical Cancer,Non-Communicable Disease,C53
+Prostate Cancer,Non-Communicable Disease,C61
+Liver Cancer,Non-Communicable Disease,C22
+Chronic Liver Disease,Non-Communicable Disease,K74
+Glaucoma,Non-Communicable Disease,H40
+Cataract,Non-Communicable Disease,H25
+Obesity,Non-Communicable Disease,E66
+Gout,Non-Communicable Disease,M10
+Depression,Non-Communicable Disease,F32
+Anxiety Disorder,Non-Communicable Disease,F41
+Substance Abuse Disorder,Non-Communicable Disease,F19
+Normal Delivery,Obstetric,O80
+Prolonged Labor,Obstetric,O63
+Pre-Eclampsia,Obstetric,O14
+Eclampsia,Obstetric,O15
+Antepartum Hemorrhage,Obstetric,O46
+Postpartum Hemorrhage,Obstetric,O72
+Retained Placenta,Obstetric,O73
+Obstructed Labor,Obstetric,O66
+Cesarean Section,Obstetric,O82
+Spontaneous Abortion (Miscarriage),Obstetric,O03
+Septic Abortion,Obstetric,O05
+Ectopic Pregnancy,Obstetric,O00
+Preterm Labor,Obstetric,O60
+Stillbirth (Fetal Death),Obstetric,P95
+Maternal Sepsis,Obstetric,O85
+Gestational Diabetes,Obstetric,O24
+Multiple Pregnancy,Obstetric,O30
+Hypertension in Pregnancy,Obstetric,O13
+Premature Rupture of Membrane,Obstetric,O42
+Pelvic Inflammatory Disease,Gynecologic,N73
+Uterine Fibroid,Gynecologic,D25
+Ovarian Cyst,Gynecologic,N83
+Menstrual Disorder,Gynecologic,N92
+Infertility (Female),Gynecologic,N97
+Endometriosis,Gynecologic,N80
+Vaginitis,Gynecologic,N76
+Cervicitis,Gynecologic,N72
+Bartholin’s Abscess,Gynecologic,N75
+Neonatal Sepsis,Pediatric,P36
+Neonatal Jaundice,Pediatric,P59
+Low Birth Weight,Pediatric,P07
+Birth Asphyxia,Pediatric,P21
+Prematurity,Pediatric,P07
+Pneumonia (Child),Pediatric,J18
+Acute Diarrhea (Child),Pediatric,A09
+Measles (Child),Pediatric,B05
+Otitis Media (Child),Pediatric,H66
+Malnutrition (Protein-Energy),Pediatric,E46
+Kwashiorkor,Pediatric,E40
+Marasmus,Pediatric,E41
+Severe Dehydration,Pediatric,E87
+Cerebral Palsy,Pediatric,G80
+Congenital Heart Disease,Pediatric,Q20
+Neonatal Death,Pediatric,P95
+Infant Death,Pediatric,P96
+Allegry,Non-Communicable Disease,
