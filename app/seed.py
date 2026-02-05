@@ -83,7 +83,7 @@ def seed_facilities():
 
         facility = FacilityServices.create_facility(
             name= row['HOSPITAL'],
-            local_government= row['LGA'],
+            lga = row['LGA'],
             facility_type = row['TYPE'],
             scheme = scheme_list,
             ownership = row['OWNERSHIP'],

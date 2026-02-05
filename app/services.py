@@ -420,8 +420,6 @@ class FacilityServices(BaseServices):
                         ownership: str,
                         commit=True) -> Facility:
         db = get_db()
-        if local_government.lower() not in FacilityServices.LOCAL_GOVERNMENT:
-            raise ValidationError("Local Government does not exist in Akure")
         try:
             cursor = db.execute(f'INSERT INTO {cls.table_name} (name, local_government, facility_type, ownership) VALUES (?, ?, ?, ?)', (
                 name, lga, facility_type, ownership))
@@ -1790,8 +1788,7 @@ class DashboardServices(BaseServices):
             fc.name AS facility_name,
             COUNT(ec.id) as encounter_count
            FROM encounters as ec
-           LEFT JOIN encounters_diseases as ecd ON ec.id = ecd.encounter_id
-           LEFT JOIN encounters_services as ecs on ec.id = ecs.encounter_id
+           LEFT JOIN view_utilization_items as vui ON vui.encounter_id = ec.id
            JOIN facility as fc on ec.facility_id = fc.id
           '''
 

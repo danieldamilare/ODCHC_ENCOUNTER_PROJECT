@@ -26,7 +26,9 @@ Sepsis,Communicable Disease,A41
 Sexually Transmitted Infection (Unspecified),Communicable Disease,A64
 Gonorrhea,Communicable Disease,A54
 Syphilis,Communicable Disease,A51
-Viral Upper Respiratory Infection,Communicable Disease,J06
+Drug Allergy,Non-Communicable Disease,T88.7
+Food Allergy,Non-Communicable Disease,T78.1
+Allergic Rhinitis,Non-Communicable Disease,J30. 4
 Helminthiasis (Intestinal Worms),Communicable Disease,B82
 Filariasis,Communicable Disease,B74
 Hypertension,Non-Communicable Disease,I10
@@ -99,9 +101,23 @@ Otitis Media (Child),Pediatric,H66
 Malnutrition (Protein-Energy),Pediatric,E46
 Kwashiorkor,Pediatric,E40
 Marasmus,Pediatric,E41
-Severe Dehydration,Pediatric,E87
+Severe Dehydration,Pediatric,E86
 Cerebral Palsy,Pediatric,G80
 Congenital Heart Disease,Pediatric,Q20
-Neonatal Death,Pediatric,P95
-Infant Death,Pediatric,P96
-Allegry,Non-Communicable Disease,
+Upper Respiratory Tract Infection (URTI),Communicable Disease,J06
+Low Back Pain,Non-Communicable Disease,M54
+Fracture (Unspecified),Injury,S82
+Laceration,Injury,S01
+Burn,Injury,T30
+Road Traffic Accident Injury,Injury,V89
+Sprain/Strain,Injury,S93
+Tonsillitis,Communicable Disease,J03
+Sinusitis,Communicable Disease,J32
+Dental Abscess,Non-Communicable Disease,K04
+Eczema,Non-Communicable Disease,L30
+Abscess (Skin),Communicable Disease,L02
+Snake Bite,Injury,T63
+Dog Bite,Injury,W54
+Postpartum Depression,Non-Communicable Disease,F53
+Vitamin A Deficiency,Pediatric,E50
+Lassa Fever, Communicable Disease, A96

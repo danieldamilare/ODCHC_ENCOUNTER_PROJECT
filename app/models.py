@@ -262,6 +262,7 @@ class UserView:
     username: str
     role: Role
     facility: Optional[FacilityView]
+
 class AuthUser(UserMixin, UserView):
     def __init__(self, user: UserView):
         super().__init__(**user.__dict__)
