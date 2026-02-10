@@ -75,6 +75,6 @@ class OutcomeEnum(Enum):
     REFERRED = "Referred"
     NEONATAL_DEATH = "Neonatal Death (0 - 28 days)"
     INFANT_DEATH = "Infant Death"
-    UNDER_FIVE_DEATH = "Under 5 Deaths (1 - 5 years)"
+    UNDER_FIVE_DEATH = "Under 5 Deaths (0 - 5 years)"
     MATERNAL_DEATH = "Maternal Death (Pregnant women)"
     OTHER_DEATH = "Other Death"

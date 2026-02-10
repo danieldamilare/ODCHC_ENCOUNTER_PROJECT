@@ -98,3 +98,20 @@ def calculate_edd(dt: date) -> date:
     return dt + timedelta(days=280)
 
 app.jinja_env.filters['humanize_datetime'] = humanize_datetime_filter
+
+from openpyxl import Workbook
+from openpyxl.utils import get_column_letter
+
+def autofit_columns(worksheet, max_width=50):
+    for column in worksheet.columns:
+        max_length = 0
+        column_letter = column[0].column_letter  # Get the column letter
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        # Add a small padding to the width calculation
+        adjusted_width = min((max_length + 2) * 1.2, max_width)
+        worksheet.column_dimensions[column_letter].width = adjusted_width

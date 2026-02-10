@@ -46,34 +46,34 @@
                     <thead class="bg-gray-100 text-gray-900 border-b border-gray-300">
                         {% if report_data.columns.nlevels > 1 %}
                             <tr>
-                                <th rowspan="2" 
+                                <th rowspan="2"
                                     class="px-4 py-3 text-left font-semibold border border-gray-300 bg-gray-50 sticky left-0 z-10">
-                                    {{ report_data.index.name|replace('_', ' ')|title }}
+                                    {{ report_data.index.name|replace('_', ' ')| upper if report_data.index.name else '' }}
                                 </th>
                                 {% for header in header_info %}
-                                    <th colspan="{{ header.colspan }}" 
-                                        class="px-4 py-3 text-center font-semibold border border-gray-300">
-                                        {{ header.name|replace('_', ' ')|title }}
+                                    <th colspan="{{ header.colspan }}"
+                                        class="px-4 py-3 text-left font-semibold border border-gray-300">
+                                        {{ header.name|replace('_', ' ')| upper }}
                                     </th>
                                 {% endfor %}
                             </tr>
                             <tr>
                                 {% for col in report_data.columns %}
-                                    <th class="px-4 py-3 text-center font-semibold border border-gray-300 bg-gray-50">
-                                        {{ col[1]|title }}
+                                    <th class="px-4 py-3 text-left font-semibold border border-gray-300 bg-gray-50">
+                                        {{ col[1]| upper }}
                                     </th>
                                 {% endfor %}
                             </tr>
                         {% else %}
                             <tr>
-                                <th scope="col" 
+                                <th scope="col"
                                     class="py-3 pl-4 pr-3 text-left font-semibold border border-gray-300 bg-gray-50">
-                                    {{ report_data.index.name|replace('_', ' ')|title if report_data.index.name else '' }}
+                                    {{ report_data.index.name|replace('_', ' ')| upper if report_data.index.name else '' }}
                                 </th>
                                 {% for col in report_data.columns %}
-                                    <th scope="col" 
+                                    <th scope="col"
                                         class="px-3 py-3 text-left font-semibold border border-gray-300 bg-gray-50">
-                                        {{ col|replace('_', ' ')|title }}
+                                        {{ col|replace('_', ' ')| upper }}
                                     </th>
                                 {% endfor %}
                             </tr>
@@ -87,15 +87,10 @@
                                 {{ index }}
                             </td>
             {% for item in row %}
-                {% if loop.index0 == 0 %}
-                    <td class="whitespace-nowrap px-3 py-3 border border-gray-300  text-gray-700">
-                {% else %}
-                    <td class="whitespace-nowrap px-3 py-3 border border-gray-300 text-center text-gray-700">
-                {% endif %}
-        {{ item }}
-    </td>
-{% endfor %}
-
+                    <td class="whitespace-nowrap px-3 py-3 border border-gray-300 text-left text-gray-700">
+                        {{ item }}
+                    </td>
+            {% endfor %}
                         </tr>
                         {% endfor %}
                     </tbody>

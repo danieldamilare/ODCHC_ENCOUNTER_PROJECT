@@ -272,9 +272,9 @@ class AddFacilityForm(FlaskForm, SchemeMixin):
                                    choices=LGA_CHOICES,
                                    validators=[DataRequired('Please select a local government from list')])
     facility_type = SelectField('Facility Type',
-                                choices = [(fc.value, fc.value) for fc in FacilityType], validators=[DataRequired()])
+                                choices = [('', 'Select Type')] + [(fc.value, fc.value) for fc in FacilityType], validators=[DataRequired()])
     ownership = SelectField("Ownership",
-                            choices = [(fo.value, fo.value) for fo in FacilityOwnerShip],
+                            choices = [('', 'Select Ownership')] + [(fo.value, fo.value) for fo in FacilityOwnerShip],
                             validators = [DataRequired()])
 
     scheme = SelectMultipleField('Insurance Scheme', coerce=int,
@@ -286,7 +286,7 @@ class AddFacilityForm(FlaskForm, SchemeMixin):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.scheme.choices  = [scheme.scheme_name for scheme in InsuranceSchemeServices.get_all()]
+        self.scheme.choices  = [(scheme.id, scheme.scheme_name) for scheme in InsuranceSchemeServices.get_all()]
 
 class AddCategoryForm(FlaskForm):
     category_name = StringField('Category Name', validators=[DataRequired()])

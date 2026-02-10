@@ -1,7 +1,7 @@
 from datetime import datetime
 from faker import Faker
 from app.db import get_db
-from app.constants import ONDO_LGAS_LIST, AgeGroup, ModeOfEntry
+from app.constants import ONDO_LGAS_LIST, AgeGroup, ModeOfEntry, OutcomeEnum
 from app.models import Role
 import click
 from werkzeug.security import generate_password_hash
@@ -102,11 +102,14 @@ def seed_users():
     print("Successfully Seeded User")
 
 def seed_treatment_outcome():
-    outcomes = [('Admitted/In Patient', 'General'), ('Out Patient', 'General'), ('Referred', 'General'),
-            ('Neonatal Death (0 - 28 days)', 'Death'), ('Infant Death', 'Death'),
-            ('Under 5 Deaths (1 - 5 years)',
-             'Death'), ('Maternal Death (Pregnant women)', 'Death'),
-            ('Other Death', 'Death')]
+    outcomes = [(OutcomeEnum.INPATIENT.value, 'General'), 
+                (OutcomeEnum.OUTPATIENT.value, 'General'), 
+                (OutcomeEnum.REFERRED.value, 'General'),
+                (OutcomeEnum.NEONATAL_DEATH.value, 'Death'),
+                (OutcomeEnum.INFANT_DEATH.value, 'Death'),
+                (OutcomeEnum.UNDER_FIVE_DEATH.value, 'Death'), 
+                (OutcomeEnum.MATERNAL_DEATH.value, 'Death'),
+                (OutcomeEnum.OTHER_DEATH.value, 'Death')]
     for outcome in tqdm(outcomes, desc="Creating treatment outcomes"):
         TreatmentOutcomeServices.create_treatment_outcome(
             name = outcome[0],

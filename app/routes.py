@@ -8,7 +8,7 @@ from app.exceptions import AuthenticationError, MissingError, ValidationError
 from app.exceptions import InvalidReferenceError, DuplicateError, ServiceError
 from urllib.parse import urlparse
 from app.config import Config
-from app.utils import form_to_dict, admin_required, humanize_datetime_filter, calculate_gestational_age, scheme_access_required, get_age_group
+from app.utils import form_to_dict, admin_required, humanize_datetime_filter, calculate_gestational_age, scheme_access_required, get_age_group, autofit_columns
 from app.forms import LoginForm, AddEncounterForm, AddFacilityForm, EditFacilityForm, AddDiseaseForm, ExcelUploadForm, DashboardFilterForm, EncTypeForm, DeliveryEncounterForm, AddServiceForm
 from app.forms import AddUserForm, AddCategoryForm, DeleteUserForm, EditUserForm, EditDiseaseForm, EncounterFilterForm, AdminDashboardFilterForm, ANCEncounterForm, ChildHealthEncounterForm, FacilityFilterForm
 from app.constants import ONDO_LGAS_LIST, SchemeEnum, BabyOutcome
@@ -431,6 +431,7 @@ def facilities() -> Any:
         res = form_to_dict(facility_form, Facility)
         # Handle list/multi-select scheme data
         res['scheme'] = facility_form.scheme.data
+        res['lga'] = facility_form.lga.data
         try:
             FacilityServices.create_facility(**res)
             flash("You have successfully created a new facility", 'success')
@@ -1303,7 +1304,7 @@ def view_report():
                 colspan = 1
                 if isinstance(loc, slice):
                     colspan = loc.stop - loc.start
-                elif hasattr(loc, 'sum'):  # It's a boolean numpy array
+                elif hasattr(loc, 'sum'):
                     colspan = loc.sum()
 
                 header_info.append({'name': header, 'colspan': colspan})
@@ -1313,7 +1314,7 @@ def view_report():
                            report_title=report_title,
                            start_date=start_date,
                            report_data=report_data,
-                           header_info=header_info)  # Pass the new header info
+                           header_info=header_info)
 
 
 def append_utilization_header(report_data, start_date: date, facility: Facility):
@@ -1427,6 +1428,26 @@ def append_categorization_header(report_data, start_date: date):
     return final_output
 
 
+def append_nhia_encounter_header(report_data, start_date: date):
+    output_buffer = io.BytesIO()
+    with pd.ExcelWriter(output_buffer) as writer:
+        report_data.to_excel(writer)
+    output_buffer.seek(0)
+
+    wb = load_workbook(output_buffer)
+    ws = wb.active
+    ws['A1'].value = 'S/N'
+    for idx,row in enumerate(ws.columns):
+        for cell in row:
+            if idx == 0:
+                cell.font = Font(bold=True)
+                cell.alignment = Alignment(horizontal='left', vertical='center')
+            cell.alignment = Alignment(horizontal='left', vertical='center')
+    autofit_columns(ws, 55)
+    final_output = io.BytesIO()
+    wb.save(final_output)
+    return final_output
+
 @app.route('/admin/download_report')
 @admin_required
 def download_report():
@@ -1452,9 +1473,7 @@ def download_report():
     elif report_type == 'categorization':
         output_buffer = append_categorization_header(report_data, start_date)
     elif report_type == "nhia_encounter":
-        output_buffer =   io.BytesIO()
-        with pd.ExcelWriter(output_buffer, engine = 'openpyxl') as writer:
-            report_data.to_excel(writer, index=False)
+        output_buffer =  append_nhia_encounter_header(report_data, start_date)
     else:
         flash("Invalid report type", "error")
         return redirect(url_for("view_report"))

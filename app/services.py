@@ -419,6 +419,7 @@ class FacilityServices(BaseServices):
                         facility_type: str, scheme: List[int],
                         ownership: str,
                         commit=True) -> Facility:
+        print(name, facility_type, scheme, ownership)
         db = get_db()
         try:
             cursor = db.execute(f'INSERT INTO {cls.table_name} (name, local_government, facility_type, ownership) VALUES (?, ?, ?, ?)', (
@@ -533,8 +534,8 @@ class FacilityServices(BaseServices):
             base_query=query,
             **res
         )
-        print("In facility Service")
-        print(query, args)
+        # print("In facility Service")
+        # print(query, args)
 
         db = get_db()
         facility_rows = list(db.execute(query, args).fetchall())
@@ -2727,7 +2728,7 @@ class DashboardServices(BaseServices):
             params = params.set_limit(10)
         res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         query, args = cls._apply_filter(query,  **res)
-        print(query)
+        # print(query)
 
         return cls._run_query(query, args,
                               lambda row: {'facility_name': row['facility_name'],
@@ -2814,7 +2815,8 @@ class ReportServices(BaseServices):
         table['GRAND TOTAL'] = table[('TOTAL', 'M')] + table[('TOTAL', 'F')]
         table.loc['TOTAL'] = table.sum()
         table = table.reset_index()
-        table.index.name = ''
+        table.index = range(1, len(table) + 1)
+        table.index.name = 'S/N'
         table.columns.name = ''
         table.rename(columns={'disease_name': 'Diseases'}, inplace=True)
 
@@ -2869,7 +2871,8 @@ class ReportServices(BaseServices):
         table['GRAND TOTAL'] = table[('TOTAL', 'M')] + table[('TOTAL', 'F')]
         table.loc['TOTAL'] = table.sum()
         table = table.reset_index()
-        table.index.name = ''
+        table.index.name = 'S/N'
+        table.index = range(1, len(table) + 1)
         table.columns.name = ''
         table.rename(columns={'facility_name': 'Facilities'}, inplace=True)
         return start_date, table
@@ -2923,14 +2926,14 @@ class ReportServices(BaseServices):
 
         db = get_db()
 
-        rows = db.execute(query, (start_date, end_date)).fetchall()
-        print("query", query, "start_date", start_date, "end_date", end_date)
+        rows = db.execute(query, (start_date, end_date))
+        # print("query", query, "start_date", start_date, "end_date", end_date)
 
         if not rows:
             raise MissingError("No report available for this timeframe!")
 
         df = pd.DataFrame([dict(row) for row in rows])
-        print("df", df)
+        # print("df", df)
         cols_to_sum = ['COST OF INVESTIGATION', 'COST OF TREATMENT', 'COST OF MEDICATION']
 
         for col in cols_to_sum:
@@ -2956,6 +2959,8 @@ class ReportServices(BaseServices):
             'MEDICATION', 'COST OF MEDICATION', 'TOTAL COST', 'OUTCOME', 'REASON FOR REFERRAL',
             'CLAIMS AMOUNT SUBMITTED', 'CLAIMS PAID AMOUNT', 'CLAIMS AMOUNT REJECTED', "REASON FOR REJECTION"
         ]
+        df.index = range(1, len(df) + 1)
+        df.index.name = 'S/N'
         df = df.reindex(columns=new_order)
         return start_date, df
 
@@ -2995,7 +3000,7 @@ class ReportServices(BaseServices):
         table['TOTAL'] = table.sum(axis=1)
         table.loc['TOTAL'] = table.sum()
         table.reset_index(inplace=True)
-        table.index.name = ''
+        table.index.name = 'S/N'
         table.columns.name = ''
         table.rename(columns={'facility_name': 'Facilities'}, inplace=True)
 
