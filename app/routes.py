@@ -28,7 +28,7 @@ from openpyxl import load_workbook
 from openpyxl.styles import Font, Alignment
 from flask import g
 from flask import send_file
-from app.filter_map import filter_config
+from app.filter_map import filter_config, facility_filter_config, encounter_filter_config
 
 def get_facility_user_dashboard():
     facility_id = get_current_user().facility.id
@@ -927,7 +927,7 @@ def encounters():
     if user.facility:
         filter_form.scheme_id.choices = [(s.id, s.scheme_name) for s in user.facility.scheme]
 
-    filters = build_filter(filter_form, ['period', 'scheme_id', 'outcome', 'facility_id'])
+    filters = build_filter(filter_form, ['period', 'scheme_id', 'outcome', 'facility_id', 'age_group'], Params(), encounter_filter_config)
 
     encounter_list = list(EncounterServices.list_row_by_page(page,
                                                              params=filters))
@@ -994,12 +994,14 @@ def build_filter(form: FlaskForm, filters: List[str], base_params: Optional[Para
 
         if fil == 'period':
             start_date, end_date = parse_date()
+            print("Start Date:", start_date, "End Date:", end_date)
             params = params.where(Encounter, 'date', '>=', start_date)
             params = params.where(Encounter, 'date', '<=', end_date)
             g.start_date = start_date
             g.end_date = end_date
 
         elif fil == 'facility_id':
+            print("Added facility filter")
             value = getattr(form, fil).data
             if user.role.name != 'admin':
                 params = params.where(Encounter, 'facility_id', '=', user.facility.id)
@@ -1009,10 +1011,17 @@ def build_filter(form: FlaskForm, filters: List[str], base_params: Optional[Para
                 g.facility_id = value
 
         elif fil == 'lga':
+            print("Added LGA filter")
             value = getattr(form, fil).data
             if user.role.name == 'admin' and value:
                 params = params.where(model, col, op, value)
                 g.lga = value
+
+        elif fil == 'age_group':
+            print("Added Age Group filter")
+            start_value = int(form.min_age.data) or 0
+            end_value = int(form.max_age.data)  or 120
+            params = params.where(model, col, op, (start_value, end_value));
 
         else:
             temp = getattr(form, fil)

@@ -1,10 +1,45 @@
-    {% if current_user.role.name == 'admin' %}
+   {% if current_user.role.name == 'admin' %}
     {% extends "admin_base.html" %}
 {% else %}
     {% extends "base.html" %}
 {% endif %}
 
 {% block content %}
+<link href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.0/nouislider.min.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.0/nouislider.min.js"></script>
+
+<style>
+    /* Custom Round & Indigo Theme for Slider */
+    .noUi-target {
+        height: 6px;
+        border: none;
+        border-radius: 9999px;
+        background: #e5e7eb; /* Gray-200 */
+        box-shadow: none;
+    }
+    .noUi-connect {
+        background: #4f46e5; /* Indigo-600 */
+    }
+    .noUi-horizontal .noUi-handle {
+        width: 18px;
+        height: 18px;
+        right: -9px;
+        top: -6px;
+        border-radius: 50%;
+        border: 2px solid #4f46e5;
+        background: #ffffff;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+        cursor: grab;
+    }
+    .noUi-handle:before, .noUi-handle:after {
+        display: none; /* Remove default lines */
+    }
+    .noUi-active {
+        cursor: grabbing !important;
+        transform: scale(1.1);
+    }
+</style>
+
 <div class="space-y-6">
 
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -25,8 +60,8 @@
         </a>
     </div>
 
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        <div class="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center cursor-pointer transition-colors hover:bg-gray-100" onclick="document.getElementById('filter-body').classList.toggle('hidden')">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div class="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center cursor-pointer transition-colors hover:bg-gray-100" onclick="document.getElementById('filter-body').classList.toggle('hidden'); document.getElementById('chevron').classList.toggle('rotate-180');">
             <div class="flex items-center gap-2">
                 <svg class="h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
                 <h2 class="text-sm font-bold text-gray-700 uppercase tracking-wide">Filter Options</h2>
@@ -36,8 +71,7 @@
 
         <div id="filter-body" class="hidden">
             <form method="GET" action="{{ url_for('encounters') }}">
-                <div class="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div>
+                <div class="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"> <div>
                         <label for="{{ filter_form.start_date.id }}" class="block text-xs font-bold text-gray-700 uppercase mb-1">
                             {{ filter_form.start_date.label.text }}
                         </label>
@@ -80,13 +114,27 @@
                             {{ filter_form.facility_id(class="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors") }}
                         </div>
                     {% endif %}
+
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 uppercase mb-3">Age Range</label>
+
+                        <div id="age-slider" class="mx-1 mb-2"></div>
+
+                        <div class="flex justify-between text-xs font-medium text-gray-600">
+                            <span>Min: <span id="age-min-display" class="text-indigo-600 font-bold">0</span></span>
+                            <span>Max: <span id="age-max-display" class="text-indigo-600 font-bold">120</span></span>
+                        </div>
+
+                        {{ filter_form.min_age(id="min_age_input") }}
+                        {{ filter_form.max_age(id="max_age_input") }}
+                    </div>
+
                 </div>
 
                 <div class="bg-gray-50 px-4 py-3 border-t border-gray-200 flex gap-3">
                     <button type="submit" class="flex-1 inline-flex justify-center items-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer transition-colors">
-                        Filter
+                        Filter Results
                     </button>
-
 
                     <a href="{{ url_for('encounters') }}"
                        class="flex-1 inline-flex justify-center items-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
@@ -250,4 +298,45 @@
     </div>
 
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var slider = document.getElementById('age-slider');
+        var minInput = document.getElementById('min_age_input');
+        var maxInput = document.getElementById('max_age_input');
+
+        // Grab values from hidden input or default to 0 - 120
+        var startMin = parseInt(minInput.value) || 0;
+        var startMax = parseInt(maxInput.value) || 120;
+
+        noUiSlider.create(slider, {
+            start: [startMin, startMax],
+            connect: true,
+            range: {
+                'min': 0,
+                'max': 120
+            },
+            step: 1,
+            tooltips: false, // We use the text display instead
+            format: {
+                to: function (value) { return Math.round(value); },
+                from: function (value) { return Number(value); }
+            }
+        });
+
+        slider.noUiSlider.on('update', function (values) {
+            var min = Math.round(values[0]);
+            var max = Math.round(values[1]);
+
+            // Update hidden inputs
+            minInput.value = min;
+            maxInput.value = max;
+
+            // Update display text
+            document.getElementById('age-min-display').innerText = min;
+            document.getElementById('age-max-display').innerText = max;
+        });
+    });
+</script>
+
 {% endblock %}

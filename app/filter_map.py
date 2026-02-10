@@ -12,6 +12,11 @@ filter_config = {
     'end_date': (Encounter, 'date', '<='),
 }
 
+encounter_filter_config = {
+    **filter_config,
+    'age_group': (Encounter, 'age', 'BETWEEN')
+}
+
 facility_filter_config = {
     'lga': (Facility, 'local_government', '='),
     'facility_type': (Facility, 'facility_type', '='),

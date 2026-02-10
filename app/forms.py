@@ -353,6 +353,9 @@ class EncounterFilterForm(FlaskForm, FacilityMixin, SchemeMixin):
         'Start Date', format='%Y-%m-%d', validators=[Optional()])
     end_date = DateField('End Date', format='%Y-%m-%d',
                          validators=[Optional()])
+    min_age = HiddenField('Min Age', default=0, validators=[NumberRange(min=0, max=120)])
+    max_age = HiddenField('Max Age', default=120, validators=[NumberRange(min=0, max=120)])
+
     lga = SelectField('Local Government',
                                    choices=LGA_CHOICES,
                                    validators=[Optional()])

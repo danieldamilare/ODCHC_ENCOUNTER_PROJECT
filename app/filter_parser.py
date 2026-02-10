@@ -76,7 +76,7 @@ class Params:
         return self._offset
 
 class FilterParser:
-    ALLOWED_OPERATORS = {'=', '>', '<', '>=', '<=', '!=', 'LIKE', 'IN'}
+    ALLOWED_OPERATORS = {'=', '>', '<', '>=', '<=', '!=', 'LIKE', 'IN', 'BETWEEN'}
 
     @classmethod
     def parse_params(cls, params: Params, model_map: Dict):
@@ -110,7 +110,6 @@ class FilterParser:
                 if not model.validate_col(col):
                     raise QueryParameterError(f"Column {col} not in table {model.get_name()}")
                 if not model in model_map:
-                    print(fil)
                     print(model_map)
                     raise QueryParameterError(f"Model {model} not in Model map")
                 col = f'{model_map[model]}.{col}'

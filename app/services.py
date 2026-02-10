@@ -127,7 +127,7 @@ class BaseServices:
                       order_by: Optional[List[Tuple[str, str]]] = None,
                       group_by: Optional[List[str]] = None
                       ):
-        ALLOWED_OPERATORS = {'=', '>', '<', '>=', '<=', '!=', 'LIKE', 'IN'}
+        ALLOWED_OPERATORS = {'=', '>', '<', '>=', '<=', '!=', 'LIKE', 'IN', 'BETWEEN'}
         query = ''
         args = base_arg if base_arg is not None else []
         conditions = []
@@ -137,16 +137,24 @@ class BaseServices:
             for column_name, value, opt in and_filter:
                 if opt.upper() not in ALLOWED_OPERATORS:
                     raise ValidationError(f"Invalid operator: {opt}")
-                conditions.append(f"{column_name} {opt} ?")
-                args.append(value)
+                if opt.upper() == 'BETWEEN':
+                    conditions.append(f"{column_name} {opt} ? AND ?")
+                    args.extend(value)
+                else:
+                    conditions.append(f"{column_name} {opt} ?")
+                    args.append(value)
 
         if or_filter:
             or_conditions = []
             for column_name, value, opt in or_filter:
                 if opt.upper() not in ALLOWED_OPERATORS:
                     raise ValidationError(f"Invalid operator: {opt}")
-                or_conditions.append(f"{column_name} {opt} ?")
-                args.append(value)
+                if opt.upper() == 'BETWEEN':
+                    or_conditions.append(f"{column_name} {opt} ? AND ?")
+                    args.extend(value)
+                else:
+                    or_conditions.append(f"{column_name} {opt} ?")
+                    args.append(value)
             if or_conditions:
                 conditions.append("(" + " OR ".join(or_conditions) + ")")
 
@@ -1303,6 +1311,7 @@ class EncounterServices(BaseServices):
             base_arg=[],
             **res
         )
+        print("query", query, "args", args, sep="\n")
 
         db = get_db()
         return db.execute(query, args).fetchall()
@@ -3005,7 +3014,6 @@ class ReportServices(BaseServices):
         table.rename(columns={'facility_name': 'Facilities'}, inplace=True)
 
         return start_date, table
-
 
 class UploadServices(BaseServices):
 
