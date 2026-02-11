@@ -32,16 +32,16 @@ def seed_services():
     categories = df['category'].unique().tolist()
     for category in tqdm(categories, desc="Seeding Service Categories"):
         ServiceCategoryServices.create_category(
-            str(category) )
+            str(category).strip() )
     category_list =  list(ServiceCategoryServices.get_all())
     cat_map = {}
     for cat in category_list:
         cat_map[cat.name] = cat.id
 
     for  idx, row in tqdm(df.iterrows(), desc="Seeding Services"):
-        category_id = cat_map[str(row['category'])]
+        category_id = cat_map[str(row['category']).strip()]
         service = row['service_name']
-        ServiceServices.create_service(service, category_id)
+        ServiceServices.create_service(str(service).strip() , category_id)
     print("Successfully Seeded Services")
 
 
@@ -50,11 +50,11 @@ def seed_diseases():
     categories = df['Category'].unique().tolist()
     cat_map = {}
     for category in tqdm(categories, desc="Seeding Disease Categories"):
-        res = DiseaseCategoryServices.create_category(str(category))
+        res = DiseaseCategoryServices.create_category(str(category).strip())
         cat_map[res.category_name] = res.id
 
     for idx, row in tqdm(df.iterrows(), desc="Seeding Diseases"):
-        category_id = cat_map[str(row['Category'])]
+        category_id = cat_map[str(row['Category']).strip()]
         disease = row['Diagnosis']
         DiseaseServices.create_disease(row['Diagnosis'], category_id)
     print("Successfully Seeded Diseases")
@@ -102,12 +102,12 @@ def seed_users():
     print("Successfully Seeded User")
 
 def seed_treatment_outcome():
-    outcomes = [(OutcomeEnum.INPATIENT.value, 'General'), 
-                (OutcomeEnum.OUTPATIENT.value, 'General'), 
+    outcomes = [(OutcomeEnum.INPATIENT.value, 'General'),
+                (OutcomeEnum.OUTPATIENT.value, 'General'),
                 (OutcomeEnum.REFERRED.value, 'General'),
                 (OutcomeEnum.NEONATAL_DEATH.value, 'Death'),
                 (OutcomeEnum.INFANT_DEATH.value, 'Death'),
-                (OutcomeEnum.UNDER_FIVE_DEATH.value, 'Death'), 
+                (OutcomeEnum.UNDER_FIVE_DEATH.value, 'Death'),
                 (OutcomeEnum.MATERNAL_DEATH.value, 'Death'),
                 (OutcomeEnum.OTHER_DEATH.value, 'Death')]
     for outcome in tqdm(outcomes, desc="Creating treatment outcomes"):

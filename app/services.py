@@ -1,10 +1,14 @@
+from collections.abc import Callable
+from csv import writer
 from datetime import timedelta
 from datetime import datetime, date
 from collections import defaultdict
 import sqlite3
+from openpyxl import load_workbook
 import pandas as pd
+import io
 from werkzeug.security import generate_password_hash, check_password_hash
-from typing import Optional, Type, TypeVar, Iterator, List, Tuple, Dict, Literal
+from typing import Any, Optional, Type, TypeVar, Iterator, List, Tuple, Dict, Literal
 from app.db import get_db
 from app.models import (User, Facility, Disease, Encounter, TreatmentOutcome, DiseaseCategory, Role,
             InsuranceScheme, FacilityView, UserView, EncounterView, DiseaseView, FacilityScheme,
@@ -15,9 +19,11 @@ from app.exceptions import MissingError, InvalidReferenceError, DuplicateError, 
 from app.exceptions import ValidationError, AuthenticationError, ServiceError
 from app import app
 from app.constants import ONDO_LGAS_LOWER, DeliveryMode, EncType, BabyOutcome, SchemeEnum, AgeGroup, ModeOfEntry, FacilityOwnerShip, FacilityType
+from app.utils import autofit_columns
 from copy import copy
 from app.filter_parser import FilterParser, Params
 from dateutil.relativedelta import relativedelta
+from openpyxl.styles import Font, Alignment
 
 def _legacy_to_params(**kwargs) -> Dict:
     res = {}
@@ -115,6 +121,13 @@ class BaseServices:
             return res[0]
         else:
             return 0
+
+    @classmethod
+    def _run_query(cls, query: str, params: list, row_mapper):
+        db = get_db()
+        rows = db.execute(query, params)
+        return [row_mapper(row) for row in rows]
+
 
     @classmethod
     def _apply_filter(cls,
@@ -427,7 +440,6 @@ class FacilityServices(BaseServices):
                         facility_type: str, scheme: List[int],
                         ownership: str,
                         commit=True) -> Facility:
-        print(name, facility_type, scheme, ownership)
         db = get_db()
         try:
             cursor = db.execute(f'INSERT INTO {cls.table_name} (name, local_government, facility_type, ownership) VALUES (?, ?, ?, ?)', (
@@ -535,15 +547,19 @@ class FacilityServices(BaseServices):
         params = params if params else Params()
         params = params.group(Facility, 'id')
         res = {}
+        print("kwargs", kwargs)
+
         if params:
             res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        else:
+            res = _legacy_to_params(**kwargs)
+        print(res)
 
         query, args = cls._apply_filter(
             base_query=query,
             **res
         )
-        # print("In facility Service")
-        # print(query, args)
+        print(query, args)
 
         db = get_db()
         facility_rows = list(db.execute(query, args).fetchall())
@@ -565,9 +581,34 @@ class FacilityServices(BaseServices):
             yield facility
 
     @classmethod
+    def get_total(cls, params: Params | None = None, **kwargs) -> int:
+        query = f'SELECT COUNT(DISTINCT fc.id) from {cls.table_name} as fc LEFT JOIN facility_scheme as fsc on fsc.facility_id = fc.id'
+        res = {}
+        if params is not None:
+             if params.group_by or params.order_by:
+                raise QueryParameterError("You can't groupby or order by to get_total")
+
+             mapper = {cls.model: cls.table_name} if not cls.MODEL_ALIAS_MAP else cls.MODEL_ALIAS_MAP
+             res = FilterParser.parse_params(params, model_map=mapper)
+        else:
+            res = _legacy_to_params(**kwargs)
+
+        query, args = cls._apply_filter(
+            base_query=query,
+            base_arg=[],
+            **res
+        )
+        db = get_db()
+        res =db.execute(query, args).fetchone()
+        if res:
+            return res[0]
+        else:
+            return 0
+
+    @classmethod
     def get_view_by_id(cls, facility_id: int) -> FacilityView:
         try:
-            return next(cls.get_all(and_filter=[('fc.id', facility_id, '=')]))
+            return next(cls.get_all(Params().where(Facility, 'id', '=', facility_id)))
         except StopIteration as e:
             raise MissingError("Facility is invalid and does not exist in database")
 
@@ -1311,7 +1352,6 @@ class EncounterServices(BaseServices):
             base_arg=[],
             **res
         )
-        print("query", query, "args", args, sep="\n")
 
         db = get_db()
         return db.execute(query, args).fetchall()
@@ -1796,10 +1836,10 @@ class DashboardServices(BaseServices):
         query = f'''
         SELECT
             fc.name AS facility_name,
-            COUNT(ec.id) as encounter_count
-           FROM encounters as ec
-           LEFT JOIN view_utilization_items as vui ON vui.encounter_id = ec.id
-           JOIN facility as fc on ec.facility_id = fc.id
+            COUNT(DISTINCT ec.id) as encounter_count
+        FROM encounters as ec
+        LEFT JOIN view_utilization_items as vui ON vui.encounter_id = ec.id
+        JOIN facility as fc on ec.facility_id = fc.id
           '''
 
         params = params.group(Facility, 'id')
@@ -1814,12 +1854,6 @@ class DashboardServices(BaseServices):
                               lambda row: {'facility_name': row['facility_name'],
                                            'count': row['encounter_count'],
                                            })
-
-    @classmethod
-    def _run_query(cls, query: str, params: list, row_mapper):
-        db = get_db()
-        rows = db.execute(query, params)
-        return [row_mapper(row) for row in rows]
 
     @classmethod
     def get_age_group(cls, query, args):
@@ -3021,3 +3055,81 @@ class UploadServices(BaseServices):
     # todo
     def upload_sheet(cls):
         return
+
+class DownloadServices(BaseServices):
+
+    @classmethod
+    def build_dataframe_buffer(cls, query: str,
+                               params: Params,
+                               model_map: Dict,
+                               row_processor: Callable[[sqlite3.Row], dict] = lambda row: dict(row)):
+        print("\n\n", params, "\n\n")
+        res = FilterParser.parse_params(params, model_map)
+        query, args = cls._apply_filter(query, **res)
+        print("\n\n", query, args, "\n\n")
+        db = get_db()
+        rows = db.execute(query, args).fetchall()
+        df = pd.DataFrame([row_processor(row) for row in rows])
+        df.index = range(1, len(df) + 1)
+        df.reset_index(inplace = True)
+        df.columns = ['S/N'] + df.columns[1:].tolist()
+        output_buffer = io.BytesIO()
+        with pd.ExcelWriter(output_buffer) as writer:
+            df.to_excel(writer, index=False)
+        output_buffer.seek(0)
+        wb = load_workbook(output_buffer)
+        ws = wb.active
+        for cell in ws[1]:
+            cell.font = Font(bold=True)
+        autofit_columns(ws, 55)
+        wb.save(output_buffer)
+        output_buffer.seek(0)
+        return output_buffer
+
+    @classmethod
+    def download_facilities_sheet(cls, params: Params):
+        query = f'''
+        SELECT
+            fc.name as 'Name',
+            fc.local_government as 'Local Government',
+            fc.ownership as Ownership,
+            fc.facility_type as Type,
+            GROUP_CONCAT(isc.scheme_name, ', ') as Scheme
+        FROM facility as fc
+        LEFT JOIN facility_scheme as fsc on fsc.facility_id = fc.id
+        LEFT JOIN insurance_scheme as isc on fsc.scheme_id = isc.id
+        '''
+        model_map = {FacilityScheme: 'fsc', InsuranceScheme: 'isc', Facility: 'fc'}
+        params = params.group(Facility, 'id')
+        return cls.build_dataframe_buffer(query, params, model_map)
+
+    @classmethod
+    def download_encounter_sheet(cls, params: Params):
+        query = f'''
+        SELECT * FROM master_encounter_view
+        '''
+        return cls.build_dataframe_buffer(query, params, {})
+
+    @classmethod
+    def download_services_sheet(cls, params: Params):
+        query = f'''
+        SELECT
+            srv.name as 'Name',
+            sc.name as 'Category'
+        FROM services as srv
+        JOIN service_category as sc on sc.id = srv.category_id
+        '''
+        model_map = {Service: 'srv', ServiceCategory: 'sc'}
+        return cls.build_dataframe_buffer(query, params, model_map)
+
+    @classmethod
+    def download_diseases_sheet(cls, params: Params):
+        query = f'''
+        SELECT
+            dis.name as 'Name',
+            cg.category_name as 'Category'
+        FROM diseases as dis
+        JOIN diseases_category as cg on cg.id = dis.category_id
+        '''
+        model_map = {Disease: 'dis', DiseaseCategory: 'cg'}
+        return cls.build_dataframe_buffer(query, params, model_map)

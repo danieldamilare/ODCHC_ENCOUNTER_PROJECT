@@ -3,7 +3,7 @@ from flask import redirect, flash, url_for, request, render_template, abort
 from flask_login import login_required, login_user, logout_user
 from app.models import Role, is_logged_in, get_current_user, AuthUser, Facility, Encounter, User, Disease, TreatmentOutcome, InsuranceScheme, ANCRegistry, Service
 from app.services import UserServices, EncounterServices, FacilityServices, DiseaseServices, TreatmentOutcomeServices, ServiceCategoryServices
-from app.services import DiseaseCategoryServices, InsuranceSchemeServices, ServiceServices
+from app.services import DiseaseCategoryServices, InsuranceSchemeServices, ServiceServices, DownloadServices
 from app.exceptions import AuthenticationError, MissingError, ValidationError
 from app.exceptions import InvalidReferenceError, DuplicateError, ServiceError
 from urllib.parse import urlparse
@@ -12,6 +12,7 @@ from app.utils import form_to_dict, admin_required, humanize_datetime_filter, ca
 from app.forms import LoginForm, AddEncounterForm, AddFacilityForm, EditFacilityForm, AddDiseaseForm, ExcelUploadForm, DashboardFilterForm, EncTypeForm, DeliveryEncounterForm, AddServiceForm
 from app.forms import AddUserForm, AddCategoryForm, DeleteUserForm, EditUserForm, EditDiseaseForm, EncounterFilterForm, AdminDashboardFilterForm, ANCEncounterForm, ChildHealthEncounterForm, FacilityFilterForm
 from app.constants import ONDO_LGAS_LIST, SchemeEnum, BabyOutcome
+from werkzeug.utils import secure_filename
 
 from app.filter_parser import Params
 from flask_wtf import FlaskForm
@@ -28,7 +29,7 @@ from openpyxl import load_workbook
 from openpyxl.styles import Font, Alignment
 from flask import g
 from flask import send_file
-from app.filter_map import filter_config, facility_filter_config, encounter_filter_config
+from app.filter_map import filter_config, facility_filter_config, encounter_filter_config, download_encounter_filter_config
 
 def get_facility_user_dashboard():
     facility_id = get_current_user().facility.id
@@ -425,11 +426,11 @@ def add_scheme_encounter(scheme_id) -> Any:
 @app.route('/admin/facilities', methods=['GET', 'POST'])
 @admin_required
 def facilities() -> Any:
-    # 1. Handle Creation (POST)
+
     facility_form = AddFacilityForm()
     if facility_form.validate_on_submit():
         res = form_to_dict(facility_form, Facility)
-        # Handle list/multi-select scheme data
+
         res['scheme'] = facility_form.scheme.data
         res['lga'] = facility_form.lga.data
         try:
@@ -439,42 +440,35 @@ def facilities() -> Any:
         except (ValidationError, DuplicateError) as e:
             flash(str(e), 'error')
 
-    # 2. Handle Filtering (GET)
     filter_form = FacilityFilterForm(request.args)
-    param = Params()
+    params = build_filter(filter_form,
+                          ['facility_type', 'ownership', 'scheme', 'lga'],
+                          Params(),
+                          facility_filter_config)
 
-    if filter_form.facility_type.data:
-        param = param.where(Facility, 'facility_type', '=', filter_form.facility_type.data)
+    if (request.args.get('download') == 'true'):
+        output =  DownloadServices.download_facilities_sheet(params)
+        return send_file(output,
+                        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        download_name = f"master_facility_sheet.xlsx",
+                        as_attachment=True)
 
-    if filter_form.lga.data:
-        # Note: DB column is 'local_government', form field is 'lga'
-        param = param.where(Facility, 'local_government', '=', filter_form.lga.data)
+    if (limit := request.args.get('limit')):
+        params = params.set_limit(int(limit))
 
-    if filter_form.name.data:
-        param = param.where(Facility, 'name', 'LIKE', f'%{filter_form.name.data}%')
-
-    if filter_form.limit.data:
-        param.set_limit(filter_form.limit.data)
-
-    print(param)
-
-    # 3. Calculate Totals for Cards
-    # (These should ideally be GLOBAL totals, unaffected by filters, so the cards act as constants)
     primary_total = FacilityServices.get_total(Params().where(Facility, 'facility_type', '=', 'Primary'))
     secondary_total = FacilityServices.get_total(Params().where(Facility, 'facility_type', '=', 'Secondary'))
     tertiary_total = FacilityServices.get_total(Params().where(Facility, 'facility_type', '=', 'Tertiary'))
 
-    # Global Total for the "Total Facilities" card
     facility_total = FacilityServices.get_total(Params())
 
-    # 4. Get Table Data (Filtered)
     page = int(request.args.get('page', 1))
-    facility_list = list(FacilityServices.list_row_by_page(page, param))
+    facility_list = list(FacilityServices.list_row_by_page(page, params=params))
 
     # Pagination Logic
     res_args = {**request.args}
     res_args['page'] = page + 1
-    next_url = url_for('facilities', **res_args) if FacilityServices.has_next_page(page, params=param) else None
+    next_url = url_for('facilities', **res_args) if FacilityServices.has_next_page(page, params=params) else None
 
     res_args['page'] = page - 1
     prev_url = url_for('facilities', **res_args) if page > 1 else None
@@ -518,6 +512,7 @@ def edit_facilities(pid: int) -> Any:
     if form.validate_on_submit():
         try:
             form.populate_obj(facility)
+            facility.local_government = form.lga.data
             FacilityServices.update_facility(facility, form.scheme.data)
             flash("You have successfully added a new facility", 'success')
             return redirect(url_for('facilities'))
@@ -537,6 +532,7 @@ def edit_facilities(pid: int) -> Any:
 def view_facilities(pid: int) -> Any:
     try:
         facility = FacilityServices.get_view_by_id(pid)
+        print(pid, facility)
     except MissingError as e:
         flash(str(e), 'error')
         return redirect(url_for('facilities'))
@@ -584,6 +580,8 @@ def view_facilities(pid: int) -> Any:
                                                         params=Params().where(User, 'facility_id', '=', pid)) else None
     prev_url = url_for('view_facilities', pid=pid,
                        user_page=page - 1) if page > 1 else None
+    print(facility)
+
 
     return render_template('view_facilities.html',
                            title = f"Viewing Facility: {facility.name}",
@@ -605,6 +603,13 @@ def services():
     category_list = list(ServiceCategoryServices.get_all())
     if category := request.args.get('category'):
         filters = filters.where(Service, 'category_id', '=', category)
+
+    if request.args.get('download') == 'true':
+        output = DownloadServices.download_services_sheet(params=filters)
+        return send_file(output,
+                        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        download_name = f"master_services_sheet.xlsx",
+                        as_attachment=True)
 
     service_list = list(ServiceServices.list_row_by_page(page, params=filters))
     # Get filtered count for pagination
@@ -722,6 +727,13 @@ def diseases():
 
     if category := request.args.get('category'):
         filters = filters.where(Disease, 'category_id', '=', category)
+
+    if request.args.get('download') == 'true':
+        output = DownloadServices.download_diseases_sheet(params=filters)
+        return send_file(output,
+                        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        download_name = f"master_diseases_sheet.xlsx",
+                        as_attachment=True)
 
     disease_list = list(DiseaseServices.list_row_by_page(page, params = filters))
     filtered_diseases = DiseaseServices.get_total(params=filters)
@@ -927,6 +939,16 @@ def encounters():
     if user.facility:
         filter_form.scheme_id.choices = [(s.id, s.scheme_name) for s in user.facility.scheme]
 
+    if request.args.get('download') == 'true':
+        filters = build_filter(filter_form, ['period', 'scheme_id', 'outcome', 'facility_id', 'age_group'], Params(), download_encounter_filter_config)
+        res = DownloadServices.download_encounter_sheet(params=filters)
+        return send_file(
+            res,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=secure_filename('master_encounter_report.xlsx')
+        )
+
     filters = build_filter(filter_form, ['period', 'scheme_id', 'outcome', 'facility_id', 'age_group'], Params(), encounter_filter_config)
 
     encounter_list = list(EncounterServices.list_row_by_page(page,
@@ -984,26 +1006,26 @@ def parse_date(period: str = None):
 
     return start_date, end_date
 
-
 def build_filter(form: FlaskForm, filters: List[str], base_params: Optional[Params] = None, filter_config: Dict = filter_config) -> Params:
     params = Params() if not base_params else base_params
     user = get_current_user()
 
     for fil in filters:
+        print(fil)
         model, col, op =filter_config[fil]
 
         if fil == 'period':
+            print("Added Period filter")
             start_date, end_date = parse_date()
             print("Start Date:", start_date, "End Date:", end_date)
-            params = params.where(Encounter, 'date', '>=', start_date)
-            params = params.where(Encounter, 'date', '<=', end_date)
+            params = params.where(model, col, op, (start_date, end_date))
             g.start_date = start_date
             g.end_date = end_date
 
         elif fil == 'facility_id':
-            print("Added facility filter")
             value = getattr(form, fil).data
             if user.role.name != 'admin':
+                print("Added facility filter")
                 params = params.where(Encounter, 'facility_id', '=', user.facility.id)
                 g.facility_id = user.facility.id
             elif value:
@@ -1011,21 +1033,22 @@ def build_filter(form: FlaskForm, filters: List[str], base_params: Optional[Para
                 g.facility_id = value
 
         elif fil == 'lga':
-            print("Added LGA filter")
             value = getattr(form, fil).data
             if user.role.name == 'admin' and value:
+                print("Added LGA filter")
                 params = params.where(model, col, op, value)
                 g.lga = value
 
         elif fil == 'age_group':
             print("Added Age Group filter")
-            start_value = int(form.min_age.data) or 0
-            end_value = int(form.max_age.data)  or 120
+            start_value = int(form.min_age.data)
+            end_value = int(form.max_age.data)
             params = params.where(model, col, op, (start_value, end_value));
 
         else:
             temp = getattr(form, fil)
             if temp and temp.data:
+                print(f"Added {fil} filter")
                 value = temp.data
                 if col in ['scheme', 'outcome']:
                     value = int(value)
@@ -1460,7 +1483,6 @@ def append_nhia_encounter_header(report_data, start_date: date):
 @app.route('/admin/download_report')
 @admin_required
 def download_report():
-    from werkzeug.utils import secure_filename
     try:
         report_title, start_date, facility, report_data = get_report_data()
     except (MissingError, ValidationError) as e:

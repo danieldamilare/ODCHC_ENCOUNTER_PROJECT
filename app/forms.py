@@ -78,10 +78,10 @@ class FacilityMixin:
 
     def populate_facility_type(self):
         self.facility_type.choices = ([("", "--SELECT--")] +
-                                      [(x.name, x.name) for x in FacilityType])
+                                      [(x.value, x.value) for x in FacilityType])
     def populate_facility_ownership(self):
         self.ownership.choices = ([("", "--SELECT--")] +
-                                  [(x.name, x.name) for x in FacilityOwnerShip])
+                                  [(x.value, x.value) for x in FacilityOwnerShip])
 
 class SchemeMixin:
     def populate_scheme_choices(self):
@@ -373,9 +373,9 @@ class FacilityFilterForm(FlaskForm, SchemeMixin, FacilityMixin):
     scheme = SelectField("Scheme", validators= [Optional()], coerce=int)
     lga = SelectField("LGA", validators= [Optional()], choices = LGA_CHOICES)
     name = StringField("", validators= [Optional()])
-    facility_type = SelectField("Facility Type", validators = [Optional()], choices = [(x.name, x.name) for x in FacilityType])
+    facility_type = SelectField("Facility Type", validators = [Optional()], choices = [(x.value, x.value) for x in FacilityType])
     ownership = SelectField("Ownership", validators = [Optional()], choices = [(x.name, x.name) for x in FacilityOwnerShip])
-    limit = SelectField("Number", validators=[Optional()], coerce = int, default=Config.ADMIN_PAGE_PAGINATION)
+    limit = SelectField("Number", validators=[Optional()], coerce = int, choices = [(i, i) for i in range(15, 101, 15)], default=Config.ADMIN_PAGE_PAGINATION)
     class Meta:
         csrf = False
     def __init__(self, *args, **kwargs):

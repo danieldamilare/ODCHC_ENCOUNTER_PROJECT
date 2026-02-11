@@ -97,7 +97,9 @@ CREATE TABLE insurance_scheme(
 CREATE TABLE facility_scheme(
     facility_id INTEGER NOT NULL,
     scheme_id INTEGER NOT NULL,
-    PRIMARY KEY(facility_id, scheme_id)
+    PRIMARY KEY(facility_id, scheme_id),
+    FOREIGN KEY(facility_id) REFERENCES facility(id) ON DELETE CASCADE,
+    FOREIGN KEY(scheme_id) REFERENCES insurance_scheme(id) ON DELETE CASCADE
 );
 
 CREATE TABLE treatment_outcome(
@@ -164,6 +166,21 @@ CREATE TABLE delivery_babies(
     FOREIGN KEY(encounter_id) REFERENCES encounters(id) ON DELETE RESTRICT
 );
 
+CREATE VIRTUAL TABLE encounters_fts USING fts5(
+    policy_number,
+    client_name,
+    nin,
+    phone_number,
+    address,
+    treatment,
+    medication,
+    investigation,
+    doctor_name,
+    mode_of_entry,
+    content='encounters',
+    content_rowid='id'
+);
+
 CREATE VIEW view_utilization_items AS
 SELECT
     ecd.encounter_id,
@@ -181,6 +198,86 @@ SELECT
 FROM encounters_services as ecs
 JOIN services as srv on srv.id = ecs.service_id;
 
+CREATE VIEW master_encounter_view AS
+WITH
+    BabyStats AS (
+        SELECT
+            encounter_id,
+            COUNT(*) as total_babies,
+            SUM(CASE WHEN outcome = 'Live Birth' THEN 1 ELSE 0 END) as live_births,
+            SUM(CASE WHEN outcome = 'Still Birth' THEN 1 ELSE 0 END) as still_births
+        FROM delivery_babies
+        GROUP BY encounter_id
+    ),
+
+    DiseaseAgg AS (
+        SELECT
+            ed.encounter_id,
+            GROUP_CONCAT(d.name, ', ') as disease_list
+        FROM encounters_diseases ed
+        JOIN diseases d ON d.id = ed.disease_id
+        GROUP BY ed.encounter_id
+    ),
+
+    ServiceAgg AS (
+        SELECT
+            es.encounter_id,
+            GROUP_CONCAT(s.name, ', ') as service_list
+        FROM encounters_services es
+        JOIN services s ON s.id = es.service_id
+        GROUP BY es.encounter_id
+    )
+
+SELECT
+    "Ondo State" as State,
+    fc.id as "Facility ID",
+    fc.ownership as Ownership,
+    fc.local_government as "Local Government",
+    fc.name as "Facility Name",
+    e.date as "Date of Encounter",
+    e.policy_number as "Policy Number",
+    e.client_name as "Client Name",
+    e.gender as Gender,
+    e.age as Age,
+    e.enc_type as "Encounter Type",
+    isc.scheme_name as "Scheme",
+    e.phone_number as "Phone Number",
+
+    COALESCE(e.treatment_cost, 0)/100.0 as "Treatment Cost",
+    COALESCE(e.medication_cost, 0)/100.0 as "Medication Cost",
+    COALESCE(e.investigation_cost, 0)/100.0 as "Investigation Cost",
+
+    da.disease_list as "Diseases",
+    sa.service_list as "Services",
+    e.treatment as "Treatment",
+    tc.name as "Outcome",
+
+    ar.lmp as "LMP",
+    ar.expected_delivery_date as "EDD",
+    ar.parity as "Parity",
+    COALESCE(ae.anc_count, de.anc_count) as "ANC Count",
+
+    de.mode_of_delivery as "Mode of Delivery",
+    COALESCE(bs.total_babies, 0) as "Number of Babies",
+    COALESCE(bs.live_births, 0) as "Live Births",
+    COALESCE(bs.still_births, 0) as "Still Births",
+
+    ch.guardian_name as "Guardian Name"
+
+FROM encounters e
+JOIN facility fc ON fc.id = e.facility_id
+JOIN insurance_scheme isc ON isc.id = e.scheme
+JOIN treatment_outcome tc ON tc.id = e.outcome
+
+LEFT JOIN BabyStats bs ON bs.encounter_id = e.id
+LEFT JOIN DiseaseAgg da ON da.encounter_id = e.id
+LEFT JOIN ServiceAgg sa ON sa.encounter_id = e.id
+
+LEFT JOIN anc_encounters ae ON ae.encounter_id = e.id
+LEFT JOIN delivery_encounters de ON de.encounter_id = e.id
+LEFT JOIN child_health_encounters ch ON ch.encounter_id = e.id
+LEFT JOIN anc_registry ar ON ar.id = COALESCE(ae.anc_id, de.anc_id);
+
 
 CREATE INDEX idx_anc_status ON anc_registry(status);
 CREATE INDEX idx_anc_orin ON anc_registry(orin);
@@ -195,8 +292,7 @@ CREATE INDEX idx_facility_scheme_id ON facility_scheme (scheme_id);
 CREATE INDEX idx_facility_scheme_facility_id ON facility_scheme (facility_id);
 CREATE INDEX idx_encounters_facility_date ON encounters (facility_id, date);
 CREATE INDEX idx_user_facility_id ON users (facility_id);
-CREATE INDEX idx_diseases_category_id ON diseases (category_id); CREATE INDEX idx_encounters_scheme ON encounters (scheme);
-CREATE INDEX idx_encounters_outcome ON encounters (outcome);
+CREATE INDEX idx_diseases_category_id ON diseases (category_id);
 CREATE INDEX idx_encounters_date_gender ON encounters (date, gender);
 CREATE INDEX idx_encounters_diseases_encounter ON encounters_diseases (encounter_id);
 CREATE INDEX idx_encounters_diseases_disease ON encounters_diseases (disease_id);
@@ -215,3 +311,6 @@ CREATE INDEX idx_encounters_scheme_date ON encounters(scheme, date);
 CREATE INDEX idx_encounters_gender_facility ON encounters(gender, facility_id, date);
 CREATE INDEX idx_encounters_date_age_group ON encounters(date, age_group);
 CREATE INDEX idx_encounters_outcome_type_date ON encounters(outcome, date);
+CREATE INDEX idx_encounters_nin ON encounters(nin);
+CREATE INDEX idx_encounters_phone_number ON encounters(phone_number);
+CREATE INDEX idx_encounters_client_name ON encounters(LOWER(client_name));

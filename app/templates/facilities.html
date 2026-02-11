@@ -37,8 +37,6 @@
     .table-row { transition: all 0.15s ease; }
     .table-row:hover {
         background: linear-gradient(to right, #f8fafc, #f1f5f9);
-        transform: translateX(3px);
-        box-shadow: -3px 0 0 #3b82f6;
     }
     .action-btn { transition: all 0.15s ease; }
     .action-btn:hover { transform: scale(1.1); }
@@ -47,6 +45,21 @@
         from { opacity: 0; transform: translateY(20px); }
         to { opacity: 1; transform: translateY(0); }
     }
+    /* Scrollbar styling for the table */
+    .custom-scrollbar::-webkit-scrollbar {
+        height: 8px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: #f1f5f9;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+    }
+
     @media print {
          body { background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         .no-print { display: none !important; }
@@ -140,55 +153,63 @@
         </div>
     </div>
 
-    <div class="bg-white rounded-2xl shadow-lg border border-slate-200 mb-8 ">
-        <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center cursor-pointer"
+    <div class="bg-white rounded-2xl shadow-lg border border-slate-200 mb-8">
+        <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center cursor-pointer transition-colors hover:bg-slate-100"
              onclick="document.getElementById('advanced-filters').classList.toggle('hidden')">
             <h3 class="text-sm font-bold text-slate-700 uppercase tracking-wide flex items-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
-                Advanced Filters
+                <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
+                Filter Facilities
             </h3>
-            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            <div class="flex items-center gap-2 text-slate-500">
+                <span class="text-xs font-medium">Click to expand</span>
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </div>
         </div>
 
-        <div id="advanced-filters" class="p-6 hidden">
+        <div id="advanced-filters" class="p-6 hidden bg-white">
             <form method="GET" action="{{ url_for('facilities') }}">
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <div class="col-span-1 md:col-span-2 lg:col-span-1">
-                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Search Facility Name</label>
-                        {{ filter_form.name(class="w-full rounded-lg border-slate-300 text-sm focus:ring-blue-500 focus:border-blue-500", placeholder="e.g. General Hospital...") }}
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-2">Facility Name</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg class="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                            </span>
+                            {{ filter_form.name(class="w-full pl-9 rounded-lg border border-slate-300 text-sm py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-shadow", placeholder="e.g. General Hospital...") }}
+                        </div>
                     </div>
 
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Facility Type</label>
-                        {{ filter_form.facility_type(class="w-full rounded-lg border-slate-300 text-sm focus:ring-blue-500 focus:border-blue-500") }}
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-2">Facility Type</label>
+                        {{ filter_form.facility_type(class="w-full rounded-lg border border-slate-300 text-sm py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm bg-white") }}
                     </div>
 
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Local Government</label>
-                        {{ filter_form.lga(class="w-full rounded-lg border-slate-300 text-sm focus:ring-blue-500 focus:border-blue-500") }}
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-2">Local Government</label>
+                        {{ filter_form.lga(class="w-full rounded-lg border border-slate-300 text-sm py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm bg-white") }}
                     </div>
 
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Ownership</label>
-                        {{ filter_form.ownership(class="w-full rounded-lg border-slate-300 text-sm focus:ring-blue-500 focus:border-blue-500") }}
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-2">Ownership</label>
+                        {{ filter_form.ownership(class="w-full rounded-lg border border-slate-300 text-sm py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm bg-white") }}
                     </div>
 
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Scheme</label>
-                        {{ filter_form.scheme(class="w-full rounded-lg border-slate-300 text-sm focus:ring-blue-500 focus:border-blue-500") }}
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-2">Insurance Scheme</label>
+                        {{ filter_form.scheme(class="w-full rounded-lg border border-slate-300 text-sm py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm bg-white") }}
                     </div>
 
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Rows per page</label>
-                        {{ filter_form.limit(class="w-full rounded-lg border-slate-300 text-sm focus:ring-blue-500 focus:border-blue-500") }}
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-2">Rows per page</label>
+                        {{ filter_form.limit(class="w-full rounded-lg border border-slate-300 text-sm py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm bg-white") }}
                     </div>
                 </div>
 
-                <div class="mt-6 flex justify-end gap-3 pt-4 border-t border-slate-100">
-                    <a href="{{ url_for('facilities') }}" class="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
-                        Clear Filters
+                <div class="mt-8 flex justify-end gap-3 pt-5 border-t border-slate-100">
+                    <a href="{{ url_for('facilities') }}" class="px-5 py-2.5 text-sm font-semibold text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 hover:text-slate-800 transition-all shadow-sm">
+                        Reset
                     </a>
-                    <button type="submit" class="px-4 py-2 text-sm font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-md hover:shadow-lg transition-all">
+                    <button type="submit" class="px-6 py-2.5 text-sm font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-md hover:shadow-lg transition-all focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                         Apply Filters
                     </button>
                 </div>
@@ -198,31 +219,46 @@
 
     <div class="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
         <div class="px-6 py-5 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-blue-50">
-            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                     <h2 class="text-xl font-bold text-slate-900">Facility List</h2>
                     <p class="text-sm text-slate-600 mt-1">
                         Showing <span class="font-semibold text-slate-900">{{ facility_list|length }}</span> facility entries
                     </p>
                 </div>
+                <div>
+                    <a href="{{ url_for('facilities', download='true', **request.args) }}"
+                       class="inline-flex items-center justify-center px-4 py-2.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg text-sm font-semibold shadow-sm transition-all whitespace-nowrap">
+                        <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        Export Excel
+                    </a>
+                </div>
             </div>
         </div>
 
-        <div class="overflow-x-auto">
+        <div class="overflow-x-auto custom-scrollbar">
             {% if facility_list %}
             <table class="min-w-full divide-y divide-slate-200">
                 <thead class="bg-slate-50">
                     <tr>
-                        <th scope="col" class="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider whitespace-nowrap">
                             Facility Name
                         </th>
-                        <th scope="col" class="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider whitespace-nowrap">
                             Local Government
                         </th>
-                        <th scope="col" class="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider whitespace-nowrap">
                             Type
                         </th>
-                        <th scope="col" class="px-6 py-4 text-right text-xs font-bold text-slate-700 uppercase tracking-wider">
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider whitespace-nowrap">
+                            Ownership
+                        </th>
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider whitespace-nowrap">
+                            Schemes
+                        </th>
+                        <th scope="col" class="px-6 py-4 text-right text-xs font-bold text-slate-700 uppercase tracking-wider whitespace-nowrap">
                             Actions
                         </th>
                     </tr>
@@ -230,51 +266,82 @@
                 <tbody class="bg-white divide-y divide-slate-100">
                     {% for facility in facility_list %}
                     <tr class="table-row">
-                        <td class="px-6 py-4">
+                        <td class="px-6 py-4 whitespace-nowrap">
                             <div class="flex items-center">
                                 <div class="ml-4">
                                     <p class="text-sm font-bold text-slate-900">{{ facility.name }}</p>
                                 </div>
                             </div>
                         </td>
-                        <td class="px-6 py-4">
+
+                        <td class="px-6 py-4 whitespace-nowrap">
                             <div class="flex items-center text-sm text-slate-600">
                                 <svg class="w-4 h-4 mr-2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                                 <span class="font-medium">{{ facility.lga|title }}</span>
                             </div>
                         </td>
-                        <td class="px-6 py-4">
+
+                        <td class="px-6 py-4 whitespace-nowrap">
                             {% set type_lower = facility.facility_type|lower %}
                             {% if type_lower == 'primary' %}
-                                <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                    <span class="w-2 h-2 bg-emerald-500 rounded-full mr-2"></span>
-                                    Primary Care
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                    <span class="w-2 h-2 bg-emerald-500 rounded-full mr-2"></span>Primary
                                 </span>
                             {% elif type_lower == 'secondary' %}
-                                <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200">
-                                    <span class="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
-                                    Secondary
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                                    <span class="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>Secondary
                                 </span>
                             {% elif type_lower == 'private' %}
-                                <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                                    <span class="w-2 h-2 bg-amber-500 rounded-full mr-2"></span>
-                                    Private
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                                    <span class="w-2 h-2 bg-amber-500 rounded-full mr-2"></span>Private
                                 </span>
                             {% else %}
-                                <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-800 border border-slate-200">
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-800 border border-slate-200">
                                     {{ facility.facility_type|title }}
                                 </span>
                             {% endif %}
                         </td>
+
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% set own_lower = facility.ownership|lower %}
+                            {% if own_lower == 'public' %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                    Public
+                                </span>
+                            {% elif own_lower == 'private' %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
+                                    Private
+                                </span>
+                            {% else %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                    {{ facility.ownership|default('N/A', true) }}
+                                </span>
+                            {% endif %}
+                        </td>
+
                         <td class="px-6 py-4">
+                            <div class="flex flex-wrap gap-1 w-64 min-w-max">
+                                {% if facility.scheme %}
+                                    {% for scheme in facility.scheme %}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                        {{ scheme.scheme_name }}
+                                    </span>
+                                    {% endfor %}
+                                {% else %}
+                                    <span class="text-xs text-slate-400 italic">None</span>
+                                {% endif %}
+                            </div>
+                        </td>
+
+                        <td class="px-6 py-4 whitespace-nowrap">
                             <div class="flex items-center justify-end gap-2">
                                 <a href="{{ url_for('view_facilities', pid=facility.id) }}"
-                                    class="action-btn p-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors"
+                                   class="action-btn p-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors"
                                    title="View Details">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                 </a>
                                 <a href="{{ url_for('edit_facilities', pid=facility.id) }}"
-                                    class="action-btn p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition-colors"
+                                   class="action-btn p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition-colors"
                                    title="Edit">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                 </a>
