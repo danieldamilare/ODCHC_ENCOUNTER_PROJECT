@@ -47,7 +47,7 @@ def seed_services():
 
 def seed_diseases():
     df = pd.read_csv(DISEASE_FILE)
-    categories = df['Category'].unique().tolist()
+    categories = df['Category'].str.strip().unique().tolist()
     cat_map = {}
     for category in tqdm(categories, desc="Seeding Disease Categories"):
         res = DiseaseCategoryServices.create_category(str(category).strip())

@@ -29,7 +29,7 @@ download_encounter_filter_config = {
     "scheme_id": ("", 'Scheme', "="),
     "gender": ("", "Gender", "="),
     "period": ("", '"Date of Encounter"', "BETWEEN"),
-    "facility_id": ("", 'Facility ID', "="),
+    "facility_id": ("", '"Facility ID"', "="),
     "policy_number": ("", 'Policy Number', "="),
     "outcome": ("", "Outcome", "="),
     "age_group": ("", "Age", "BETWEEN")

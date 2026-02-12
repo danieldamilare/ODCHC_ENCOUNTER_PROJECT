@@ -18,12 +18,11 @@ from app.models import (User, Facility, Disease, Encounter, TreatmentOutcome, Di
 from app.exceptions import MissingError, InvalidReferenceError, DuplicateError, QueryParameterError
 from app.exceptions import ValidationError, AuthenticationError, ServiceError
 from app import app
-from app.constants import ONDO_LGAS_LOWER, DeliveryMode, EncType, BabyOutcome, SchemeEnum, AgeGroup, ModeOfEntry, FacilityOwnerShip, FacilityType
+from app.constants import ONDO_LGAS_LOWER, DeliveryMode, EncType, BabyOutcome, SchemeEnum, AgeGroup
 from app.utils import autofit_columns
-from copy import copy
 from app.filter_parser import FilterParser, Params
 from dateutil.relativedelta import relativedelta
-from openpyxl.styles import Font, Alignment
+from openpyxl.styles import Font
 
 def _legacy_to_params(**kwargs) -> Dict:
     res = {}

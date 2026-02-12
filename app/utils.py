@@ -1,13 +1,18 @@
 from flask_wtf import FlaskForm
 import functools
-from flask import url_for, redirect, flash
+from flask import url_for, redirect, flash, request
 from app import app
 import arrow
 from datetime import date, datetime, timedelta
-from typing import Any
+from typing import Any, Optional, List, Dict
+from app.filter_parser import Params
 from app.constants import SchemeEnum, AgeGroup
 from dataclasses import fields as datafield
 from app.models import get_current_user, Role
+from openpyxl import Workbook
+from openpyxl.utils import get_column_letter
+from app.filter_map import filter_config, facility_filter_config, encounter_filter_config, download_encounter_filter_config
+from flask import g
 
 
 def form_to_dict(form: FlaskForm, model: Any) -> dict:
@@ -99,8 +104,6 @@ def calculate_edd(dt: date) -> date:
 
 app.jinja_env.filters['humanize_datetime'] = humanize_datetime_filter
 
-from openpyxl import Workbook
-from openpyxl.utils import get_column_letter
 
 def autofit_columns(worksheet, max_width=50):
     for column in worksheet.columns:
@@ -115,3 +118,74 @@ def autofit_columns(worksheet, max_width=50):
         # Add a small padding to the width calculation
         adjusted_width = min((max_length + 2) * 1.2, max_width)
         worksheet.column_dimensions[column_letter].width = adjusted_width
+
+def parse_date(period: str = None):
+    """Parse period string or custom date range into start_date and end_date."""
+    # Check if custom date range is provided in request args
+    custom_start = request.args.get('start_date')
+    custom_end = request.args.get('end_date')
+
+    if custom_start and custom_end:
+        # Use custom date range from date picker
+        try:
+            start_date = datetime.strptime(custom_start, '%Y-%m-%d').date()
+            end_date = datetime.strptime(custom_end, '%Y-%m-%d').date()
+            return start_date, end_date
+        except ValueError:
+            # If parsing fails, fall back to default
+            pass
+
+    today = date.today()
+    start_date = today.replace(day=1)
+    end_date = today
+
+    return start_date, end_date
+
+def build_filter(form: FlaskForm, filters: List[str], base_params: Optional[Params] = None, filter_config: Dict = filter_config) -> Params:
+    params = Params() if not base_params else base_params
+    user = get_current_user()
+
+    for fil in filters:
+        print(fil)
+        model, col, op =filter_config[fil]
+
+        if fil == 'period':
+            print("Added Period filter")
+            start_date, end_date = parse_date()
+            print("Start Date:", start_date, "End Date:", end_date)
+            params = params.where(model, col, op, (start_date, end_date))
+            g.start_date = start_date
+            g.end_date = end_date
+
+        elif fil == 'facility_id':
+            value = getattr(form, fil).data
+            if user.role.name != 'admin':
+                print("Added facility filter")
+                params = params.where(model, col, op, user.facility.id)
+                g.facility_id = user.facility.id
+            elif value:
+                params = params.where(model, col, op, int(value))
+                g.facility_id = value
+
+        elif fil == 'lga':
+            value = getattr(form, fil).data
+            if user.role.name == 'admin' and value:
+                print("Added LGA filter")
+                params = params.where(model, col, op, value)
+                g.lga = value
+
+        elif fil == 'age_group':
+            print("Added Age Group filter")
+            start_value = int(form.min_age.data)
+            end_value = int(form.max_age.data)
+            params = params.where(model, col, op, (start_value, end_value));
+
+        else:
+            temp = getattr(form, fil)
+            if temp and temp.data:
+                print(f"Added {fil} filter")
+                value = temp.data
+                if col in ['scheme', 'outcome']:
+                    value = int(value)
+                params = params.where(model, col, op, value)
+    return params
