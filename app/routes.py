@@ -423,6 +423,11 @@ def add_scheme_encounter(scheme_id) -> Any:
                            form=form,
                            title='Add Encounter')
 
+@app.route('/admin/claims', methods=['GET'])
+@admin_required
+def claims():
+    return render_template('claims.html', title='Claims Management')
+
 @app.route('/admin/facilities', methods=['GET', 'POST'])
 @admin_required
 def facilities() -> Any:
