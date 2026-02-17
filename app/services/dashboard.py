@@ -191,7 +191,7 @@ class DashboardServices(BaseServices):
     def get_utilization_trend(cls, params: Params, start_date, end_date):
         # ensure at least 6 months range
         start_date = start_date.replace(day=1)
-        supposed_start = (end_date.replace(day=1) - relativedelta(month=6))
+        supposed_start = (end_date.replace(day=1) - relativedelta(months=6))
         if start_date > supposed_start:
             start_date = supposed_start
 
@@ -235,7 +235,7 @@ class DashboardServices(BaseServices):
     def get_encounter_trend(cls, params: Params, start_date, end_date):
         # ensure at least 6 months range
         start_date = start_date.replace(day=1)
-        supposed_start = (end_date.replace(day=1) - relativedelta(month=6))
+        supposed_start = (end_date.replace(day=1) - relativedelta(months=6))
         if start_date > supposed_start:
             start_date = supposed_start
 
@@ -516,7 +516,7 @@ class DashboardServices(BaseServices):
         JOIN facility as fc on fc.id = ec.facility_id
         '''
         if (end_date - start_date).days < (365 * 5): #minumum of 5 display years
-            print("In here")
+            # print("In here")
             start_date = end_date.replace(day=1, month=1, year = end_date.year - 5)
 
         params = params.where(Encounter, 'date', 'BETWEEN', (start_date, end_date))
@@ -652,7 +652,7 @@ class DashboardServices(BaseServices):
             start_date = end_date.replace(year = end_date.year - 5, day = 1, month = 1)
         params = params.where(Encounter, 'date', 'BETWEEN', (start_date, end_date))
         params = params.where(TreatmentOutcome, 'type', '=', 'Death')
-        print("Params: ", params)
+        # print("Params: ", params)
 
         res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         query, args = cls._apply_filter(query, **res)
@@ -761,15 +761,19 @@ class DashboardServices(BaseServices):
         JOIN treatment_outcome as tc on tc.id = ec.outcome
         '''
         if (end_date - start_date).days < 30 * 6:
-            start_date = end_date.replace(day = 1) - relativedelta(month=6)
+            print("In mortality trend, adjusting start date")
+            start_date = end_date.replace(day = 1) - relativedelta(months=6)
+            print(start_date)
         params = params.where(TreatmentOutcome, 'type', '=', 'Death')
-        params = params.where(Encounter, 'date', '>=', start_date)
-        params = params.where(Encounter, 'date', '<=', end_date)
+        params = params.where(Encounter, 'date', 'BETWEEN', (start_date, end_date))
         params = params.group(Encounter, 'date')
         params = params.group(TreatmentOutcome, 'name')
+        print("In mortality trend: params: ", params)
 
         res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
+        print("Mortality trend res: ", res)
         query, args = cls._apply_filter(query, **res)
+        print("Mortality trend query: ", query)
         db = get_db()
         rows = db.execute(query, args).fetchall()
         df = pd.DataFrame([dict(row) for row in rows])

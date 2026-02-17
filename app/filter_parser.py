@@ -117,12 +117,13 @@ class FilterParser:
             if not op in cls.ALLOWED_OPERATORS:
                 raise QueryParameterError(f"Operator {op} not allowed")
             if is_and and (col, op) in save: #reuse latest and filter or can have multiple
-                print(col, op, "in save")
+                print(col, op, result[save[(col, op)]], "in save")
+                print("Overriding ", result[save[(col, op)]], " with ", (col, value, op))
                 result[save[(col, op)]] = (col, value, op)
             else:
                 save[(col, op)] = len(result)
                 result.append((col, value, op))
-        print("result: ", result)
+        # print("result: ", result)
         return result
 
     @classmethod
@@ -139,7 +140,7 @@ class FilterParser:
                     raise QueryParameterError(f"Column {col} not in table {model.get_name()}")
                 if not model in model_map:
                     # print(fil)
-                    print(model_map)
+                    # print(model_map)
                     raise QueryParameterError(f"Model {model} not in Model map")
                 col = (f'{model_map[model]}.{col}')
             if col not in save:
@@ -162,7 +163,7 @@ class FilterParser:
                     raise QueryParameterError(f"Column {col} not in table {model.get_name()}")
                 if not model in model_map:
                     # print(fil)
-                    print(model_map)
+                    # print(model_map)
                     raise QueryParameterError(f"Model {model} not in Model map")
                 col = f'{model_map[model]}.{col}'
 

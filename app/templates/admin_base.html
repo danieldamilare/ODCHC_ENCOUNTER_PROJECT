@@ -277,8 +277,7 @@
                         <div class="flex items-center space-x-3">
                             <img class="h-10 w-10 object-contain" src="{{ url_for('static', filename='odchc_logo.png') }}" alt="ODCHC Logo">
                             <div>
-                                <h1 class="text-base font-bold text-primary-700">ODCHC Admin</h1>
-                                <p class="text-xs text-slate-500">Monitoring & Evaluation</p>
+                                <h1 class="text-base font-bold text-primary-800">ODCHC Admin</h1>
                             </div>
                         </div>
                     </div>
@@ -299,7 +298,6 @@
                             <img class="h-12 w-12 object-contain flex-shrink-0" src="{{ url_for('static', filename='odchc_logo.png') }}" alt="ODCHC Logo">
                             <div class="sidebar-logo-text">
                                 <h1 class="text-lg font-bold text-primary-700">ODCHC Admin</h1>
-                                <p class="text-xs text-slate-500">Monitoring & Evaluation</p>
                             </div>
                         </a>
                     </div>
@@ -577,8 +575,7 @@
             // Shared toggle function
             function toggleSidebar() {
                 const isCollapsed = desktopSidebar.classList.toggle('sidebar-collapsed');
-
-                if (isCollapsed) {
+if (isCollapsed) {
                     mainContentWrapper.classList.remove('md:pl-72');
                     mainContentWrapper.classList.add('md:pl-16');
                     localStorage.setItem('sidebarCollapsed', 'true');
