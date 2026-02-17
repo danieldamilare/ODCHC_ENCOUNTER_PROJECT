@@ -516,10 +516,10 @@ class DashboardServices(BaseServices):
         JOIN facility as fc on fc.id = ec.facility_id
         '''
         if (end_date - start_date).days < (365 * 5): #minumum of 5 display years
+            print("In here")
             start_date = end_date.replace(day=1, month=1, year = end_date.year - 5)
 
-        params = params.where(Encounter, 'date', '>=', start_date)
-        params = params.where(Encounter, 'date', '<=', end_date)
+        params = params.where(Encounter, 'date', 'BETWEEN', (start_date, end_date))
         # params = params.group(Encounter, 'date').group(InsuranceScheme, 'scheme_name')\
                 # .group(InsuranceScheme, 'color_scheme')
 
@@ -650,9 +650,9 @@ class DashboardServices(BaseServices):
         '''
         if (end_date - start_date).days < 365 * 5:
             start_date = end_date.replace(year = end_date.year - 5, day = 1, month = 1)
-        params = params.where(Encounter, 'date', '>=', start_date)
-        params = params.where(Encounter, 'date', '<=', end_date)
+        params = params.where(Encounter, 'date', 'BETWEEN', (start_date, end_date))
         params = params.where(TreatmentOutcome, 'type', '=', 'Death')
+        print("Params: ", params)
 
         res = FilterParser.parse_params(params, cls.MODEL_ALIAS_MAP)
         query, args = cls._apply_filter(query, **res)
@@ -695,8 +695,7 @@ class DashboardServices(BaseServices):
         '''
         if (end_date - start_date).days < 365 * 5:
             start_date = end_date.replace(year = end_date.year - 5, day = 1, month = 1)
-        params = params.where(Encounter, 'date', '>=', start_date)
-        params = params.where(Encounter, 'date', '<=', end_date)
+        params = params.where(Encounter, 'date', 'BETWEEN', (start_date, end_date))
         # params = params.group(Encounter, 'date').group(InsuranceScheme, 'scheme_name')\
                 # .group(InsuranceScheme, 'color_scheme')
 

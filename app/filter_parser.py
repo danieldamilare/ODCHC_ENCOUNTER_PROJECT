@@ -117,11 +117,12 @@ class FilterParser:
             if not op in cls.ALLOWED_OPERATORS:
                 raise QueryParameterError(f"Operator {op} not allowed")
             if is_and and (col, op) in save: #reuse latest and filter or can have multiple
+                print(col, op, "in save")
                 result[save[(col, op)]] = (col, value, op)
             else:
                 save[(col, op)] = len(result)
                 result.append((col, value, op))
-        # print(result)
+        print("result: ", result)
         return result
 
     @classmethod
