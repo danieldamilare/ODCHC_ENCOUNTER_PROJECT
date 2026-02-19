@@ -1,0 +1,228 @@
+{% extends "admin_base.html" %}
+
+{% block content %}
+<style>
+    .chat-scrollbar::-webkit-scrollbar { width: 6px; }
+    .chat-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+    .chat-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    .chat-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+    @keyframes bubbleAppear {
+        from { opacity: 0; transform: translateY(10px) scale(0.98); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .animate-bubble { animation: bubbleAppear 0.25s ease-out forwards; }
+
+    .message-bubble {
+        max-width: 85%;
+        position: relative;
+        font-size: 0.875rem;
+        line-height: 1.6;
+    }
+
+    .user-bubble {
+        align-self: flex-end;
+        background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+        color: white;
+        border-radius: 1.25rem 1.25rem 0.25rem 1.25rem;
+        box-shadow: 0 4px 6px -1px rgba(2, 132, 199, 0.2);
+    }
+
+    /* Professional Analyst Bubble (Markdown Surface) */
+    .analyst-bubble {
+        align-self: flex-start;
+        background: white;
+        color: #1e293b;
+        border: 1px solid #e2e8f0;
+        border-radius: 1.25rem 1.25rem 1.25rem 0.25rem;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+    }
+
+    /* Markdown Specific Styling - Matching your Dashboard Tables */
+    .analyst-bubble table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1rem 0;
+        font-size: 0.8rem;
+        border-radius: 0.5rem;
+        overflow: hidden;
+        border: 1px solid #e2e8f0;
+    }
+    .analyst-bubble th {
+        background: #f8fafc;
+        padding: 0.75rem;
+        text-align: left;
+        font-weight: 700;
+        color: #475569;
+        border-bottom: 2px solid #e2e8f0;
+    }
+    .analyst-bubble td {
+        padding: 0.75rem;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .analyst-bubble ul, .analyst-bubble ol {
+        margin: 1rem 0;
+        padding-left: 1.5rem;
+    }
+    .analyst-bubble li { margin-bottom: 0.25rem; }
+    .analyst-bubble p { margin-bottom: 0.75rem; }
+    .analyst-bubble strong { color: #0369a1; font-weight: 700; }
+
+    .typing::after {
+        content: '|';
+        animation: blink 1s infinite;
+        margin-left: 2px;
+        color: #0ea5e9;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+</style>
+
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+            <h1 class="text-3xl font-bold text-slate-900 flex items-center gap-3">
+                <div class="p-2 bg-blue-100 rounded-xl">
+                    <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                </div>
+                Analytic Query
+            </h1>
+            <p class="text-slate-600 mt-1">Health Data Insights & Surveillance AI</p>
+        </div>
+        <button onclick="create_new_chat()"
+                class="inline-flex items-center gap-2 px-4 py-2 bg-white border-2 border-slate-300 hover:border-blue-400 text-slate-700 font-semibold rounded-xl transition-all shadow-sm">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            New Chat
+        </button>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden flex flex-col h-[calc(100vh-280px)]">
+        <div id="chat-box" class="flex-1 overflow-y-auto p-6 flex flex-col gap-6 bg-slate-50/50 chat-scrollbar">
+            </div>
+
+        <div class="p-4 bg-white border-t border-slate-200">
+            <div class="relative flex items-center gap-3">
+                <div class="flex-1 relative">
+                    <input type="text" id="uinput"
+                           class="block w-full pl-4 pr-4 py-3 border-2 border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                           placeholder="Ask about malaria trends, facility stats, or encounters...">
+                </div>
+                <button onclick="send_message()" id="send-btn"
+                        class="p-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl shadow-lg transition-all transform hover:scale-105 active:scale-95 disabled:opacity-50">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M22 2L11 13" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let conversation_history = JSON.parse(localStorage.getItem('conversation_history') || "[]");
+
+    function create_new_chat(){
+        localStorage.removeItem("conversation_history");
+        window.location.reload();
+    }
+
+    async function send_message() {
+        const inputField = document.getElementById('uinput');
+        const sendBtn = document.getElementById('send-btn');
+        const userText = inputField.value.trim();
+        if (!userText) return;
+
+        inputField.value = "";
+        inputField.disabled = true;
+        sendBtn.disabled = true;
+
+        addMessagetoChat('user', userText);
+        const aiBubble = addMessagetoChat('analyst', '...');
+        aiBubble.classList.add('typing');
+        let assistant_response = "";
+
+        try {
+            const response = await fetch("/admin/query", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    conversation_history: conversation_history,
+                    user_input: userText
+                })
+            });
+
+            if (!response.ok) throw new Error("Network response was not ok");
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+
+            aiBubble.textContent = "";
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value, { stream: true });
+                assistant_response += chunk;
+
+                console.log(assistant_response)
+                const rawHtml = marked.parse(assistant_response);
+                console.log(rawHtml)
+                aiBubble.innerHTML = DOMPurify.sanitize(rawHtml);
+
+                const chatBox = document.getElementById('chat-box');
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+
+            aiBubble.classList.remove('typing');
+            conversation_history.push(
+                { role: 'user', parts: [{text: userText}] },
+                { role: 'model', parts: [{text: assistant_response}] }
+            );
+            localStorage.setItem('conversation_history', JSON.stringify(conversation_history));
+
+        } catch (error) {
+            aiBubble.classList.remove('typing');
+            aiBubble.innerHTML = "<strong>Error:</strong> Connection to Analyst lost. Please try again.";
+            aiBubble.classList.add('bg-red-50', 'text-red-700', 'border-red-200');
+        } finally {
+            inputField.disabled = false;
+            sendBtn.disabled = false;
+            inputField.focus();
+        }
+    }
+
+    function addMessagetoChat(role, text) {
+        const container = document.getElementById('chat-box');
+        const div = document.createElement('div');
+        div.className = `message-bubble p-5 shadow-sm animate-bubble ${role}-bubble`;
+
+        // Render content based on role
+        if (role === 'analyst') {
+            const rawHtml = marked.parse(text);
+            div.innerHTML = DOMPurify.sanitize(rawHtml);
+        } else {
+            div.textContent = text;
+        }
+
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+        return div;
+    }
+
+    function render_conversation(history) {
+        history.forEach(msg => {
+            const role = msg.role === 'user' ? 'user' : 'analyst';
+            const text = msg.parts ? msg.parts[0].text : msg.content;
+            addMessagetoChat(role, text);
+        });
+    }
+
+    document.getElementById('uinput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') send_message();
+    });
+
+    document.addEventListener('DOMContentLoaded', () => render_conversation(conversation_history));
+</script>
+{% endblock %}

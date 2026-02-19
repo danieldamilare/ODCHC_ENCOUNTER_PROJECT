@@ -131,7 +131,7 @@ Question: "What is the total service utilized last month"
         config = types.GenerateContentConfig(
             system_instruction=self.system_prompt,
             max_output_tokens=4096,
-            temperature= 0.0,
+            temperature= 0.2,
             candidate_count=1,
             tools= tools,
             automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=False)
@@ -141,7 +141,17 @@ Question: "What is the total service utilized last month"
                                  model = Config.GOOGLE_GENAI_MODEL,
                                  history = history)
         print("Initialized Chat object: ", chat)
-        response = chat.send_message_stream(user_input)
-        for res in response:
-            print("response chunk received: ", res)
-            yield res.text
+        try:
+            response = chat.send_message_stream(user_input)
+            for res in response:
+                print("response chunk received: ", res)
+                if res.text:
+                    yield res.text
+                elif res.candidates and res.candidates[0].content.parts:
+                    for part in res.candidates[0].content.parts:
+                        if hasattr(part, 'text') and part.text:
+                            yield part.text
+
+        except Exception as e:
+            print("Error during response generation: ", str(e))
+            yield f"[[ERROR]] An error occurred while generating the response"
