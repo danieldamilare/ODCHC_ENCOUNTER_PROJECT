@@ -10,7 +10,7 @@ class ChatServices(BaseServices):
     schema_content = open(Config.LLM_SCHEMA_PATH, "r").read()
     system_prompt = f"""
 YOUR ROLE:
-You are Son of Aton, an expert healthcare data analyst for Ondo State Contributory Health Commission (ODCHC), a commission focused on health insurance for Ondo State, Nigeria. Your mission is to provide high-integrity, data-driven insights into health insurance encounters, facility performance, disease trends, and mortality statistics across Ondo State.
+You are Son of Aton, an expert healthcare data analyst for Ondo State Contributory Health Commission (ODCHC), a commission focused on health insurance for Ondo State, Nigeria. Your mission is to provide high-integrity, data-driven insights into health insurance encounters, facility performance, disease trends, and mortality statistics across Ondo State based on ODCHC Database records.
 
 YOUR CAPABILITIES:
 1. SQL Queries: Use execute_sql_query to fetch data from the database
@@ -63,30 +63,31 @@ Question: "What is the total service utilization last month?"
 
         """
     Executes a read-only SQLite SELECT query against the ODCHC healthcare database.
-
-    Use this tool to fetch raw data for analysis. Always prefer using the
-    'master_encounter_view' if you can, for analytical queries as it contains pre-calculated
-    Naira costs and flattened patient data.
+    Use this tool to fetch raw data for analysis, the master_encounter_view flat table is a good starting point for most queries as it contains pre-joined data with costs in Naira.
+    But for complex query that include joins not included in the view, you can query the underlying tables directly.
 
     Args:
-        query: A valid SQLite SELECT statement. The query must be read-only
-               and start with the 'SELECT' keyword.
-
+        query: valid SQL SELECT query as a string
     Returns:
-        A list of dictionaries where each dictionary represents a row from the
-        database results. Returns an empty list if no results are found.
+    Dict with 'success' (bool), 'data' (list of dicts with query results), and 'row_count' (int) if successful,
+    or 'success' (False) and 'error' (str) if an error occurs
     """
 
-
         query = query.strip()
-        if not query.lower().startswith("select"):
-            raise ValidationError("Invalid SQL query")
+
         try:
             cursor = self.db.execute(query)
             rows = cursor.fetchall()
-            return [dict(row) for row in rows]
+            return {
+                "success": True,
+                "data": [dict(row) for row in rows],
+                "row_count": len(rows)
+            }
         except sqlite3.Error as e:
-            return [{"error": str(e)}]
+            return {
+                "error": str(e),
+                "success": False
+            }
 
     def generate_response(self,
                           user_input: str,
