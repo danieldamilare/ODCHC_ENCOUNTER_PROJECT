@@ -18,16 +18,15 @@ Stores registered health facilities
 Columns:
   - id INTEGER PRIMARY KEY
   - name TEXT (e.g., "FUTA Teaching Hospital")
-  - local_government VARCHAR(100) (LGA name, e.g., "Owo")
-  - facility_type VARCHAR(10) (values: 'Primary', 'Secondary', 'Tertiary')
-  - ownership VARCHAR(10) (values: 'public', 'private')
+  - local_government VARCHAR(100) (LGA name)
+  - facility_type VARCHAR(10) (eg: 'primary')
+  - ownership VARCHAR(10) (eg: 'private')
 
 TABLE: insurance_scheme
 The three health insurance schemes
 Columns:
   - id INTEGER PRIMARY KEY
-  - scheme_name TEXT (values: 'BHCPFP', 'ORANGHIS', 'AMCHIS')
-  - color_scheme TEXT (hex color for UI)
+  - scheme_name TEXT (e.g: 'ORANGHIS')
 
 TABLE: facility_scheme
 Links facilities to the schemes they accept (many-to-many)
@@ -39,7 +38,7 @@ TABLE: treatment_outcome
 Possible outcomes of an encounter
 Columns:
   - id INTEGER PRIMARY KEY
-  - name VARCHAR(255) (e.g., 'Inpatient', 'Outpatient', 'Referred', 'Maternal Death')
+  - name VARCHAR(255) (e.g., 'Referred')
   - type VARCHAR(255) (values: 'General', 'Death')
 
 ================================================================
@@ -50,26 +49,26 @@ TABLE: diseases_category
 Disease categories for classification
 Columns:
   - id INTEGER PRIMARY KEY
-  - category_name VARCHAR(50) (e.g., "Communicable Disease", "NCDs")
+  - category_name VARCHAR(50) (e.g: "Communicable Disease")
 
 TABLE: diseases
 Individual diseases
 Columns:
   - id INTEGER PRIMARY KEY
-  - name VARCHAR(255) (e.g., "Malaria", "Hypertension")
+  - name VARCHAR(255) (e.g. "Hypertension")
   - category_id INTEGER → diseases_category(id)
 
 TABLE: service_category
 Categories of health services
 Columns:
   - id INTEGER PRIMARY KEY
-  - name TEXT (e.g., "Laboratory", "Radiology", "Surgery")
+  - name TEXT (e.g: "Radiology")
 
 TABLE: services
 Individual health services provided
 Columns:
   - id INTEGER PRIMARY KEY
-  - name TEXT (e.g., "Blood Test", "X-Ray", "Cesarean Section")
+  - name TEXT (e.g:  "X-Ray")
   - category_id INTEGER → service_category(id)
 
 ================================================================
@@ -86,16 +85,16 @@ Columns:
   - client_name TEXT (patient name)
   - gender CHAR(1) (values: 'M', 'F')
   - age INTEGER (0-120)
-  - enc_type TEXT (values: 'general', 'anc', 'delivery', 'child_health')
+  - enc_type TEXT (values (check valid enum vlaues) )
   - address TEXT
   - scheme INTEGER → insurance_scheme(id)
   - nin TEXT (11-digit Nigerian National ID)
   - phone_number TEXT
   - hospital_number TEXT
   - referral_reason TEXT (if patient was referred)
-  - age_group VARCHAR(20) (e.g., "0-28 days", "1-4 years")
-  - mode_of_entry VARCHAR(25) (e.g., "Outpatient")
-  - treatment TEXT (description of treatment given)
+  - age_group VARCHAR(20) (e.g: "0-28 days")
+  - mode_of_entry VARCHAR(25) (check Mode of Entry enum below)
+  - treatment TEXT (description of treatment)
   - treatment_cost INTEGER **IN KOBO**
   - medication TEXT (medications prescribed)
   - medication_cost INTEGER **IN KOBO**
@@ -157,7 +156,7 @@ Columns:
   - anc_id INTEGER → anc_registry(id)
   - encounter_id INTEGER → encounters(id)
   - anc_count INTEGER
-  - mode_of_delivery TEXT (e.g., 'Normal Delivery', 'Cesarean Section')
+  - mode_of_delivery TEXT (check Mode of Delivery enum below for possible value)
 
 TABLE: delivery_babies
 Individual baby outcomes from deliveries (can be multiple per delivery)
@@ -250,7 +249,7 @@ Insurance Schemes:
   - "ORANGHIS" (Orange Health Insurance Scheme)
   - "AMCHIS" (Abiyamo Maternal and Child Health Insurance Scheme)
 
-Encounter Types (enc_type): 
+Encounter Types (enc_type):
  - "general"
  - "anc"
  - "delivery"
@@ -284,7 +283,7 @@ Age Groups:
  - "5-12 YEARS"
  - "13-19 YEARS"
  - "20-59 YEARS"
- - "60+ YEARS" 
+ - "60+ YEARS"
 
 Facility Types:
   - "Primary"
@@ -309,8 +308,8 @@ QUERY GUIDELINES
 
 2. For specific disease/service queries:
    - Join encounters with encounters_diseases or encounters_services
-   - Service Utilization usually means the diseases and services used 
- 
+   - Service Utilization usually means the diseases and services used
+
 3. For AMCHIS maternal health queries:
    - Use anc_registry, anc_encounters, child_health_encounters delivery_encounters as needed if query cannot be inferred from master_encounter_view
 
@@ -355,7 +354,7 @@ QUERY GUIDELINES
      WHERE "Date of Encounter" >= '2024-01-01'
      GROUP BY "Local Government"
 
-   - Disease prevalence:
+- Disease prevalence (using raw tables):
      SELECT d.name, COUNT(*) as cases
      FROM encounters_diseases ed
      JOIN diseases d ON ed.disease_id = d.id
@@ -364,6 +363,13 @@ QUERY GUIDELINES
      GROUP BY d.name
      ORDER BY cases DESC LIMIT 10
 
+   - Disease prevalence (simpler, using view):
+     SELECT "Diseases", COUNT(*) as cases
+     FROM master_encounter_view
+     WHERE "Date of Encounter" >= '2024-01-01'
+       AND "Diseases" IS NOT NULL
+     GROUP BY "Diseases"
+     -- Note: This gives comma-separated disease lists, use raw tables for individual diseases
    - AMCHIS delivery outcomes:
      SELECT
        ar.client_name,
@@ -375,12 +381,12 @@ QUERY GUIDELINES
      JOIN delivery_babies db ON db.encounter_id = de.encounter_id
      GROUP BY de.id
 
-10. 9. Important query rules:
+10. Important query rules:
    - Column names in master_encounter_view use spaces and must be quoted: "Facility Name" not Facility_Name
+   - Remember master_encounter_view is a flat table, only use queries that doesn't require join. If it requires join, just query the encounter table and other needed table direclty
    - When joining raw tables, use table aliases for clarity
    - Always filter by date for performance (the database has years of data)
    - Use COALESCE for nullable fields when summing costs
    - Remember: encounter can have MULTIPLE diseases and services (many-to-many)
-
-
+   - When searching, do not assume disease name. It is better  to use LOWER(column) LIKE %disease_name%
 
