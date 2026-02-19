@@ -1,0 +1,386 @@
+DATABASE SCHEMA FOR ONDO STATE HEALTH COMMISSION (ODCHC)
+================================================================
+
+This is a SQLite database tracking health insurance encounters across facilities in Ondo State, Nigeria.
+
+CRITICAL CONTEXT:
+- All costs are stored in KOBO (Nigerian currency subunit). Divide by 100 to get Naira.
+- Dates are in 'YYYY-MM-DD' format
+- Three insurance schemes: BHCPFP, ORANGHIS, AMCHIS
+- AMCHIS is for maternal/child health and has special encounter types
+
+================================================================
+CORE TABLES
+================================================================
+
+TABLE: facility
+Stores registered health facilities
+Columns:
+  - id INTEGER PRIMARY KEY
+  - name TEXT (e.g., "FUTA Teaching Hospital")
+  - local_government VARCHAR(100) (LGA name, e.g., "Owo")
+  - facility_type VARCHAR(10) (values: 'Primary', 'Secondary', 'Tertiary')
+  - ownership VARCHAR(10) (values: 'public', 'private')
+
+TABLE: insurance_scheme
+The three health insurance schemes
+Columns:
+  - id INTEGER PRIMARY KEY
+  - scheme_name TEXT (values: 'BHCPFP', 'ORANGHIS', 'AMCHIS')
+  - color_scheme TEXT (hex color for UI)
+
+TABLE: facility_scheme
+Links facilities to the schemes they accept (many-to-many)
+Columns:
+  - facility_id INTEGER
+  - scheme_id INTEGER
+
+TABLE: treatment_outcome
+Possible outcomes of an encounter
+Columns:
+  - id INTEGER PRIMARY KEY
+  - name VARCHAR(255) (e.g., 'Inpatient', 'Outpatient', 'Referred', 'Maternal Death')
+  - type VARCHAR(255) (values: 'General', 'Death')
+
+================================================================
+DISEASE/SERVICE TABLES
+================================================================
+
+TABLE: diseases_category
+Disease categories for classification
+Columns:
+  - id INTEGER PRIMARY KEY
+  - category_name VARCHAR(50) (e.g., "Communicable Disease", "NCDs")
+
+TABLE: diseases
+Individual diseases
+Columns:
+  - id INTEGER PRIMARY KEY
+  - name VARCHAR(255) (e.g., "Malaria", "Hypertension")
+  - category_id INTEGER → diseases_category(id)
+
+TABLE: service_category
+Categories of health services
+Columns:
+  - id INTEGER PRIMARY KEY
+  - name TEXT (e.g., "Laboratory", "Radiology", "Surgery")
+
+TABLE: services
+Individual health services provided
+Columns:
+  - id INTEGER PRIMARY KEY
+  - name TEXT (e.g., "Blood Test", "X-Ray", "Cesarean Section")
+  - category_id INTEGER → service_category(id)
+
+================================================================
+ENCOUNTER TABLES
+================================================================
+
+TABLE: encounters
+Main table for patient encounters/visits
+Columns:
+  - id INTEGER PRIMARY KEY
+  - facility_id INTEGER → facility(id)
+  - date DATE (encounter date in YYYY-MM-DD)
+  - policy_number VARCHAR(40) (insurance policy number)
+  - client_name TEXT (patient name)
+  - gender CHAR(1) (values: 'M', 'F')
+  - age INTEGER (0-120)
+  - enc_type TEXT (values: 'general', 'anc', 'delivery', 'child_health')
+  - address TEXT
+  - scheme INTEGER → insurance_scheme(id)
+  - nin TEXT (11-digit Nigerian National ID)
+  - phone_number TEXT
+  - hospital_number TEXT
+  - referral_reason TEXT (if patient was referred)
+  - age_group VARCHAR(20) (e.g., "0-28 days", "1-4 years")
+  - mode_of_entry VARCHAR(25) (e.g., "Outpatient")
+  - treatment TEXT (description of treatment given)
+  - treatment_cost INTEGER **IN KOBO**
+  - medication TEXT (medications prescribed)
+  - medication_cost INTEGER **IN KOBO**
+  - investigation TEXT (tests/investigations done)
+  - investigation_cost INTEGER **IN KOBO**
+  - doctor_name VARCHAR(255)
+  - outcome INTEGER → treatment_outcome(id)
+  - created_at DATE
+
+TABLE: encounters_diseases
+Links encounters to diseases diagnosed (many-to-many)
+Columns:
+  - encounter_id INTEGER → encounters(id)
+  - disease_id INTEGER → diseases(id)
+
+TABLE: encounters_services
+Links encounters to services provided (many-to-many)
+Columns:
+  - encounter_id INTEGER → encounters(id)
+  - service_id INTEGER → services(id)
+
+================================================================
+AMCHIS MATERNAL/CHILD HEALTH TABLES
+(Used when enc_type = 'anc', 'delivery', or 'child_health')
+================================================================
+
+TABLE: anc_registry
+Registry of pregnant women receiving antenatal care
+Columns:
+  - id INTEGER PRIMARY KEY
+  - orin CHAR(10) (AMCHIS policy number - 10 digits)
+  - age INTEGER (15-60)
+  - age_group TEXT
+  - kia_date DATE
+  - client_name TEXT
+  - booking_date DATE
+  - parity INTEGER (number of previous pregnancies)
+  - place_of_issue TEXT
+  - hospital_number TEXT
+  - nin TEXT (11-digit)
+  - phone_number TEXT
+  - address TEXT
+  - lmp DATE (last menstrual period)
+  - expected_delivery_date DATE
+  - anc_count INTEGER (number of ANC visits)
+  - status TEXT (values: 'active', 'inactive' - set to inactive after delivery)
+
+TABLE: anc_encounters
+Links ANC encounters from encounter table to the anc registry
+Columns:
+  - encounter_id INTEGER → encounters(id)
+  - anc_id INTEGER → anc_registry(id)
+  - anc_count INTEGER (which visit number this is)
+
+TABLE: delivery_encounters
+Records delivery/birth encounters
+Columns:
+  - id INTEGER PRIMARY KEY
+  - anc_id INTEGER → anc_registry(id)
+  - encounter_id INTEGER → encounters(id)
+  - anc_count INTEGER
+  - mode_of_delivery TEXT (e.g., 'Normal Delivery', 'Cesarean Section')
+
+TABLE: delivery_babies
+Individual baby outcomes from deliveries (can be multiple per delivery)
+Columns:
+  - id INTEGER PRIMARY KEY
+  - encounter_id INTEGER → encounters(id)
+  - gender CHAR(1) (values: 'M', 'F')
+  - outcome VARCHAR(50) (values: 'Live Birth', 'Still Birth')
+
+TABLE: child_health_encounters
+Child health visits linked to mother's ORIN
+Columns:
+  - id INTEGER PRIMARY KEY
+  - encounter_id INTEGER → encounters(id)
+  - orin CHAR(10) (mother's AMCHIS policy number)
+  - dob DATE (child's date of birth)
+  - address TEXT
+  - guardian_name TEXT
+
+================================================================
+RECOMMENDED VIEW FOR ANALYTICS
+================================================================
+
+VIEW: master_encounter_view
+Pre-joined view with ALL encounter data flattened
+**USE THIS FOR MOST ANALYTICAL QUERIES**
+
+Columns (note: costs already converted to Naira):
+  - State (always "Ondo State")
+  - "Facility ID"
+  - Ownership
+  - "Local Government"
+  - "Facility Name"
+  - "Date of Encounter"
+  - "Policy Number"
+  - "Client Name"
+  - Gender
+  - Age
+  - "Encounter Type"
+  - "Scheme" (scheme name)
+  - "Phone Number"
+  - "Treatment Cost" (in Naira, already divided by 100)
+  - "Medication Cost" (in Naira)
+  - "Investigation Cost" (in Naira)
+  - "Diseases" (comma-separated list)
+  - "Services" (comma-separated list)
+  - Treatment
+  - Outcome (outcome name)
+  - LMP (for ANC/delivery encounters)
+  - EDD (for ANC/delivery encounters)
+  - Parity (for ANC/delivery encounters)
+  - "ANC Count" (for ANC/delivery encounters)
+  - "Mode of Delivery" (for delivery encounters)
+  - "Number of Babies" (for delivery encounters)
+  - "Live Births" (for delivery encounters)
+  - "Still Births" (for delivery encounters)
+  - "Guardian Name" (for child health encounters)
+
+VIEW: view_utilization_items
+Combines diseases and services into a single utilization view
+Columns:
+  - encounter_id
+  - item_id
+  - item_name
+  - item_type (values: 'Disease', 'Service')
+
+=====================================================
+VALID ENUM VALUe
+=====================================================
+
+**CRITICAL CONTEXT**
+THE ENUM as written are how related text data are stored in table Columns
+When writing query use the enum value on corresponding column.
+Reject any question that you can't inferred from enum values.
+For example:
+    Question: "What is the mortality rate in Ikorodu LGA?"
+    Answer: "I cannot answer this question. Ikorodu is not a Local Government Area in Ondo State. The valid LGAs are: [list]. Did you mean one of these?"
+
+==========================================================
+CORE ENUM
+==========================================================
+Local Governments (18 LGAs in Ondo State) :
+"Akoko North East", "Akoko North West", "Akoko South East", "Akoko South West",
+  "Akure North", "Akure South", "Ese-Odo", "Idanre", "Ifedore", "Ilaje",
+  "Ile-Oluji / Okeigbo", "Irele", "Odigbo", "Okitipupa", "Ondo East", "Ondo West",
+  "Ose", "Owo"
+
+Insurance Schemes:
+  - "BHCPFP" (Basic Health Care Provision Fund)
+  - "ORANGHIS" (Orange Health Insurance Scheme)
+  - "AMCHIS" (Abiyamo Maternal and Child Health Insurance Scheme)
+
+Encounter Types (enc_type): 
+ - "general"
+ - "anc"
+ - "delivery"
+ - "child_health"
+
+Mode of Delivery (mode_of_delivery):
+ - "Spontaneous Vaginal Delivery" (SVD)
+ - "Assisted Vaginal Delivery" (AVD)
+ - "Caesarean Section" (CS)
+
+Baby Outcomes:
+ - "Live Birth"
+ - "Still Birth"
+
+Treatment Outcomes:
+General outcomes:
+ - "Admitted/In Patient"
+ - 'Out Patient'
+ - "Referred"
+Death outcomes (type = 'Death'):
+ - "Neonatal Death (0 - 28 days)"
+ - "Infant Death"
+ - "Under 5 Deaths (0 - 5 years)"
+ - "Maternal Death (Pregnant women)"
+ - "Other Death"
+
+Age Groups:
+ - "0-28 DAYS"
+ - "29 DAYS - 11 MONTHS"
+ - "12 MONTHS - 59 MONTHS"
+ - "5-12 YEARS"
+ - "13-19 YEARS"
+ - "20-59 YEARS"
+ - "60+ YEARS" 
+
+Facility Types:
+  - "Primary"
+  - "Secondary"
+  - "Tertiary"
+
+Facility Ownership:
+  - "Public"
+  - "Private"
+
+Mode of Entry:
+  - "Outpatient"
+  - "Referred In"
+  - "Emergency"
+
+================================
+QUERY GUIDELINES
+================================
+
+1. For general encounter analytics (trends, counts, summaries):
+   - Use master_encounter_view
+
+2. For specific disease/service queries:
+   - Join encounters with encounters_diseases or encounters_services
+   - Service Utilization usually means the diseases and services used 
+ 
+3. For AMCHIS maternal health queries:
+   - Use anc_registry, anc_encounters, child_health_encounters delivery_encounters as needed if query cannot be inferred from master_encounter_view
+
+4. Date filtering examples:
+   - Last month: WHERE date >= date('now', 'start of month', '-1 month') AND date < date('now', 'start of month')
+   - This year: WHERE date >= date('now', 'start of year')
+   - Specific range: WHERE date BETWEEN '2024-01-01' AND '2024-12-31'
+   - Current month to date: WHERE "Date of Encounter" >= date('now', 'start of month')
+   - Last 7 days: WHERE "Date of Encounter" >= date('now', '-7 days')
+   - Quarterly: WHERE "Date of Encounter" >= date('now', 'start of year', '+3 months')
+
+5. Common aggregations:
+   - Total encounters: COUNT(*)
+   - Total cost: SUM("Treatment Cost" + "Medication Cost" + "Investigation Cost")
+   - Mortality rate: COUNT(CASE WHEN type = 'Death' THEN 1 END) / COUNT(*)
+
+6. Scheme filtering:
+   - BHCPFP: WHERE "Scheme" = 'BHCPFP'  (if using encounter table, scheme is linked to insurance_scheme table)
+   - AMCHIS maternal: WHERE "Encounter Type" IN ('anc', 'delivery')
+
+7. Age Group filtering:
+   - Use age_group column when filtering by standard age bands (e.g., "5-12 YEARS")
+   - Use age column for specific age ranges (e.g., age BETWEEN 10 AND 15)
+   - Example: To find teenagers, use: WHERE age_group = '13-19 YEARS'
+
+8. AMCHIS
+- AMCHIS uses 'orin' (10 digits) as the policy number instead of standard policy_number
+
+9. Complex query patterns:
+   - Top 5 facilities by encounters:
+     SELECT "Facility Name", COUNT(*) as total
+     FROM master_encounter_view
+     GROUP BY "Facility Name"
+     ORDER BY total DESC LIMIT 5
+
+   - Mortality rate by LGA:
+     SELECT "Local Government",
+            COUNT(*) as total_encounters,
+            SUM(CASE WHEN Outcome IN ('Maternal Death (Pregnant women)', 'Neonatal Death (0 - 28 days)') THEN 1 ELSE 0 END) as deaths,
+            ROUND(100.0 * deaths / total_encounters, 2) as mortality_rate
+     FROM master_encounter_view
+     WHERE "Date of Encounter" >= '2024-01-01'
+     GROUP BY "Local Government"
+
+   - Disease prevalence:
+     SELECT d.name, COUNT(*) as cases
+     FROM encounters_diseases ed
+     JOIN diseases d ON ed.disease_id = d.id
+     JOIN encounters e ON ed.encounter_id = e.id
+     WHERE e.date >= '2024-01-01'
+     GROUP BY d.name
+     ORDER BY cases DESC LIMIT 10
+
+   - AMCHIS delivery outcomes:
+     SELECT
+       ar.client_name,
+       de.mode_of_delivery,
+       COUNT(db.id) as num_babies,
+       SUM(CASE WHEN db.outcome = 'Live Birth' THEN 1 ELSE 0 END) as live_births
+     FROM delivery_encounters de
+     JOIN anc_registry ar ON de.anc_id = ar.id
+     JOIN delivery_babies db ON db.encounter_id = de.encounter_id
+     GROUP BY de.id
+
+10. 9. Important query rules:
+   - Column names in master_encounter_view use spaces and must be quoted: "Facility Name" not Facility_Name
+   - When joining raw tables, use table aliases for clarity
+   - Always filter by date for performance (the database has years of data)
+   - Use COALESCE for nullable fields when summing costs
+   - Remember: encounter can have MULTIPLE diseases and services (many-to-many)
+
+
+
