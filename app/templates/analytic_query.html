@@ -1,7 +1,11 @@
 {% extends "admin_base.html" %}
 
 {% block content %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
+
 <style>
+    /* Chat Container & Scrollbar */
     .chat-scrollbar::-webkit-scrollbar { width: 6px; }
     .chat-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
     .chat-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
@@ -28,7 +32,7 @@
         box-shadow: 0 4px 6px -1px rgba(2, 132, 199, 0.2);
     }
 
-    /* Professional Analyst Bubble (Markdown Surface) */
+    /* Analyst Bubble Surface */
     .analyst-bubble {
         align-self: flex-start;
         background: white;
@@ -38,7 +42,7 @@
         box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
     }
 
-    /* Markdown Specific Styling - Matching your Dashboard Tables */
+    /* Markdown Data Table Styling */
     .analyst-bubble table {
         width: 100%;
         border-collapse: collapse;
@@ -60,14 +64,11 @@
         padding: 0.75rem;
         border-bottom: 1px solid #f1f5f9;
     }
-    .analyst-bubble ul, .analyst-bubble ol {
-        margin: 1rem 0;
-        padding-left: 1.5rem;
-    }
-    .analyst-bubble li { margin-bottom: 0.25rem; }
+    .analyst-bubble ul, .analyst-bubble ol { margin: 1rem 0; padding-left: 1.5rem; }
     .analyst-bubble p { margin-bottom: 0.75rem; }
     .analyst-bubble strong { color: #0369a1; font-weight: 700; }
 
+    /* Typing Indicator */
     .typing::after {
         content: '|';
         animation: blink 1s infinite;
@@ -88,7 +89,7 @@
                 </div>
                 Analytic Query
             </h1>
-            <p class="text-slate-600 mt-1">Health Data Insights & Surveillance AI</p>
+            <p class="text-slate-600 mt-1">ODCHC Health Data Insights & Surveillance AI</p>
         </div>
         <button onclick="create_new_chat()"
                 class="inline-flex items-center gap-2 px-4 py-2 bg-white border-2 border-slate-300 hover:border-blue-400 text-slate-700 font-semibold rounded-xl transition-all shadow-sm">
@@ -98,6 +99,7 @@
     </div>
 
     <div class="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden flex flex-col h-[calc(100vh-280px)]">
+
         <div id="chat-box" class="flex-1 overflow-y-auto p-6 flex flex-col gap-6 bg-slate-50/50 chat-scrollbar">
             </div>
 
@@ -105,7 +107,7 @@
             <div class="relative flex items-center gap-3">
                 <div class="flex-1 relative">
                     <input type="text" id="uinput"
-                           class="block w-full pl-4 pr-4 py-3 border-2 border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                           class="block w-full pl-4 pr-4 py-3 border-2 border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                            placeholder="Ask about malaria trends, facility stats, or encounters...">
                 </div>
                 <button onclick="send_message()" id="send-btn"
@@ -123,25 +125,36 @@
 <script>
     let conversation_history = JSON.parse(localStorage.getItem('conversation_history') || "[]");
 
-    function create_new_chat(){
+    function create_new_chat() {
         localStorage.removeItem("conversation_history");
         window.location.reload();
     }
 
-    async function send_message() {
+    /**
+     * Main function to send message and handle streaming
+     * @param {string|null} retryText - Optional text to bypass input field for retries
+     */
+    async function send_message(retryText = null) {
         const inputField = document.getElementById('uinput');
         const sendBtn = document.getElementById('send-btn');
-        const userText = inputField.value.trim();
+        const userText = retryText || inputField.value.trim();
+
         if (!userText) return;
 
+        // UI Lock
         inputField.value = "";
         inputField.disabled = true;
         sendBtn.disabled = true;
 
-        addMessagetoChat('user', userText);
+        // Only add user bubble if it's not a retry
+        if (!retryText) {
+            addMessagetoChat('user', userText);
+        }
+
         const aiBubble = addMessagetoChat('analyst', '...');
         aiBubble.classList.add('typing');
         let assistant_response = "";
+        let isErrorDetected = false;
 
         try {
             const response = await fetch("/admin/query", {
@@ -153,55 +166,64 @@
                 })
             });
 
-            if (!response.ok) throw new Error("Network response was not ok");
+            if (!response.ok) throw new Error("Server communication failed.");
+
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
-
-            aiBubble.textContent = "";
+            aiBubble.textContent = ""; // Clear loader
 
             while (true) {
                 const { value, done } = await reader.read();
                 if (done) break;
 
                 const chunk = decoder.decode(value, { stream: true });
+
+                // Detect Server-Side Exceptions
+                if (chunk.includes("[[ERROR]]")) {
+                    isErrorDetected = true;
+                    const errorMsg = chunk.replace("[[ERROR]]", "").trim() || "An internal analysis error occurred.";
+                    renderErrorState(aiBubble, errorMsg, userText);
+                    break;
+                }
+
                 assistant_response += chunk;
 
-                console.log(assistant_response)
-                const rawHtml = marked.parse(assistant_response);
-                console.log(rawHtml)
-                aiBubble.innerHTML = DOMPurify.sanitize(rawHtml);
+                // Update UI with sanitized markdown
+                aiBubble.innerHTML = DOMPurify.sanitize(marked.parse(assistant_response));
 
                 const chatBox = document.getElementById('chat-box');
                 chatBox.scrollTop = chatBox.scrollHeight;
             }
 
-            aiBubble.classList.remove('typing');
-            conversation_history.push(
-                { role: 'user', parts: [{text: userText}] },
-                { role: 'model', parts: [{text: assistant_response}] }
-            );
-            localStorage.setItem('conversation_history', JSON.stringify(conversation_history));
+            // Only save to history if no error occurred
+            if (!isErrorDetected) {
+                aiBubble.classList.remove('typing');
+                conversation_history.push(
+                    { role: 'user', parts: [{ text: userText }] },
+                    { role: 'model', parts: [{ text: assistant_response }] }
+                );
+                localStorage.setItem('conversation_history', JSON.stringify(conversation_history));
+            }
 
         } catch (error) {
-            aiBubble.classList.remove('typing');
-            aiBubble.innerHTML = "<strong>Error:</strong> Connection to Analyst lost. Please try again.";
-            aiBubble.classList.add('bg-red-50', 'text-red-700', 'border-red-200');
+            renderErrorState(aiBubble, "Connection lost or session timed out.", userText);
         } finally {
             inputField.disabled = false;
             sendBtn.disabled = false;
-            inputField.focus();
+            if (!retryText) inputField.focus();
         }
     }
 
+    /**
+     * Renders a message bubble in the chat box
+     */
     function addMessagetoChat(role, text) {
         const container = document.getElementById('chat-box');
         const div = document.createElement('div');
         div.className = `message-bubble p-5 shadow-sm animate-bubble ${role}-bubble`;
 
-        // Render content based on role
-        if (role === 'analyst') {
-            const rawHtml = marked.parse(text);
-            div.innerHTML = DOMPurify.sanitize(rawHtml);
+        if (role === 'analyst' && text !== '...') {
+            div.innerHTML = DOMPurify.sanitize(marked.parse(text));
         } else {
             div.textContent = text;
         }
@@ -211,14 +233,47 @@
         return div;
     }
 
+    /**
+     * Specialized renderer for error states with a retry button
+     */
+    function renderErrorState(bubble, message, originalText) {
+        bubble.classList.remove('typing');
+        bubble.classList.add('bg-red-50', 'border-red-200', 'text-red-900');
+
+        // Sanitize originalText to prevent JS injection in the onclick
+        const safeText = originalText.replace(/'/g, "\\'");
+
+        bubble.innerHTML = `
+            <div class="flex flex-col gap-3">
+                <div class="flex items-center gap-2 font-bold text-red-700">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    Analyst Error
+                </div>
+                <p class="text-sm opacity-90">${message}</p>
+                <button onclick="handleRetry('${safeText}', this)"
+                        class="mt-1 self-start px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-2 shadow-sm">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.01M4 14v5h5M20 20v-5h-.01M20 10V5h-5M20 10l-4 4m0 0l-4-4m4 4V4"/></svg>
+                    Retry Query
+                </button>
+            </div>
+        `;
+    }
+
+    function handleRetry(text, btn) {
+        const bubble = btn.closest('.message-bubble');
+        if (bubble) bubble.remove();
+        send_message(text);
+    }
+
     function render_conversation(history) {
         history.forEach(msg => {
             const role = msg.role === 'user' ? 'user' : 'analyst';
-            const text = msg.parts ? msg.parts[0].text : msg.content;
+            const text = msg.parts ? msg.parts[0].text : (msg.content || "");
             addMessagetoChat(role, text);
         });
     }
 
+    // Event Listeners
     document.getElementById('uinput').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') send_message();
     });
