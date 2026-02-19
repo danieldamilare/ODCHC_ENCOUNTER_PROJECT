@@ -83,7 +83,7 @@
                     <h2 class="text-lg font-bold text-slate-900">{{ insurance_scheme.scheme_name }}</h2>
                 </div>
             </div>
-            {% if current_user.facility and current_user.facility.scheme | length > 1 %}
+            {% if current_user.role.name == 'admin' or current_user.facility and current_user.facility.scheme | length > 1 %}
             <a href="{{ url_for('add_encounter') }}"
                 class="inline-flex items-center px-4 py-2 bg-white border-2 border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-all">
                 <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -375,7 +375,7 @@
                 <p class="text-xs text-slate-500">All required fields must be completed</p>
             </div>
             <div class="flex items-center gap-3 flex-1 sm:flex-initial justify-end">
-                <a href="{{ url_for('add_encounter') if current_user.facility and current_user.facility.scheme | length > 1 else url_for('index') }}" class="inline-flex items-center px-5 py-3 bg-white border-2 border-slate-300 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-all">
+                <a href="{{ url_for('add_encounter') if current_user.role.name == 'admin' or (current_user.facility and current_user.facility.scheme | length > 1) else url_for('index') }}" class="inline-flex items-center px-5 py-3 bg-white border-2 border-slate-300 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-all">
                     Cancel
                 </a>
                 <button type="submit" form="encounterForm" id="submit-button"
