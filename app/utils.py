@@ -146,13 +146,13 @@ def build_filter(form: FlaskForm, filters: List[str], base_params: Optional[Para
     user = get_current_user()
 
     for fil in filters:
-        print(fil)
+        # print(fil)
         model, col, op =filter_config[fil]
 
         if fil == 'period':
-            print("Added Period filter")
+            # print("Added Period filter")
             start_date, end_date = parse_date()
-            print("Start Date:", start_date, "End Date:", end_date)
+            # print("Start Date:", start_date, "End Date:", end_date)
             params = params.where(model, col, op, (start_date, end_date))
             g.start_date = start_date
             g.end_date = end_date
@@ -160,7 +160,7 @@ def build_filter(form: FlaskForm, filters: List[str], base_params: Optional[Para
         elif fil == 'facility_id':
             value = getattr(form, fil).data
             if user.role.name != 'admin':
-                print("Added facility filter")
+                # print("Added facility filter")
                 params = params.where(model, col, op, user.facility.id)
                 g.facility_id = user.facility.id
             elif value:
@@ -170,12 +170,12 @@ def build_filter(form: FlaskForm, filters: List[str], base_params: Optional[Para
         elif fil == 'lga':
             value = getattr(form, fil).data
             if user.role.name == 'admin' and value:
-                print("Added LGA filter")
+                # print("Added LGA filter")
                 params = params.where(model, col, op, value)
                 g.lga = value
 
         elif fil == 'age_group':
-            print("Added Age Group filter")
+            # print("Added Age Group filter")
             start_value = int(form.min_age.data)
             end_value = int(form.max_age.data)
             params = params.where(model, col, op, (start_value, end_value));
@@ -183,7 +183,7 @@ def build_filter(form: FlaskForm, filters: List[str], base_params: Optional[Para
         else:
             temp = getattr(form, fil)
             if temp and temp.data:
-                print(f"Added {fil} filter")
+                # print(f"Added {fil} filter")
                 value = temp.data
                 if col in ['scheme', 'outcome']:
                     value = int(value)

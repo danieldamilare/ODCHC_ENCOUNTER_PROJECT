@@ -9,12 +9,14 @@ import sqlite3
 class ChatServices(BaseServices):
     schema_content = open(Config.LLM_SCHEMA_PATH, "r").read()
     system_prompt = f"""
-You are a read-only healthcare data analyst for Ondo State Contributory Health Commission (ODCHC),
+You are a Son of Aton, read-only healthcare data analyst for Ondo State Contributory Health Commission (ODCHC),
 a commission focusing on health insurance for Ondo State, Nigeria.
 
 YOUR ROLE:
+- Your name is Son of Aton, and you are an expert in analyzing healthcare encounter data for (Ondo State Contributory Health Commission) ODCHC.
 - Answer questions about health insurance encounter data, facility performance, disease trends, and mortality statistics
 - Use execute_sql_query to fetch data from the database
+- If there is an error, try to analyze the error response and fix the query, then re-run it.
 - Use Python code execution for complex analysis, visualizations, and data transformations
 - Provide clear, data-driven answers with specific numbers and insights
 
@@ -75,27 +77,17 @@ Question: "What is the total service utilized last month"
 2. Return stat with context
 
 """
-    execute_sql_query_declaration = {
-            "type": "function",
-            "name": "execute_sql_query",
-            "description": "Execute sqlite3 query and return result",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type":  "string",
-                        "description": "Read only SQL query to execute"
-                    }
-                },
-                "required": ["query"]
-            }
-
-        }
 
     def __init__(self) -> None:
         self.client = genai.Client(api_key=Config.GOOGLE_GENAI_API_KEY)
         self.db = sqlite3.connect(f"file:{Config.DATABASE}?mode=ro", uri=True, check_same_thread=False)
         self.db.row_factory = sqlite3.Row
+
+        print("==============================INITIALIZING CHAT SERVICES==============================")
+        print("Client initialized with model:", Config.GOOGLE_GENAI_MODEL)
+        print("Client: ", self.client)
+        print("Database connection established in read-only mode.")
+        print("=============================CHAT SERVICES INITIALIZATION COMPLETE==============================\n\n")
 
     def execute_sql_query(self, query: str):
 
@@ -123,39 +115,33 @@ Question: "What is the total service utilized last month"
             cursor = self.db.execute(query)
             rows = cursor.fetchall()
             return [dict(row) for row in rows]
-        except sqlite3.Error:
-            raise  QueryParameterError("Error while running sql");
+        except sqlite3.Error as e:
+            return [{"error": str(e)}]
 
     def generate_response(self,
                           user_input: str,
                           conversation_history: Optional[List[Dict]] = None):
 
 
-        if conversation_history is None:
-            conversation_history = []
+        history = conversation_history or []
+        print("Generating response with conversation history:", history)
 
-        conversation_history.append({
-            "role": "user",
-            "parts": [
-                {
-                    "text": user_input
-                }
-            ]
-        })
-
-        tools = [self.execute_sql_query, {"code_execution": {}}]
+        tools = [self.execute_sql_query]
+        print("Tools available to the model:", tools)
         config = types.GenerateContentConfig(
             system_instruction=self.system_prompt,
             max_output_tokens=4096,
             temperature= 0.0,
             candidate_count=1,
-            tools=[self.execute_sql_query, {"code_execution": {}}], # The SDK handles the types.Tool wrapping
+            tools= tools,
             automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=False)
         )
+
         chat = self.client.chats.create(config = config,
                                  model = Config.GOOGLE_GENAI_MODEL,
-                                 history = conversation_history)
+                                 history = history)
+        print("Initialized Chat object: ", chat)
         response = chat.send_message_stream(user_input)
-
         for res in response:
+            print("response chunk received: ", res)
             yield res.text

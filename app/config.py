@@ -14,4 +14,4 @@ class Config:
     DATABASE = os.getenv('ODCHC_DATABASE') or DBPATH
     LLM_SCHEMA_PATH = os.getenv('LLM_SCHEMA_PATH')
     GOOGLE_GENAI_API_KEY = os.getenv('GOOGLE_GENAI_API_KEY')
-    GOOGLE_GENAI_MODEL = 'gemini-3-flash-preview'
+    GOOGLE_GENAI_MODEL = 'gemini-2.5-flash'

@@ -1460,30 +1460,32 @@ def download_report():
 def analytic_query():
     return render_template('analytic_query.html', title="Analytic Query")
 
-@app.post('/admin/chat')
+@app.post('/admin/query')
 @admin_required
-def chat():
-    conversation = request.form.get('conversation_history', '')
-    user_input = request.form.get('user_input', '')
-    try:
-        res = json.loads(conversation)
-    except json.JSONDecodeError:
-        res = []
+def query():
+    data = request.get_json()
+    conversation = data.get('conversation_history', [])
+    user_input = data.get('user_input', '')
+    print("=================Recieved data from query endpoint=================")
+    print(f"User Input: {user_input}")
+    print(f"Conversation History: {conversation}")
+    print("===============================================================\n\n")
 
     def generate():
+        print("Initialized Chat services")
         chatsession = ChatServices()
-        for  text_chunk in chatsession.generate_response(user_input, res):
-            yield f"data: {text_chunk}\n\n"
-        yield "event: stop\n\n"
+        print("=================Starting to generate response=================")
+        for text_chunk in chatsession.generate_response(user_input, conversation):
+            if text_chunk:
+                print("New chunkss: ", text_chunk)
+                yield text_chunk
+        print("=================Finished generating response=================\n\n")
 
-    content = stream_with_context(generate())
-    response = Response(content, mimetype='text/event-stream')
-    response.headers['cache-control'] = 'no-cache'
-    response.headers['X-Accel-Buffering'] = 'no'
-    response.headers['Connection'] = 'keep-alive'
-    response.headers['Transfer-Encoding'] = 'chunked'
-    return response
-
+    return Response(
+        stream_with_context(generate()),
+        mimetype='text/plain',
+        headers={'Cache-Control': 'no-cache'}
+    )
 
 @app.route('/admin/upload_excel', methods=['GET', 'POST'])
 @admin_required
