@@ -1,5 +1,5 @@
 from app import app
-from flask import redirect, flash, url_for, request, render_template, abort
+from flask import redirect, flash, url_for, request, render_template, abort, stream_with_context, Response
 from flask_login import login_required, login_user, logout_user
 from app.models import Role, is_logged_in, get_current_user, AuthUser, Facility, Encounter, User, Disease, TreatmentOutcome, InsuranceScheme, ANCRegistry, Service
 from app.services import UserServices, EncounterServices, FacilityServices, DiseaseServices, TreatmentOutcomeServices, ServiceCategoryServices
@@ -17,7 +17,7 @@ from werkzeug.utils import secure_filename
 from app.filter_parser import Params
 from flask_wtf import FlaskForm
 from copy import copy
-from app.services import DashboardServices, ReportServices
+from app.services import DashboardServices, ReportServices, ChatServices
 from typing import Optional, List, Dict
 from datetime import datetime, date, timedelta
 from typing import Any
@@ -30,6 +30,7 @@ from openpyxl.styles import Font, Alignment
 from flask import g
 from flask import send_file
 from app.filter_map import filter_config, facility_filter_config, encounter_filter_config, download_encounter_filter_config
+import json
 
 def get_facility_user_dashboard():
     facility_id = get_current_user().facility.id
@@ -235,7 +236,7 @@ def add_delivery_encounter():
             res['created_by'] = get_current_user().id
             res['gender'] = 'F'
 
-            print(res)
+            # print(res)
             EncounterServices.create_delivery_encounter(**res)
             flash("Delivery Encounter added successfully", "success")
             return redirect(url_for("add_encounter"))
@@ -315,7 +316,7 @@ def add_anc_encounter():
         except (ServiceError, ValidationError, MissingError) as e:
             flash(str(e), "error")
     elif form.errors:
-        print(form.errors)
+        # print(form.errors)
         flash("Encounter not submitted. Please check and correct errors before submitting", 'error')
     else:
         print("Not doing anything")
@@ -537,7 +538,7 @@ def edit_facilities(pid: int) -> Any:
 def view_facilities(pid: int) -> Any:
     try:
         facility = FacilityServices.get_view_by_id(pid)
-        print(pid, facility)
+        # print(pid, facility)
     except MissingError as e:
         flash(str(e), 'error')
         return redirect(url_for('facilities'))
@@ -585,7 +586,7 @@ def view_facilities(pid: int) -> Any:
                                                         params=Params().where(User, 'facility_id', '=', pid)) else None
     prev_url = url_for('view_facilities', pid=pid,
                        user_page=page - 1) if page > 1 else None
-    print(facility)
+    # print(facility)
 
 
     return render_template('view_facilities.html',
@@ -1020,7 +1021,7 @@ def admin_overview():
                                                                                        g.end_date)
     mortality_scheme_grouped = DashboardServices.total_mortality_by_scheme_grouped(all_filter, g.start_date,
                                                                                        g.end_date)
-    print(f'total_facilities: {total_facilities}, total_death: {total_death} total_encounter: {total_encounter}')
+    # print(f'total_facilities: {total_facilities}, total_death: {total_death} total_encounter: {total_encounter}')
 
     return render_template(
         'dashboard_overview.html',
@@ -1453,6 +1454,35 @@ def download_report():
         as_attachment=True,
         download_name=secure_filename(report_name)
     )
+
+@app.route('/admin/analytic_query')
+@admin_required
+def analytic_query():
+    return render_template('analytic_query.html', title="Analytic Query")
+
+@app.post('/admin/chat')
+@admin_required
+def chat():
+    conversation = request.form.get('conversation_history', '')
+    user_input = request.form.get('user_input', '')
+    try:
+        res = json.loads(conversation)
+    except json.JSONDecodeError:
+        res = []
+
+    def generate():
+        chatsession = ChatServices()
+        for  text_chunk in chatsession.generate_response(user_input, res):
+            yield f"data: {text_chunk}\n\n"
+        yield "event: stop\n\n"
+
+    content = stream_with_context(generate())
+    response = Response(content, mimetype='text/event-stream')
+    response.headers['cache-control'] = 'no-cache'
+    response.headers['X-Accel-Buffering'] = 'no'
+    response.headers['Connection'] = 'keep-alive'
+    response.headers['Transfer-Encoding'] = 'chunked'
+    return response
 
 
 @app.route('/admin/upload_excel', methods=['GET', 'POST'])
