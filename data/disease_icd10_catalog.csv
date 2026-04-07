@@ -80,44 +80,45 @@ Gestational Diabetes,Obstetric,O24
 Multiple Pregnancy,Obstetric,O30
 Hypertension in Pregnancy,Obstetric,O13
 Premature Rupture of Membrane,Obstetric,O42
-Pelvic Inflammatory Disease,Gynecologic,N73
-Uterine Fibroid,Gynecologic,D25
-Ovarian Cyst,Gynecologic,N83
-Menstrual Disorder,Gynecologic,N92
-Infertility (Female),Gynecologic,N97
-Endometriosis,Gynecologic,N80
-Vaginitis,Gynecologic,N76
-Cervicitis,Gynecologic,N72
-Bartholin’s Abscess,Gynecologic,N75
-Neonatal Sepsis,Pediatric,P36
-Neonatal Jaundice,Pediatric,P59
-Low Birth Weight,Pediatric,P07
-Birth Asphyxia,Pediatric,P21
-Prematurity,Pediatric,P07
-Pneumonia (Child),Pediatric,J18
-Acute Diarrhea (Child),Pediatric,A09
-Measles (Child),Pediatric,B05
-Otitis Media (Child),Pediatric,H66
-Malnutrition (Protein-Energy),Pediatric,E46
-Kwashiorkor,Pediatric,E40
-Marasmus,Pediatric,E41
-Severe Dehydration,Pediatric,E86
-Cerebral Palsy,Pediatric,G80
-Congenital Heart Disease,Pediatric,Q20
+Pelvic Inflammatory Disease,Gynaecology,N73
+Uterine Fibroid,Gynaecology,D25
+Ovarian Cyst,Gynaecology,N83
+Menstrual Disorder,Gynaecology,N92
+Infertility (Female),Gynaecology,N97
+Endometriosis,Gynaecology,N80
+Vaginitis,Gynaecology,N76
+Cervicitis,Gynaecology,N72
+Bartholin’s Abscess,Gynaecology,N75
+Neonatal Sepsis,Paediatrics,P36
+Neonatal Jaundice,Paediatrics,P59
+Low Birth Weight,Paediatrics,P07
+Birth Asphyxia,Paediatrics,P21
+Prematurity,Paediatrics,P07
+Pneumonia (Child),Paediatrics,J18
+Acute Diarrhea (Child),Paediatrics,A09
+Measles (Child),Paediatrics,B05
+Otitis Media (Child),Paediatrics,H66
+Malnutrition (Protein-Energy),Paediatrics,E46
+Kwashiorkor,Paediatrics,E40
+Marasmus,Paediatrics,E41
+Severe Dehydration,Paediatrics,E86
+Cerebral Palsy,Paediatrics,G80
+Congenital Heart Disease,Paediatrics,Q20
 Upper Respiratory Tract Infection (URTI),Communicable Disease,J06
 Low Back Pain,Non-Communicable Disease,M54
-Fracture (Unspecified),Injury,S82
-Laceration,Injury,S01
-Burn,Injury,T30
-Road Traffic Accident Injury,Injury,V89
-Sprain/Strain,Injury,S93
+Fracture (Unspecified),Trauma,S82
+Laceration,Trauma,S01
+Burn,Trauma,T30
+Road Traffic Accident,Trauma,V89
+Injury,Trauma,
+Sprain/Strain,Trauma,S93
 Tonsillitis,Communicable Disease,J03
 Sinusitis,Communicable Disease,J32
 Dental Abscess,Non-Communicable Disease,K04
 Eczema,Non-Communicable Disease,L30
 Abscess (Skin),Communicable Disease,L02
-Snake Bite,Injury,T63
-Dog Bite,Injury,W54
+Snake Bite,Trauma,T63
+Dog Bite,Trauma,W54
 Postpartum Depression,Non-Communicable Disease,F53
-Vitamin A Deficiency,Pediatric,E50
+Vitamin A Deficiency,Paediatrics,E50
 Lassa Fever, Communicable Disease, A96

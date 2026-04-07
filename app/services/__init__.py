@@ -7,5 +7,5 @@ from .user import UserServices
 from .download import DownloadServices
 from .disease import DiseaseServices, DiseaseCategoryServices
 from .service import ServiceServices, ServiceCategoryServices
-from .chat import ChatServices
+from .chat import ChatServices, GroqChatServices, GeminiChatServices
 from .dashboard import DashboardServices

@@ -238,6 +238,14 @@ class ChildHealth:
     address: str
     guardian_name: str
 
+
+@dataclass
+class BotSession(Model):
+    id: int
+    phone_number: str
+    state: str
+    context_data: dict
+
 @dataclass
 class DeliveryEncounter:
     id: int

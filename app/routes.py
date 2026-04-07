@@ -4,11 +4,11 @@ from flask_login import login_required, login_user, logout_user
 from app.models import Role, is_logged_in, get_current_user, AuthUser, Facility, Encounter, User, Disease, TreatmentOutcome, InsuranceScheme, ANCRegistry, Service
 from app.services import UserServices, EncounterServices, FacilityServices, DiseaseServices, TreatmentOutcomeServices, ServiceCategoryServices
 from app.services import DiseaseCategoryServices, InsuranceSchemeServices, ServiceServices, DownloadServices
-from app.exceptions import AuthenticationError, MissingError, ValidationError
+from app.exceptions import AuthenticationError, MissingError, ValidationError, RangeError
 from app.exceptions import InvalidReferenceError, DuplicateError, ServiceError
 from urllib.parse import urlparse
 from app.config import Config
-from app.utils import form_to_dict, admin_required, humanize_datetime_filter, calculate_gestational_age, scheme_access_required, get_age_group, autofit_columns, build_filter, parse_date
+from app.utils import form_to_dict, admin_required, humanize_datetime_filter, calculate_gestational_age, scheme_access_required, get_age_group, autofit_columns, build_filter, parse_date, calculate_edd
 from app.forms import LoginForm, AddEncounterForm, AddFacilityForm, EditFacilityForm, AddDiseaseForm, ExcelUploadForm, DashboardFilterForm, EncTypeForm, DeliveryEncounterForm, AddServiceForm
 from app.forms import AddUserForm, AddCategoryForm, DeleteUserForm, EditUserForm, EditDiseaseForm, EncounterFilterForm, AdminDashboardFilterForm, ANCEncounterForm, ChildHealthEncounterForm, FacilityFilterForm
 from app.constants import ONDO_LGAS_LIST, SchemeEnum, BabyOutcome
@@ -17,7 +17,7 @@ from werkzeug.utils import secure_filename
 from app.filter_parser import Params
 from flask_wtf import FlaskForm
 from copy import copy
-from app.services import DashboardServices, ReportServices, ChatServices
+from app.services import DashboardServices, ReportServices, GroqChatServices
 from typing import Optional, List, Dict
 from datetime import datetime, date, timedelta
 from typing import Any
@@ -288,8 +288,11 @@ def add_anc_encounter():
         form.phone_number.data = registry_val.phone_number
         form.expected_delivery_date.data = registry_val.expected_delivery_date
         form.gestational_age.data = calculate_gestational_age(registry_val.lmp)
-    else:
+    elif not registry_val:
         form.policy_number.data = orin
+    elif request.methog == 'POST':
+        form.expected_delivery_date = calculate_edd(form.lmp)
+        form.gestational_age = calculate_gestational_age(form.lmp)
 
     if form.validate_on_submit():
         try:
@@ -1191,32 +1194,28 @@ def admin_mortality():
 def reports():
     facilities = list(FacilityServices.get_all())
 
-    current_year = datetime.now().year
-    year_choices = [(year, year)
-                    for year in range(current_year - 5, current_year + 1)]
-    month = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August',
-             'September', 'October', 'November', 'December']
-    month_choices = list(enumerate(month, start=1))
+    start_date, end_date = parse_date()
 
     return render_template('reports.html',
                            title="Generate Reports",
                            facilities=facilities,
-                           year_choices=year_choices,
-                           month_choices=month_choices)
+                           start_date = start_date,
+                           end_date = end_date)
 
 def get_report_data():
     report_type = request.args.get('report_type')
     facility_id_str = request.args.get('facility_id')
-    month_str = request.args.get('month')
-    year_str = request.args.get('year')
+    start_date, end_date = parse_date()
+    if (end_date < start_date):
+        end_date, start_date = start_date, end_date
 
-    month = int(month_str) if month_str else None
-    year = int(year_str) if year_str else None
+    timediff = end_date - start_date
+    if timediff.days > 366:
+        raise RangeError("Cannot Generate report with date range more than a year")
+
     facility_id = int(facility_id_str) if facility_id_str else None
-
     report_data = None
     report_title = ""
-    start_date = None
     facility = None
 
     if report_type == 'utilization':
@@ -1224,21 +1223,21 @@ def get_report_data():
             raise ValidationError(
                 "Please select a facility for the Utilization Report.")
         facility, start_date, report_data = ReportServices.generate_service_utilization_report(
-            facility=facility_id, month=month, year=year
-        )
+            facility=facility_id, start_date = start_date, end_date = end_date)
         report_title = f"Service Utilization Report for {facility.name} "
 
     elif report_type == 'encounter':
-        start_date, report_data = ReportServices.generate_encounter_report(
-            month=month, year=year)
+        report_data = ReportServices.generate_encounter_report(
+                start_date = start_date, end_date = end_date)
         report_title = "Encounter Report "
 
     elif report_type == 'categorization':
-        start_date, report_data = ReportServices.generate_categorization_report(
-            month=month, year=year)
+        report_data = ReportServices.generate_categorization_report(
+            start_date=start_date, end_date = end_date)
         report_title = "Disease Categorization Report "
     elif report_type == 'nhia_encounter':
-        start_date, report_data = ReportServices.generate_nhia_encounter_report(month= month, year = year)
+        report_data = ReportServices.generate_nhia_encounter_report(
+                start_date = start_date, end_date = end_date)
         report_title = "NHIA Encounter Report"
     else:
         raise ValidationError("Invalid report type selected.")
@@ -1257,8 +1256,9 @@ def view_report():
     except ValueError:
         flash("Invalid value provided for month, year, or facility.", 'error')
         return redirect(url_for('reports'))
-    # except Exception as e:
-        # abort(500)
+    except  RangeError as e:
+        flash(str(e), 'error')
+        return redirect(url_for('reports'))
 
     header_info = []
     if report_data is not None and not report_data.empty:
@@ -1397,7 +1397,6 @@ def append_categorization_header(report_data, start_date: date):
     wb.save(final_output)
     return final_output
 
-
 def append_nhia_encounter_header(report_data, start_date: date):
     output_buffer = io.BytesIO()
     with pd.ExcelWriter(output_buffer) as writer:
@@ -1429,8 +1428,10 @@ def download_report():
     except ValueError:
         flash("Invalid value provided for month, year, or facility.", 'error')
         return redirect(url_for('reports'))
-    # except Exception as e:
-        # abort(500)
+    except RangeError as e:
+        flash(str(e), 'error')
+        return redirect(url_for('reports'))
+
     report_name = f"{report_title.replace(' ', '_')}_{start_date.strftime('%B')}.xlsx"
 
     report_type = request.args.get('report_type')
@@ -1473,7 +1474,7 @@ def query():
 
     def generate():
         print("Initialized Chat services")
-        chatsession = ChatServices()
+        chatsession = GroqChatServices()
         print("=================Starting to generate response=================")
         for text_chunk in chatsession.generate_response(user_input, conversation):
             if text_chunk:

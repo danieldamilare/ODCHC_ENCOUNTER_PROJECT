@@ -205,6 +205,7 @@ Columns (note: costs already converted to Naira):
   - "Services" (comma-separated list)
   - Treatment
   - Outcome (outcome name)
+  - "Outcome Type"  (outcome type: 'General', 'Death')
   - LMP (for ANC/delivery encounters)
   - EDD (for ANC/delivery encounters)
   - Parity (for ANC/delivery encounters)
@@ -324,7 +325,7 @@ QUERY GUIDELINES
 5. Common aggregations:
    - Total encounters: COUNT(*)
    - Total cost: SUM("Treatment Cost" + "Medication Cost" + "Investigation Cost")
-   - Mortality rate: COUNT(CASE WHEN type = 'Death' THEN 1 END) / COUNT(*)
+   - Mortality rate: COUNT(CASE WHEN "Outcome Type" = 'Death' THEN 1 END) / COUNT(*) FROM master_encounter_view
 
 6. Scheme filtering:
    - BHCPFP: WHERE "Scheme" = 'BHCPFP'  (if using encounter table, scheme is linked to insurance_scheme table)
@@ -346,13 +347,18 @@ QUERY GUIDELINES
      ORDER BY total DESC LIMIT 5
 
    - Mortality rate by LGA:
-     SELECT "Local Government",
-            COUNT(*) as total_encounters,
-            SUM(CASE WHEN Outcome IN ('Maternal Death (Pregnant women)', 'Neonatal Death (0 - 28 days)') THEN 1 ELSE 0 END) as deaths,
-            ROUND(100.0 * deaths / total_encounters, 2) as mortality_rate
-     FROM master_encounter_view
-     WHERE "Date of Encounter" >= '2024-01-01'
-     GROUP BY "Local Government"
+   SELECT "Local Government",
+       total_encounters,
+       deaths,
+       ROUND(100.0 * deaths / total_encounters, 2) as mortality_rate
+   FROM (
+    SELECT "Local Government",
+           COUNT(*) as total_encounters,
+           SUM(CASE WHEN "Outcome Type" = 'Death' THEN 1 ELSE 0 END) as deaths
+    FROM master_encounter_view
+    WHERE "Date of Encounter" >= '2024-01-01'
+    GROUP BY "Local Government"
+  )
 
 - Disease prevalence (using raw tables):
      SELECT d.name, COUNT(*) as cases

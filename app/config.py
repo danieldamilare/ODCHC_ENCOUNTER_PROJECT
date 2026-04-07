@@ -15,3 +15,4 @@ class Config:
     LLM_SCHEMA_PATH = os.path.join(BASE_DIR, 'llm_minimal_schema.txt')
     GOOGLE_GENAI_API_KEY = os.getenv('GOOGLE_GENAI_API_KEY')
     GOOGLE_GENAI_MODEL = 'gemini-2.5-flash-lite'
+    GROQ_API_KEY = os.getenv('GROQ_API_KEY')

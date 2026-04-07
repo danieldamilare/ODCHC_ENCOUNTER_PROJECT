@@ -166,6 +166,27 @@ CREATE TABLE delivery_babies(
     FOREIGN KEY(encounter_id) REFERENCES encounters(id) ON DELETE RESTRICT
 );
 
+
+CREATE TABLE referral(
+    id INTEGER PRIMARY KEY,
+    referral_reason TEXT NOT NULL,
+    from_id INTEGER NOT NULL,
+    to_id INTEGER NOT NULL,
+    status TEXT NOT NULL COLLATE NOCASE CHECK(status IN ('pending', 'accepted', 'rejected')),
+    created_at DATE NOT NULL,
+    auth_code VARCHAR(20) UNIQUE,
+    admin_id VARCHAR(255) NOT NULL,
+    FOREIGN KEY(from_id) REFERENCES facility(id) ON DELETE RESTRICT,
+    FOREIGN KEY(to_id) REFERENCES facility(id) ON DELETE RESTRICT
+);
+
+CREATE TABLE bot_sessions(
+    id INTEGER PRIMARY KEY,
+    phone_number TEXT UNIQUE NOT NULL,
+    state TEXT NOT NULL,
+    context_data TEXT
+);
+
 CREATE VIRTUAL TABLE encounters_fts USING fts5(
     policy_number,
     client_name,
@@ -251,6 +272,7 @@ SELECT
     sa.service_list as "Services",
     e.treatment as "Treatment",
     tc.name as "Outcome",
+    tc.type as "Outcome Type"
 
     ar.lmp as "LMP",
     ar.expected_delivery_date as "EDD",

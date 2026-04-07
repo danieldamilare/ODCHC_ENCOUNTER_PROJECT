@@ -13,3 +13,6 @@ class AuthenticationError(ServiceError):
     """Raised when user credentials are wrongs"""
 class QueryParameterError(ServiceError):
     '''Raised when Parameter passed for sql query is wrong Usually for filter parsing'''
+
+class RangeError(ServiceError):
+    '''Raised when date is out of range'''

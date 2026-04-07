@@ -115,18 +115,15 @@ def autofit_columns(worksheet, max_width=50):
                     max_length = len(str(cell.value))
             except:
                 pass
-        # Add a small padding to the width calculation
         adjusted_width = min((max_length + 2) * 1.2, max_width)
         worksheet.column_dimensions[column_letter].width = adjusted_width
 
 def parse_date(period: str = None):
     """Parse period string or custom date range into start_date and end_date."""
-    # Check if custom date range is provided in request args
     custom_start = request.args.get('start_date')
     custom_end = request.args.get('end_date')
 
     if custom_start and custom_end:
-        # Use custom date range from date picker
         try:
             start_date = datetime.strptime(custom_start, '%Y-%m-%d').date()
             end_date = datetime.strptime(custom_end, '%Y-%m-%d').date()

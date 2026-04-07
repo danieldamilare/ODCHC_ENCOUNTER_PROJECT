@@ -19,34 +19,11 @@ class ReportServices(BaseServices):
          EncounterDiseases: 'ecd'}
 
     @classmethod
-    def get_start_end_date(cls, month: Optional[int], year: Optional[int]):
-        filter_date = datetime.now().date()
-        if month is not None:
-            filter_date = filter_date.replace(month=month)
-        if year is not None:
-            filter_date = filter_date.replace(year=year)
-
-        start_date = filter_date.replace(day=1)
-        if filter_date.month == 12:
-            end_date = filter_date.replace(
-                year=filter_date.year+1, month=1, day=1) - timedelta(days=1)
-        else:
-            end_date = filter_date.replace(
-                month=filter_date.month+1, day=1) - timedelta(days=1)
-        return start_date, end_date
-
-    @classmethod
-    def generate_service_utilization_report(cls, facility: int, month: Optional[int] = None,
-                                            year: Optional[int] = None,
-                                            ) -> Tuple:
+    def generate_service_utilization_report(cls, facility: int, start_date, end_date) -> Tuple:
         try:
             facility_name = FacilityServices.get_by_id(facility)
         except MissingError:
             raise MissingError("Facility does not exist. No report generated")
-
-        if month and month > 12:
-            raise ValidationError("Invalid month selection")
-        start_date, end_date = cls.get_start_end_date(month, year)
 
         query = '''
             SELECT
@@ -97,14 +74,7 @@ class ReportServices(BaseServices):
         return facility_name, start_date, table
 
     @classmethod
-    def generate_encounter_report(cls, month: Optional[int] = None,
-                                  year: Optional[int] = None,
-                                  ) -> Tuple:
-
-        if month and (month > 12 or month < 1):
-            raise ValidationError("Invalid month selection")
-
-        start_date, end_date = cls.get_start_end_date(month, year)
+    def generate_encounter_report(cls, start_date, end_date) -> Tuple:
 
         query = '''
             SELECT
@@ -153,13 +123,9 @@ class ReportServices(BaseServices):
 
 
     @classmethod
-    def generate_nhia_encounter_report(cls, month: Optional[int] = None,
-                                       year: Optional[int] = None) -> Tuple:
+    def generate_nhia_encounter_report(cls, start_date, end_date):
+                                     
         # 1. Base Query (Note: No GROUP BY yet)
-        if month and (month > 12 or month < 1):
-            raise ValidationError("Invalid month selection")
-
-        start_date, end_date = cls.get_start_end_date(month, year)
 
         query = '''
         SELECT
