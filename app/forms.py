@@ -178,6 +178,7 @@ class AddEncounterForm(BaseEncounterForm):
         if not any(d.data for d in self.diseases) and not any(s.data for s in self.services):
             self.errors.setdefault('services', []).append("Please select at least one disease or service.")
             return False
+        return True
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

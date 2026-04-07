@@ -290,9 +290,9 @@ def add_anc_encounter():
         form.gestational_age.data = calculate_gestational_age(registry_val.lmp)
     elif not registry_val:
         form.policy_number.data = orin
-    elif request.methog == 'POST':
-        form.expected_delivery_date = calculate_edd(form.lmp)
-        form.gestational_age = calculate_gestational_age(form.lmp)
+    if not registry_val and request.method == 'POST':
+        form.expected_delivery_date.data = calculate_edd(form.lmp.data)
+        form.gestational_age.data = calculate_gestational_age(form.lmp.data)
 
     if form.validate_on_submit():
         try:
@@ -319,7 +319,7 @@ def add_anc_encounter():
         except (ServiceError, ValidationError, MissingError) as e:
             flash(str(e), "error")
     elif form.errors:
-        # print(form.errors)
+        print(form.errors)
         flash("Encounter not submitted. Please check and correct errors before submitting", 'error')
     else:
         print("Not doing anything")
@@ -1506,3 +1506,15 @@ def upload_excel():
     # user = get_current_user()
 
     return render_template('upload_excel.html', title='Upload Encounter Sheet', form=form)
+
+
+# ================================================== APIs =================================
+@app.route('/api/amchis/lookup', methods=['GET'])
+@login_required
+def amchis_orin_lookup():
+    orin = request.args.get('orin')
+    try:
+        registry = EncounterServices.get_anc_record_by_registry(orin)
+        return jsonify({'found': True, 'data': registry.__dict__})
+    except MissingError:
+        return jsonify({'found': False})
