@@ -60,29 +60,31 @@
         padding: 0.75rem;
         border-bottom: 1px solid #f1f5f9;
     }
-    .analyst-bubble ul, .analyst-bubble ol { margin: 1rem 0; padding-left: 1.5rem; }
-    .analyst-bubble p { margin-bottom: 0.75rem; }
-    .analyst-bubble code {
-        background: #f1f5f9;
-        padding: 0.2rem 0.4rem;
-        border-radius: 0.25rem;
-        font-size: 0.85em;
-        font-family: 'Courier New', monospace;
+
+    /* Status Spinner Styling */
+    .query-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: #0284c7;
+        font-weight: 600;
+        background: #f0f9ff;
+        padding: 4px 12px;
+        border-radius: 9999px;
+        margin: 4px 0;
+        border: 1px solid #bae6fd;
     }
-    .analyst-bubble pre {
-        background: #1e293b;
-        color: #e2e8f0;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        overflow-x: auto;
-        margin: 1rem 0;
+
+    .spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid #0ea5e9;
+        border-top-color: transparent;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
     }
-    .analyst-bubble pre code {
-        background: transparent;
-        color: inherit;
-        padding: 0;
-    }
-    .analyst-bubble strong { color: #0369a1; font-weight: 700; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
 
     /* Typing Indicator */
     .typing::after {
@@ -92,12 +94,6 @@
         color: #0ea5e9;
     }
     @keyframes blink { 50% { opacity: 0; } }
-
-    /* Retry button hover */
-    .retry-btn:hover svg {
-        animation: spin 0.5s ease-in-out;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 
 <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -166,15 +162,12 @@
         inputField.disabled = true;
         sendBtn.disabled = true;
 
-        // Add user bubble only if not retrying
         if (!retryText) {
             userBubble = addMessagetoChat('user', userText);
         }
 
-        const aiBubble = addMessagetoChat('analyst', 'Analyzing...');
+        const aiBubble = addMessagetoChat('analyst', '');
         aiBubble.classList.add('typing');
-        let assistant_response = "";
-        let isErrorDetected = false;
 
         try {
             const response = await fetch("/admin/query", {
@@ -190,44 +183,49 @@
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
-            aiBubble.textContent = "";
-            aiBubble.classList.remove('typing');
+
+            const state = { assistant_response: "", isErrorDetected: false };
 
             while (true) {
                 const { value, done } = await reader.read();
                 if (done) break;
+                let chunk = decoder.decode(value, { stream: true });
+                console.log(chunk)
+                parseChunk(chunk, aiBubble, userText, userBubble, state);
 
-                const chunk = decoder.decode(value, { stream: true });
+                if (state.isErrorDetected) break;
 
-                if (chunk.includes("[[ERROR]]")) {
-                    isErrorDetected = true;
-                    const errorMsg = chunk.replace("[[ERROR]]", "").trim() || "An internal analysis error occurred.";
-                    renderErrorState(aiBubble, errorMsg, userText, userBubble);
-                    break;
-                }
-
-                assistant_response += chunk;
-                aiBubble.innerHTML = DOMPurify.sanitize(marked.parse(assistant_response));
-                scrollToBottom();
-            }
-
-            if (!isErrorDetected) {
-                conversation_history.push(
-                    { role: 'user', parts: [{ text: userText }] },
-                    { role: 'model', parts: [{ text: assistant_response }] }
-                );
-                localStorage.setItem('conversation_history', JSON.stringify(conversation_history));
-            }
+            }                
+        if (!state.isErrorDetected) {
+            aiBubble.classList.remove('typing');
+            conversation_history.push(
+                { role: "user", content: userText },
+                { role: "assistant", content: state.assistant_response }
+            );
+            localStorage.setItem('conversation_history', 
+                    JSON.stringify(conversation_history));
+        }
 
         } catch (error) {
-            console.error("Chat error:", error);
-            renderErrorState(aiBubble, "Connection lost or session timed out.", userText, userBubble);
+                renderErrorState(aiBubble, "Connection Lost", userText, userBubble);
         } finally {
-            isProcessing = false;
-            inputField.disabled = false;
-            sendBtn.disabled = false;
-            if (!retryText) inputField.focus();
+                isProcessing = false;
+                inputField.disabled = false;
+                sendBtn.disabled = false;
         }
+    }
+
+    function showQueryStatus(bubble) {
+        if (bubble.querySelector('.query-status')) return;
+        const statusDiv = document.createElement('div');
+        statusDiv.className = 'query-status';
+        statusDiv.innerHTML = `<div class="spinner"></div> Son of Aton is looking up the database...`;
+        bubble.appendChild(statusDiv);
+    }
+
+    function removeQueryStatus(bubble) {
+        const status = bubble.querySelector('.query-status');
+        if (status) status.remove();
     }
 
     function addMessagetoChat(role, text) {
@@ -235,46 +233,51 @@
         const div = document.createElement('div');
         div.className = `message-bubble p-5 shadow-sm animate-bubble ${role}-bubble`;
         div.dataset.role = role;
-
-        if (role === 'analyst' && text !== 'Analyzing...' && typeof marked !== 'undefined') {
-            div.innerHTML = DOMPurify.sanitize(marked.parse(text));
-        } else {
-            div.textContent = text;
-        }
-
+        div.innerHTML = text ? DOMPurify.sanitize(marked.parse(text)) : "";
         container.appendChild(div);
         scrollToBottom();
         return div;
     }
 
     function renderErrorState(bubble, message, originalText, userBubble) {
+        removeQueryStatus(bubble);
         bubble.classList.remove('typing');
         bubble.classList.add('bg-red-50', 'border-red-200', 'text-red-900');
-
-        const retryBtn = document.createElement('button');
-        retryBtn.className = 'retry-btn mt-1 self-start px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-2 shadow-sm';
-        retryBtn.innerHTML = `
-            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.01M4 14v5h5M20 20v-5h-.01M20 10V5h-5M20 10l-4 4m0 0l-4-4m4 4V4"/></svg>
-            Retry Query
-        `;
-
-        retryBtn.onclick = () => {
-            bubble.remove();
-            if (userBubble) userBubble.remove();
-            send_message(originalText);
-        };
-
         bubble.innerHTML = `
             <div class="flex flex-col gap-3">
                 <div class="flex items-center gap-2 font-bold text-red-700">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    Analyst Error
+                    Analysis Error
                 </div>
-                <p class="text-sm opacity-90">${DOMPurify.sanitize(message)}</p>
+                <p class="text-sm opacity-90">${message}</p>
             </div>
         `;
-        bubble.appendChild(retryBtn);
     }
+
+function parseChunk(chunk, aiBubble, userText, userBubble, state) {
+    const parts = chunk.split(/((?:\[\[MESG\]\]|\[\[QUERY\]\]|\[\[ERROR\]\]))/g);
+
+    for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+
+        if (part === "[[QUERY]]") {
+            showQueryStatus(aiBubble);
+        } else if (part === "[[MESG]]") {
+            removeQueryStatus(aiBubble);
+        } else if (part === "[[ERROR]]") {
+            state.isErrorDetected = true;
+            const errorMsg = parts[i + 1]?.trim() || "Unknown error";
+            renderErrorState(aiBubble, errorMsg, userText, userBubble);
+            return;
+        } else if (part) {
+            state.assistant_response += part;
+            if (!aiBubble.querySelector('.query-status')) {
+                aiBubble.innerHTML = DOMPurify.sanitize(marked.parse(state.assistant_response));
+            }
+            scrollToBottom();
+        }
+    }
+}
 
     function scrollToBottom() {
         const chatBox = document.getElementById('chat-box');
@@ -284,7 +287,7 @@
     function render_conversation(history) {
         history.forEach(msg => {
             const role = msg.role === 'user' ? 'user' : 'analyst';
-            const text = msg.parts?.[0]?.text || msg.content || "";
+            const text = msg.content || "";
             if (text) addMessagetoChat(role, text);
         });
     }
@@ -294,12 +297,7 @@
     });
 
     document.addEventListener('DOMContentLoaded', () => {
-        if (typeof marked === 'undefined' || typeof DOMPurify === 'undefined') {
-            console.error('Required libraries not loaded');
-            alert('Chat interface failed to initialize. Please refresh.');
-        } else {
-            render_conversation(conversation_history);
-        }
+        render_conversation(conversation_history);
     });
 </script>
 {% endblock %}
