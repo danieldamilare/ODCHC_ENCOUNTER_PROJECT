@@ -1,7 +1,7 @@
 from app import app
-from flask import redirect, flash, url_for, request, render_template, abort, stream_with_context, Response
+from flask import redirect, flash, url_for, request, render_template, abort, stream_with_context, Response, jsonify
 from flask_login import login_required, login_user, logout_user
-from app.models import Role, is_logged_in, get_current_user, AuthUser, Facility, Encounter, User, Disease, TreatmentOutcome, InsuranceScheme, ANCRegistry, Service
+from app.models import Role, is_logged_in, get_current_user, AuthUser, Facility, Encounter, User, Disease, TreatmentOutcome, InsuranceScheme, ANCRegistry, Service, FacilityScheme
 from app.services import UserServices, EncounterServices, FacilityServices, DiseaseServices, TreatmentOutcomeServices, ServiceCategoryServices
 from app.services import DiseaseCategoryServices, InsuranceSchemeServices, ServiceServices, DownloadServices
 from app.exceptions import AuthenticationError, MissingError, ValidationError, RangeError
@@ -11,7 +11,8 @@ from app.config import Config
 from app.utils import form_to_dict, admin_required, humanize_datetime_filter, calculate_gestational_age, scheme_access_required, get_age_group, autofit_columns, build_filter, parse_date, calculate_edd
 from app.forms import LoginForm, AddEncounterForm, AddFacilityForm, EditFacilityForm, AddDiseaseForm, ExcelUploadForm, DashboardFilterForm, EncTypeForm, DeliveryEncounterForm, AddServiceForm
 from app.forms import AddUserForm, AddCategoryForm, DeleteUserForm, EditUserForm, EditDiseaseForm, EncounterFilterForm, AdminDashboardFilterForm, ANCEncounterForm, ChildHealthEncounterForm, FacilityFilterForm
-from app.constants import ONDO_LGAS_LIST, SchemeEnum, BabyOutcome
+from app.constants import ONDO_LGAS_LIST, SchemeEnum, BabyOutcome, ModeOfEntry, AgeGroup
+from .schemas import ANCEncounter, DeliveryEncounter, ChildHealthEncounter
 from werkzeug.utils import secure_filename
 
 from app.filter_parser import Params
@@ -103,6 +104,49 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
+
+@app.route('/add_encounter/amchis', methods=['GET', 'POST'])
+@login_required
+@scheme_access_required(SchemeEnum.AMCHIS)
+def add_amchis_encounter():
+    scheme = InsuranceSchemeServices.get_scheme_by_enum(SchemeEnum.AMCHIS)
+
+    anc_form = ANCEncounterForm()
+    child_form = ChildHealthEncounterForm()
+    baby_outcome_choices = [(b.value, b.value) for b in BabyOutcome]
+    age_group_choices = [(e.value, e.value) for e in AgeGroup]
+
+    maternal_treatment_outcome = anc_form.outcome.choices
+    treatment_outcome = child_form.outcome.choices
+    user = get_current_user()
+    facility = []
+    mode_of_entry_choices = [(e.value, e.value) for e in ModeOfEntry]
+
+    if (user.role.name == 'admin'):
+        amchis = InsuranceSchemeServices.get_scheme_by_enum(SchemeEnum.AMCHIS)
+        if not amchis:
+            raise InvalidReferenceError("No AMCHIS scheme found in the database")
+        facility = list(FacilityServices.get_all(params=  Params().where(
+            FacilityScheme, 'scheme_id', '=', amchis.id) ))
+
+    disease_choices =  list(DiseaseServices.get_all())
+
+    service_choices =  list(ServiceServices.get_all())
+
+    return render_template('amchis_encounter.html',
+                           title= 'AMCHIS Encounter',
+                           scheme=scheme,
+                           maternal_treatment_outcome = maternal_treatment_outcome,
+                           treatment_outcome = treatment_outcome,
+                           service_choices = service_choices,
+                           is_admin = user.role.name == 'admin',
+                           baby_outcome_choices = baby_outcome_choices,
+                           mode_of_entry_choices = mode_of_entry_choices,
+                           age_group_choices = age_group_choices,
+                           disease_choices = disease_choices,
+                           facility = facility
+                           )
+
 @app.route('/add_encounter', methods=['GET'])
 @login_required
 def add_encounter():
@@ -118,6 +162,183 @@ def add_encounter():
     return render_template('add_encounter.html',
                            title='Select Insurance Scheme',
                            schemes=schemes)
+
+@app.put('/api/v1/add_encounter/child_health')
+@login_required
+@scheme_access_required(SchemeEnum.AMCHIS)
+def add_child_health_encounter_api():
+    result = request.get_json()
+    if not result:
+        return jsonify({'msg': 'No JSON body received'}), 400
+
+    scheme = InsuranceSchemeServices.get_scheme_by_enum(SchemeEnum.AMCHIS)
+    user = get_current_user()
+
+    result['facility_id'] = user.facility.id if user.role.name != 'admin' else result.get('facility_id')
+
+    try:
+        validated = ChildHealthEncounter(**result)
+    except ValidationError as e:
+        return jsonify({'msg': f'Validation error: {e.errors()}'}), 400
+
+    res = validated.model_dump()
+    res['scheme'] = scheme.id
+    res['created_by'] = user.id
+    res['diseases_id'] = res.pop('diseases')
+    res['services_id'] = res.pop('services')
+
+    try:
+        EncounterServices.create_child_health_encounter(**res)
+        return jsonify({
+            'msg': f"Child Health Encounter registered successfully for {res['client_name']}"
+        })
+    except Exception as e:
+        return jsonify({'msg': f'Error while creating Child Health Encounter: {e}'}), 400
+
+
+@app.put('/api/v1/add_encounter/anc')
+@login_required
+@scheme_access_required(SchemeEnum.AMCHIS)
+def add_anc_encounter_api():
+    result = request.get_json()
+    if not result:
+        return jsonify({'msg': 'No JSON body received'}), 400
+
+    scheme = InsuranceSchemeServices.get_scheme_by_enum(SchemeEnum.AMCHIS)
+    user = get_current_user()
+
+    result['facility_id'] = user.facility.id if user.role.name != 'admin' else result.get('facility_id')
+    result['gender'] = 'F'
+
+    try:
+        validated = ANCEncounter(**result)
+    except ValidationError as e:
+        return jsonify({'msg': f'Validation error: {e.errors()}'}), 400
+
+    res = validated.model_dump()
+    res['scheme'] = scheme.id
+    res['created_by'] = user.id
+    res['expected_delivery_date'] = calculate_edd(res['lmp'])
+    res['gestational_age'] = calculate_gestational_age(res['lmp'])
+
+    try:
+        registry = EncounterServices.get_anc_record_by_registry(res['policy_number'])
+        res['anc_count'] = registry.anc_count + 1
+    except MissingError:
+        res['anc_count'] = 1
+
+    try:
+        EncounterServices.create_anc_encounter(**res)
+        return jsonify({'msg': 'ANC Encounter created successfully'})
+    except Exception as e:
+        return jsonify({'msg': f'Error while creating ANC encounter: {e}'}), 400
+
+
+@app.put('/api/v1/add_encounter/delivery')
+@login_required
+@scheme_access_required(SchemeEnum.AMCHIS)
+def add_delivery_encounter_api():
+    result = request.get_json()
+    if not result:
+        return jsonify({'msg': 'No JSON body received'}), 400
+
+    scheme = InsuranceSchemeServices.get_scheme_by_enum(SchemeEnum.AMCHIS)
+    user = get_current_user()
+
+    result['facility_id'] = user.facility.id if user.role.name != 'admin' else result.get('facility_id')
+    result['gender'] = 'F'
+
+    try:
+        validated = DeliveryEncounter(**result)
+    except ValidationError as e:
+        return jsonify({'msg': f'Validation error: {e.errors()}'}), 400
+
+    res = validated.model_dump()
+    res['scheme'] = scheme.id
+    res['created_by'] = user.id
+    res['expected_delivery_date'] = calculate_edd(res['lmp'])
+
+    try:
+        registry = EncounterServices.get_anc_record_by_registry(res['policy_number'])
+        anc_id = registry.id
+        res['anc_count'] = registry.anc_count
+
+    except MissingError:
+        try:
+            new_anc = EncounterServices.create_anc_encounter(
+                lmp=res['lmp'],
+                policy_number=res['policy_number'],
+                kia_date=res['kia_date'],
+                client_name=res['client_name'],
+                booking_date=res['booking_date'],
+                parity=res['parity'],
+                place_of_issue=res['place_of_issue'],
+                date=res['date'],
+                mode_of_entry=res['mode_of_entry'],
+                age_group=res['age_group'],
+                address=res['address'],
+                hospital_number=res['hospital_number'],
+                referral_reason=None,
+                treatment_cost=None,
+                investigation=None,
+                investigation_cost=None,
+                medication=None,
+                medication_cost=None,
+                expected_delivery_date=res['expected_delivery_date'],
+                anc_count=1,
+                facility_id=res['facility_id'],
+                gender='F',
+                age=res['age'],
+                scheme=res['scheme'],
+                nin=res['nin'],
+                phone_number=res['phone_number'],
+                doctor_name=res['doctor_name'],
+                outcome=res['outcome'],
+                created_by=res['created_by'],
+                treatment=None,
+                commit=True
+            )
+
+            registry = EncounterServices.get_anc_record_by_registry(res['policy_number'])
+            anc_id = registry.id
+            res['anc_count'] = 1
+        except Exception as e:
+            return jsonify({'msg': f'Error creating implicit ANC record: {e}'}), 400
+
+    try:
+        EncounterServices.create_delivery_encounter(
+            date=res['date'],
+            facility_id=res['facility_id'],
+            policy_number=res['policy_number'],
+            client_name=res['client_name'],
+            gender='F',
+            age=res['age'],
+            treatment=res['treatment'],
+            doctor_name=res['doctor_name'],
+            scheme=res['scheme'],
+            nin=res['nin'],
+            mode_of_entry=res['mode_of_entry'],
+            age_group=res['age_group'],
+            address=res['address'],
+            hospital_number=res['hospital_number'],
+            referral_reason=res['referral_reason'],
+            treatment_cost=res['treatment_cost'],
+            investigation=res['investigation'],
+            investigation_cost=res['investigation_cost'],
+            medication=res['medication'],
+            medication_cost=res['medication_cost'],
+            phone_number=res['phone_number'],
+            created_by=res['created_by'],
+            anc_id=anc_id,
+            anc_count=res['anc_count'],
+            mode_of_delivery=res['mode_of_delivery'],
+            mother_outcome=res['outcome'],
+            baby_details=res['babies'],
+        )
+        return jsonify({'msg': 'Delivery Encounter created successfully'})
+    except Exception as e:
+        return jsonify({'msg': f'Error while creating Delivery encounter: {e}'}), 400
+
 
 
 @app.route("/add_encounter/amchis/child_health", methods=['GET', 'POST'])
@@ -329,27 +550,27 @@ def add_anc_encounter():
                             insurance_scheme = scheme,
                             form = form)
 
-@app.route('/add_encounter/amchis', methods=['GET', 'POST'])
-@login_required
-@scheme_access_required(SchemeEnum.AMCHIS)
-def add_amchis_encounter():
-    form: FlaskForm = EncTypeForm()
-    if form.validate_on_submit():
-        orin = form.orin.data
-        enc_type = form.enc_type.data
-        if enc_type.lower() == 'anc':
-            return redirect(url_for('add_anc_encounter', orin = orin))
-        elif enc_type.lower() == 'delivery':
-            return redirect(url_for('add_delivery_encounter', orin = orin))
-        elif enc_type.lower() == 'child health':
-            return redirect(url_for('add_child_health_encounter', orin = orin))
-        else:
-            flash("Invalid Encounter Type Selection", 'error')
-            return redirect(url_for('add_encounter'))
+# @app.route('/add_encounter/amchis', methods=['GET', 'POST'])
+# @login_required
+# @scheme_access_required(SchemeEnum.AMCHIS)
+# def add_amchis_encounter():
+#     form: FlaskForm = EncTypeForm()
+#     if form.validate_on_submit():
+#         orin = form.orin.data
+#         enc_type = form.enc_type.data
+#         if enc_type.lower() == 'anc':
+#             return redirect(url_for('add_anc_encounter', orin = orin))
+#         elif enc_type.lower() == 'delivery':
+#             return redirect(url_for('add_delivery_encounter', orin = orin))
+#         elif enc_type.lower() == 'child health':
+#             return redirect(url_for('add_child_health_encounter', orin = orin))
+#         else:
+#             flash("Invalid Encounter Type Selection", 'error')
+#             return redirect(url_for('add_encounter'))
 
-    return render_template('amchis_encounter.html',
-                           form = form,
-                           title = "Select AMCHIS ENCOUNTER")
+#     return render_template('amchis_encounter.html',
+#                            form = form,
+#                            title = "Select AMCHIS ENCOUNTER")
 
 
 @app.route('/add_encounter/<int:scheme_id>', methods=['GET', 'POST'])

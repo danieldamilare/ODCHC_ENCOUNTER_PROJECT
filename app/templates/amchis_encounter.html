@@ -13,10 +13,10 @@
             {% else %}
             <li><a href="{{ url_for('encounters') }}" class="hover:text-blue-600 transition-colors">Encounters</a></li>
             {% endif %}
-            <li><svg class="h-4 w-4 text-slate-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg></li>
+            <li><svg class="h-4 w-4 text-slate-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg></li>
             <li><a href="{{ url_for('add_encounter') }}" class="hover:text-blue-600 transition-colors">Select Scheme</a></li>
-            <li><svg class="h-4 w-4 text-slate-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg></li>
-            <li class="text-slate-900 font-semibold" aria-current="page">{{ title }}</li>
+            <li><svg class="h-4 w-4 text-slate-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg></li>
+            <li class="text-slate-900 font-semibold" aria-current="page">AMCHIS Encounter</li>
         </ol>
     </nav>
 </div>
@@ -24,143 +24,801 @@
 
 {% block content %}
 <style>
-    .form-field input:focus,
-    .form-field select:focus {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(14, 165, 233, 0.15);
+    :root {
+        --scheme-color: {{ scheme.color_scheme | default('#4f46e5') }};
+        --scheme-light: {{ scheme.color_scheme | default('#4f46e5') }}20;
+        --scheme-lighter: {{ scheme.color_scheme | default('#4f46e5') }}10;
     }
+    .scheme-bg   { background-color: var(--scheme-color); }
+    .scheme-border { border-color: var(--scheme-color); }
+    .scheme-text { color: var(--scheme-color); }
+    .scheme-bg-lighter { background-color: var(--scheme-lighter); }
 
-    .form-field.error input,
-    .form-field.error select {
-        border-color: #ef4444;
-        background-color: #fef2f2;
+    .floating-bar {
+        position: sticky; bottom: 0; z-index: 40;
+        backdrop-filter: blur(12px);
+        box-shadow: 0 -4px 12px rgba(0,0,0,0.1);
     }
+    .enc-type-btn {
+        transition: all 0.2s ease; cursor: pointer;
+    }
+    .enc-type-btn.active {
+        background-color: var(--scheme-color);
+        color: white;
+        border-color: var(--scheme-color);
+    }
+    .enc-type-btn:not(.active):hover {
+        border-color: var(--scheme-color);
+        color: var(--scheme-color);
+    }
+    .form-section { animation: fadeIn 0.25s ease; }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-6px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+    .field-wrap { margin-bottom: 0; }
+    .prefilled input, .prefilled select {
+        background-color: #f0fdf4 !important;
+        border-color: #86efac !important;
+    }
+    .dynamic-card { transition: all 0.2s ease; }
+    .dynamic-card:hover { transform: translateY(-2px); }
 
-    .submit-btn:hover:not(:disabled) {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 16px rgba(14, 165, 233, 0.3);
+    /* Toast */
+    #toast {
+        position: fixed; bottom: 5rem; right: 1.5rem; z-index: 100;
+        padding: 0.75rem 1.25rem; border-radius: 0.75rem;
+        font-size: 0.875rem; font-weight: 600;
+        transition: all 0.3s ease; opacity: 0; pointer-events: none;
     }
+    #toast.show { opacity: 1; pointer-events: auto; }
+    #toast.success { background:#dcfce7; color:#166534; border:1px solid #86efac; }
+    #toast.error   { background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; }
+    #toast.info    { background:#eff6ff; color:#1e40af; border:1px solid #93c5fd; }
 </style>
 
-<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+<div id="toast"></div>
 
-    <div class="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-32">
 
-        <div class="bg-gradient-to-r from-blue-600 to-cyan-600 px-8 py-6 text-white">
+    {# ── Scheme header ── #}
+    <div class="bg-white rounded-2xl shadow-lg border-2 scheme-border overflow-hidden mb-6">
+        <div class="flex items-center justify-between p-4 scheme-bg-lighter">
             <div class="flex items-center gap-4">
-                <div class="w-14 h-14 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl flex items-center justify-center flex-shrink-0">
-                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                <div class="w-12 h-12 rounded-xl scheme-bg flex items-center justify-center shadow">
+                    <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                     </svg>
                 </div>
                 <div>
-                    <h1 class="text-2xl font-bold">AMCHIS Data Entry</h1>
-                    <p class="text-blue-100 text-xs font-medium uppercase tracking-wide mt-0.5 mb-2 opacity-90">
-                        (Abiyamo Maternal and Child Health Insurance Scheme)
-                    </p>
-                    <p class="text-blue-50 text-sm leading-relaxed opacity-90">
-                        Please provide the Mother's ORIN and select the specific service type for this encounter.
-                    </p>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Insurance Scheme</p>
+                    <h2 class="text-lg font-bold text-slate-900">{{ scheme.scheme_name }}</h2>
+                </div>
+            </div>
+            <a href="{{ url_for('add_encounter') }}" class="inline-flex items-center px-4 py-2 bg-white border-2 border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all">
+                Change Scheme
+            </a>
+        </div>
+    </div>
+
+    {# ── Step 1: ORIN + Encounter Type ── #}
+    <div class="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden mb-6">
+        <div class="px-6 py-5 border-b border-slate-200 scheme-bg-lighter">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 scheme-bg rounded-xl flex items-center justify-center text-white font-bold shadow">1</div>
+                <div>
+                    <h3 class="text-xl font-bold text-slate-900">Patient ORIN & Encounter Type</h3>
+                    <p class="text-sm text-slate-600">Enter ORIN, look up the patient, then select encounter type</p>
                 </div>
             </div>
         </div>
+        <div class="p-6 space-y-5">
 
-        <form action="" method="post" novalidate id="amchisForm" class="p-8">
-            {{ form.hidden_tag() }}
-
-            <div class="space-y-6">
-                <div class="form-field {% if form.orin.errors %}error{% endif %}">
-                    <label for="{{ form.orin.id }}" class="block text-sm font-semibold text-slate-700 mb-2">
-                        {{ form.orin.label.text }}
-                        <span class="text-red-500">*</span>
-                    </label>
-                    <div class="relative">
+            {# ORIN input #}
+            <div>
+                <label class="block text-sm font-semibold text-slate-900 mb-2">
+                    Patient ORIN <span class="text-red-500">*</span>
+                </label>
+                <div class="flex gap-3">
+                    <div class="relative flex-1">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"/></svg>
+                            <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0"/>
+                            </svg>
                         </div>
-                        {{ form.orin(
-                            class="block w-full pl-10 pr-4 py-3 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-primary-500 transition-all text-slate-900",
-                            placeholder="Enter 10-digit ORIN"
-                        ) }}
+                        <input type="text" id="orin-input" maxlength="10" inputmode="numeric"
+                               class="block w-full pl-10 pr-4 py-3 border-2 border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 scheme-border transition-all"
+                               placeholder="Enter 10-digit ORIN"/>
                     </div>
-                    {% if form.orin.errors %}
-                        <div class="mt-2 flex items-center gap-2 text-red-600">
-                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                            </svg>
-                            <span class="text-sm font-medium">{{ form.orin.errors[0] }}</span>
-                        </div>
-                    {% endif %}
-                </div>
-
-                <div class="form-field {% if form.enc_type.errors %}error{% endif %}">
-                    <label for="{{ form.enc_type.id }}" class="block text-sm font-semibold text-slate-700 mb-2">
-                        {{ form.enc_type.label.text }}
-                        <span class="text-red-500">*</span>
-                    </label>
-                    <div class="relative">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
-                            </svg>
-                        </div>
-                        {{ form.enc_type(
-                            class="block w-full pl-10 pr-10 py-3 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-primary-500 transition-all text-slate-900 appearance-none bg-white"
-                        ) }}
-                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                            </svg>
-                        </div>
-                    </div>
-                    {% if form.enc_type.errors %}
-                        <div class="mt-2 flex items-center gap-2 text-red-600">
-                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                            </svg>
-                            <span class="text-sm font-medium">{{ form.enc_type.errors[0] }}</span>
-                        </div>
-                    {% endif %}
-                </div>
-
-                <div class="flex items-center gap-3 pt-4 border-t border-slate-200">
-                    <button type="submit"
-                            class="submit-btn flex-1 sm:flex-none inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold rounded-xl shadow-lg transition-all">
-                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 9l3 3m0 0l-3 3m3-3H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    <button type="button" id="lookup-btn"
+                            class="inline-flex items-center px-5 py-3 scheme-bg text-white rounded-lg text-sm font-semibold shadow hover:brightness-110 transition-all disabled:opacity-60">
+                        <svg id="lookup-icon" class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                         </svg>
-                        <span id="submitText">{{ form.submit.label.text }}</span>
-                        <span id="loadingText" class="hidden">Loading...</span>
+                        <svg id="lookup-spinner" class="hidden h-4 w-4 mr-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                        Look Up
                     </button>
-                    <a href="{{ url_for('add_encounter') }}"
-                       class="flex-1 sm:flex-none inline-flex items-center justify-center px-6 py-3 bg-white border-2 border-slate-300 text-slate-700 font-semibold rounded-xl hover:bg-slate-50 hover:border-slate-400 transition-all">
-                        Cancel
-                    </a>
+                </div>
+                <div id="orin-status" class="hidden mt-2 px-3 py-2 rounded-lg text-sm font-medium"></div>
+            </div>
+
+            {# Encounter type buttons — shown after lookup #}
+            <div id="enc-type-section" class="hidden">
+                <label class="block text-sm font-semibold text-slate-900 mb-3">Encounter Type <span class="text-red-500">*</span></label>
+                <div class="grid grid-cols-3 gap-3">
+                    <button type="button" data-type="anc"
+                            class="enc-type-btn flex flex-col items-center gap-2 p-4 border-2 border-slate-200 rounded-xl bg-white font-semibold text-slate-600">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                        </svg>
+                        <span class="text-sm">ANC Visit</span>
+                    </button>
+                    <button type="button" data-type="delivery"
+                            class="enc-type-btn flex flex-col items-center gap-2 p-4 border-2 border-slate-200 rounded-xl bg-white font-semibold text-slate-600">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+                        </svg>
+                        <span class="text-sm">Delivery</span>
+                    </button>
+                    <button type="button" data-type="child"
+                            class="enc-type-btn flex flex-col items-center gap-2 p-4 border-2 border-slate-200 rounded-xl bg-white font-semibold text-slate-600">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <span class="text-sm">Child Health</span>
+                    </button>
                 </div>
             </div>
-        </form>
+        </div>
+    </div>
+
+    {# ── Dynamic form area ── #}
+    <div id="form-area"></div>
+
+</div>
+
+{# ── Floating submit bar ── #}
+<div id="floating-bar" class="hidden floating-bar bg-white/95 border-t-2 scheme-border">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div class="flex items-center justify-between gap-4">
+            <div class="hidden sm:block">
+                <p id="submit-label" class="text-sm font-semibold text-slate-700">Ready to submit?</p>
+                <p class="text-xs text-slate-500">All required fields must be completed</p>
+            </div>
+            <div class="flex gap-3 flex-1 sm:flex-initial justify-end">
+                <a href="{{ url_for('add_encounter') }}"
+                   class="inline-flex items-center px-5 py-3 bg-white border-2 border-slate-300 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all">
+                    Cancel
+                </a>
+                <button type="button" id="submit-btn"
+                        class="inline-flex items-center px-8 py-3 scheme-bg text-white rounded-xl text-sm font-bold shadow-lg hover:brightness-110 transition-all disabled:opacity-60">
+                    <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    Submit Encounter
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 
+{# ── Data passed from Jinja ── #}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('amchisForm');
-    const submitBtn = form.querySelector('button[type="submit"]');
-    const submitText = document.getElementById('submitText');
-    const loadingText = document.getElementById('loadingText');
+    const IS_ADMIN          = {{ is_admin | tojson }};
+    const DISEASE_CHOICES   = {{ disease_choices | map(attribute='id') | list | tojson }};
+    const DISEASE_LABELS    = {{ disease_choices | map(attribute='name') | list | tojson }};
+    const SERVICE_CHOICES   = {{ service_choices | map(attribute='id') | list | tojson }};
+    const SERVICE_LABELS    = {{ service_choices | map(attribute='name') | list | tojson }};
+    const BABY_OUTCOMES     = {{ baby_outcome_choices | tojson }};
+    const FACILITY_LIST     = {{ facility | map(attribute='id') | list | tojson if facility else '[]' }};
+    const FACILITY_LABELS   = {{ facility | map(attribute='name') | list | tojson if facility else '[]' }};
 
-    // Handle form submission
-    form.addEventListener('submit', function() {
-        submitBtn.disabled = true;
-        submitText.classList.add('hidden');
-        loadingText.classList.remove('hidden');
+    const DISEASE_OPTIONS = DISEASE_CHOICES.map((id, i) => ({ id, name: DISEASE_LABELS[i] }));
+    const SERVICE_OPTIONS = SERVICE_CHOICES.map((id, i) => ({ id, name: SERVICE_LABELS[i] }));
+    const FACILITY_OPTIONS = FACILITY_LIST.map((id, i) => ({ id, name: FACILITY_LABELS[i] }));
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    // ── State ───────────────────────────────────────────────
+    let currentType  = null;
+    let registry     = null;   // ANCRegistry data from lookup, or null
+    let lookupDone   = false;
+
+    // ── DOM ─────────────────────────────────────────────────
+    const orinInput      = document.getElementById('orin-input');
+    const lookupBtn      = document.getElementById('lookup-btn');
+    const lookupIcon     = document.getElementById('lookup-icon');
+    const lookupSpinner  = document.getElementById('lookup-spinner');
+    const orinStatus     = document.getElementById('orin-status');
+    const encTypeSection = document.getElementById('enc-type-section');
+    const formArea       = document.getElementById('form-area');
+    const floatingBar    = document.getElementById('floating-bar');
+    const submitBtn      = document.getElementById('submit-btn');
+    const submitLabel    = document.getElementById('submit-label');
+    const toast          = document.getElementById('toast');
+
+    // ── Utilities ───────────────────────────────────────────
+    const show = el => el && el.classList.remove('hidden');
+    const hide = el => el && el.classList.add('hidden');
+
+    function setStatus(msg, type) {
+        const cls = {
+            success: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+            warning: 'bg-amber-50 text-amber-700 border border-amber-200',
+            error:   'bg-red-50 text-red-700 border border-red-200',
+            info:    'bg-blue-50 text-blue-700 border border-blue-200',
+        };
+        orinStatus.className = `mt-2 px-3 py-2 rounded-lg text-sm font-medium ${cls[type]}`;
+        orinStatus.textContent = msg;
+        show(orinStatus);
+    }
+
+    function showToast(msg, type = 'info', duration = 4000) {
+        toast.textContent = msg;
+        toast.className = `show ${type}`;
+        setTimeout(() => toast.className = '', duration);
+    }
+
+    // Input builder helpers
+    function inputHTML(name, label, type = 'text', value = '', placeholder = '', required = true) {
+        return `
+        <div class="field-wrap">
+            <label class="block text-sm font-semibold text-slate-900 mb-2">
+                ${label}${required ? ' <span class="text-red-500">*</span>' : ''}
+            </label>
+            <input type="${type}" name="${name}" value="${escHtml(value)}" placeholder="${placeholder}"
+                   class="block w-full px-4 py-3 border-2 border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 scheme-border transition-all"
+                   ${required ? 'required' : ''} />
+        </div>`;
+    }
+
+    function selectHTML(name, label, options, selected = '', required = true) {
+        // options: [{value, label}]
+        const opts = options.map(o =>
+            `<option value="${escHtml(String(o.value))}" ${String(o.value) === String(selected) ? 'selected' : ''}>${escHtml(o.label)}</option>`
+        ).join('');
+        return `
+        <div class="field-wrap">
+            <label class="block text-sm font-semibold text-slate-900 mb-2">
+                ${label}${required ? ' <span class="text-red-500">*</span>' : ''}
+            </label>
+            <select name="${name}"
+                    class="block w-full px-4 py-3 border-2 border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 scheme-border transition-all appearance-none"
+                    ${required ? 'required' : ''}>
+                <option value="">— Select —</option>
+                ${opts}
+            </select>
+        </div>`;
+    }
+
+    function escHtml(str) {
+        return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function sectionCard(stepNum, color, title, subtitle, body) {
+        return `
+        <div class="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden mb-6">
+            <div class="px-6 py-5 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-${color}-50">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-${color}-600 rounded-xl flex items-center justify-center text-white font-bold shadow">${stepNum}</div>
+                    <div>
+                        <h3 class="text-xl font-bold text-slate-900">${title}</h3>
+                        <p class="text-sm text-slate-600">${subtitle}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="p-6 space-y-4">${body}</div>
+        </div>`;
+    }
+
+    function grid2(...fields) {
+        return `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">${fields.join('')}</div>`;
+    }
+    function grid3(...fields) {
+        return `<div class="grid grid-cols-1 md:grid-cols-3 gap-4">${fields.join('')}</div>`;
+    }
+
+    // ── ORIN Lookup ─────────────────────────────────────────
+    lookupBtn.addEventListener('click', doLookup);
+    orinInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doLookup(); } });
+
+    function doLookup() {
+        const orin = orinInput.value.trim();
+        if (!orin || orin.length !== 10 || !/^\d+$/.test(orin)) {
+            setStatus('Please enter a valid 10-digit numeric ORIN.', 'error');
+            return;
+        }
+        lookupBtn.disabled = true;
+        lookupIcon.classList.add('hidden');
+        lookupSpinner.classList.remove('hidden');
+        setStatus('Looking up patient…', 'info');
+
+        fetch(`/api/amchis/lookup?orin=${encodeURIComponent(orin)}`)
+            .then(r => r.json())
+            .then(data => {
+                lookupDone = true;
+                registry = data.found ? data.data : null;
+                lookupBtn.disabled = false;
+                lookupIcon.classList.remove('hidden');
+                lookupSpinner.classList.add('hidden');
+
+                if (data.found) {
+                    setStatus(`Registry found: ${data.data.client_name} — ANC visits: ${data.data.anc_count}`, 'success');
+                } else {
+                    setStatus('No existing registry found. Full form will be shown.', 'warning');
+                }
+                show(encTypeSection);
+                if (currentType) renderForm(currentType);
+            })
+            .catch(() => {
+                lookupBtn.disabled = false;
+                lookupIcon.classList.remove('hidden');
+                lookupSpinner.classList.add('hidden');
+                setStatus('Lookup failed. Check your connection and try again.', 'error');
+            });
+    }
+
+    // ── Encounter Type Selection ─────────────────────────────
+    document.querySelectorAll('.enc-type-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+            if (!lookupDone) { setStatus('Please look up the ORIN first.', 'error'); return; }
+            document.querySelectorAll('.enc-type-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            currentType = this.dataset.type;
+            renderForm(currentType);
+        });
     });
 
-    // Auto-focus first field
-    const firstInput = form.querySelector('input[type="text"]');
-    if (firstInput && !firstInput.value) {
-        firstInput.focus();
+    // ── Form Rendering ───────────────────────────────────────
+    function renderForm(type) {
+        formArea.innerHTML = '';
+        hide(floatingBar);
+
+        if (type === 'anc')      renderANCForm();
+        else if (type === 'delivery') renderDeliveryForm();
+        else if (type === 'child')    renderChildForm();
+
+        show(floatingBar);
+        const labels = { anc: 'ANC Visit', delivery: 'Delivery', child: 'Child Health' };
+        submitLabel.textContent = `Submit ${labels[type]} Encounter`;
+
+        // Bind outcome toggle and cost calc after render
+        bindOutcomeToggle();
+        bindCostCalc();
     }
+
+    // ── Outcome options (same for all) ──────────────────────
+    // These come from WTForms treatment_outcome table
+    // We pass maternal and general outcome choices from Jinja
+    const OUTCOME_OPTIONS = {{ maternal_treatment_outcome | tojson if maternal_treatment_outcome is defined else '[]' }};
+    const GENDER_OPTIONS  = [
+        { value: 'M', label: 'Male' },
+        { value: 'F', label: 'Female' }
+    ];
+    const MODE_OF_ENTRY_OPTIONS = [
+        { value: 'OPD', label: 'OPD' },
+        { value: 'Emergency', label: 'Emergency' },
+        { value: 'Referral', label: 'Referral' },
+    ];
+    const MODE_OF_DELIVERY_OPTIONS = [
+        { value: 'SVD', label: 'Normal (SVD)' },
+        { value: 'CS', label: 'Caesarean Section (CS)' },
+        { value: 'Assisted', label: 'Assisted Delivery' },
+    ];
+    const AGE_GROUP_OPTIONS = [
+        { value: 'infant', label: 'Infant (0-1)' },
+        { value: 'child', label: 'Child (1-12)' },
+        { value: 'adolescent', label: 'Adolescent (13-17)' },
+        { value: 'adult', label: 'Adult (18-59)' },
+        { value: 'elderly', label: 'Elderly (60+)' },
+    ];
+
+    function facilityField() {
+        if (!IS_ADMIN) return '';
+        return selectHTML('facility_id', 'Facility', FACILITY_OPTIONS.map(f => ({ value: f.id, label: f.name })));
+    }
+
+    function patientInfoSection(stepNum, prefill = {}) {
+        const pf = prefill;
+        const hasRegistry = !!pf.client_name;
+        return sectionCard(stepNum, 'indigo', 'Patient Information', '', `
+            ${facilityField()}
+            ${grid2(
+                inputHTML('client_name', 'Full Name', 'text', pf.client_name || '', 'Patient full name'),
+                inputHTML('age', 'Age', 'number', pf.age || '', '0–120')
+            )}
+            ${grid2(
+                inputHTML('nin', 'NIN', 'text', pf.nin || '', '11-digit NIN'),
+                inputHTML('phone_number', 'Phone Number', 'text', pf.phone_number || '', '080...')
+            )}
+            ${inputHTML('address', 'Address', 'text', pf.address || '', 'Residential address')}
+            ${inputHTML('hospital_number', 'Hospital Number', 'text', pf.hospital_number || '', 'e.g. HOS/12345')}
+        `);
+    }
+
+    function treatmentSection(stepNum) {
+        return sectionCard(stepNum, 'emerald', 'Treatment & Outcome', 'Interventions, costs and final outcome', `
+            ${grid3(
+                inputHTML('date', 'Date of Visit', 'date', today()),
+                inputHTML('doctor_name', 'Doctor Name', 'text', '', 'Dr. Name'),
+                selectHTML('mode_of_entry', 'Mode of Entry', MODE_OF_ENTRY_OPTIONS)
+            )}
+            <hr class="border-slate-100">
+            ${grid2(
+                inputHTML('treatment', 'Treatment', 'text', '', 'Procedures performed', false),
+                inputHTML('treatment_cost', 'Treatment Cost (₦)', 'number', '0', '0.00', false)
+            )}
+            ${grid2(
+                inputHTML('medication', 'Medication', 'text', '', 'Drugs prescribed', false),
+                inputHTML('medication_cost', 'Medication Cost (₦)', 'number', '0', '0.00', false)
+            )}
+            ${grid2(
+                inputHTML('investigation', 'Investigation', 'text', '', 'Lab tests, scans...', false),
+                inputHTML('investigation_cost', 'Investigation Cost (₦)', 'number', '0', '0.00', false)
+            )}
+            <div class="field-wrap">
+                <label class="block text-sm font-semibold text-slate-900 mb-2">Total Cost (₦)</label>
+                <input type="text" id="total-cost-display" readonly
+                       class="block w-full px-4 py-3 border-2 border-slate-200 rounded-lg text-sm bg-slate-50 font-bold text-slate-900"
+                       value="0.00"/>
+            </div>
+            <hr class="border-slate-100">
+            ${selectHTML('outcome', 'Outcome', OUTCOME_OPTIONS.map(([v, l]) => ({ value: v, label: l })))}
+            <div id="referral-reason-wrap" class="hidden">
+                ${inputHTML('referral_reason', 'Referral Reason', 'text', '', 'Reason for referral', false)}
+            </div>
+        `);
+    }
+
+    function ancRegistrySection(stepNum, prefill = {}) {
+        const pf = prefill;
+        const locked = !!pf.client_name; // if registry found, these are pre-filled
+        console.log(pf.kia_date)
+        console.log(pf.place_of_issue)
+
+        return sectionCard(stepNum, 'blue', 'ANC Details',
+            locked ? '' : 'Kaadi Igbeayo and booking information', `
+            ${locked ? `<div class="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 mb-2">
+                ✓ Registry found — fields pre-filled from existing ANC record
+            </div>` : ''}
+            ${grid2(
+                inputHTML('kia_date', 'KIA Date', 'date', pf.kia_date || ''),
+                inputHTML('place_of_issue', 'Place of Issue', 'text', pf.place_of_issue || '', 'e.g. General Hospital Akure')
+            )}
+            ${grid2(
+                inputHTML('booking_date', 'Booking Date', 'date', pf.booking_date || ''),
+                inputHTML('parity', 'Parity', 'number', pf.parity ?? '', 'e.g. 2')
+            )}
+            ${inputHTML('lmp', 'Last Menstrual Period (LMP)', 'date', pf.lmp || '')}
+        `);
+    }
+
+    // ── ANC Form ─────────────────────────────────────────────
+    function renderANCForm() {
+        const pf = registry || {};
+        formArea.innerHTML =
+            patientInfoSection(2, pf) +
+            ancRegistrySection(3, pf) +
+            treatmentSection(4);
+    }
+
+    // ── Delivery Form ────────────────────────────────────────
+    function renderDeliveryForm() {
+        const pf = registry || {};
+
+        const babySection = sectionCard(4, 'purple', 'Baby Information', 'Details for each baby delivered', `
+            ${inputHTML('no_of_babies', 'Number of Babies', 'number', '1', '1')}
+            <div id="babies-container" class="space-y-4 mt-4"></div>
+        `);
+
+        const deliveryDetails = sectionCard(3, 'blue', 'Delivery Details', 'Mode and outcome', `
+            ${selectHTML('mode_of_delivery', 'Mode of Delivery', MODE_OF_DELIVERY_OPTIONS)}
+        `);
+
+        formArea.innerHTML =
+            patientInfoSection(2, pf) +
+            ancRegistrySection(3, pf) +
+            deliveryDetails +
+            babySection +
+            treatmentSection(5);
+
+        // Init baby forms
+        setupBabyForms();
+    }
+
+    // ── Child Health Form ────────────────────────────────────
+    function renderChildForm() {
+        const pf = registry || {};
+
+        const childInfo = sectionCard(2, 'indigo', "Child's Information", 'Child and guardian details', `
+            ${facilityField()}
+            ${grid2(
+                inputHTML('client_name', "Child's Full Name", 'text', '', "Child's name"),
+                inputHTML('dob', 'Date of Birth', 'date', '')
+            )}
+            ${grid2(
+                inputHTML('age', 'Age', 'number', '', '0–120'),
+                selectHTML('gender', 'Gender', GENDER_OPTIONS)
+            )}
+            ${inputHTML('hospital_number', 'Hospital Number', 'text', '', 'Hospital Card No.')}
+            <hr class="border-slate-100">
+            <p class="text-sm font-semibold text-slate-700">Guardian / Mother Details</p>
+            ${grid2(
+                inputHTML('guardian_name', 'Guardian Name', 'text', pf.client_name || '', "Parent/Guardian's name"),
+                inputHTML('phone_number', 'Phone Number', 'text', pf.phone_number || '', '080...')
+            )}
+            ${grid2(
+                inputHTML('nin', "Mother's NIN", 'text', pf.nin || '', '11-digit NIN'),
+                inputHTML('address', 'Address', 'text', pf.address || '', 'Residential address')
+            )}
+        `);
+
+        const clinicalSection = sectionCard(3, 'purple', 'Clinical Findings', 'Diagnosis and services', `
+            ${grid3(
+                inputHTML('date', 'Date', 'date', today()),
+                inputHTML('doctor_name', 'Doctor Name', 'text', '', 'Dr. Name'),
+                selectHTML('mode_of_entry', 'Mode of Entry', MODE_OF_ENTRY_OPTIONS)
+            )}
+            <hr class="border-slate-100">
+            <p class="text-sm font-semibold text-slate-900">Diagnosis</p>
+            <div id="diseases-container" class="space-y-3"></div>
+            <button type="button" id="add-disease-btn"
+                    class="w-full inline-flex items-center justify-center px-4 py-3 border-2 border-dashed border-purple-300 text-sm font-semibold rounded-xl text-purple-700 bg-purple-50 hover:bg-purple-100 transition-all">
+                + Add Diagnosis
+            </button>
+            <hr class="border-slate-100 mt-2">
+            <p class="text-sm font-semibold text-slate-900">Services</p>
+            <div id="services-container" class="space-y-3"></div>
+            <button type="button" id="add-service-btn"
+                    class="w-full inline-flex items-center justify-center px-4 py-3 border-2 border-dashed border-blue-300 text-sm font-semibold rounded-xl text-blue-700 bg-blue-50 hover:bg-blue-100 transition-all">
+                + Add Service
+            </button>
+        `);
+
+        formArea.innerHTML = childInfo + clinicalSection + treatmentSection(4);
+
+        setupDynamicList('diseases-container', 'add-disease-btn', DISEASE_OPTIONS, 'Diagnosis', 'purple');
+        setupDynamicList('services-container', 'add-service-btn', SERVICE_OPTIONS, 'Service', 'blue');
+    }
+
+    // ── Outcome Toggle ───────────────────────────────────────
+    function bindOutcomeToggle() {
+        const outcomeSelect = formArea.querySelector('select[name="outcome"]');
+        const referralWrap  = document.getElementById('referral-reason-wrap');
+        if (!outcomeSelect || !referralWrap) return;
+
+        function toggle() {
+            const text = (outcomeSelect.options[outcomeSelect.selectedIndex]?.text || '').toLowerCase();
+            text.includes('refer') ? show(referralWrap) : hide(referralWrap);
+        }
+        outcomeSelect.addEventListener('change', toggle);
+        toggle();
+    }
+
+    // ── Cost Calculation ─────────────────────────────────────
+    function bindCostCalc() {
+        const display = document.getElementById('total-cost-display');
+        if (!display) return;
+        const fields = ['treatment_cost', 'medication_cost', 'investigation_cost'];
+
+        function calc() {
+            const total = fields.reduce((sum, name) => {
+                const el = formArea.querySelector(`input[name="${name}"]`);
+                return sum + (parseFloat(el?.value) || 0);
+            }, 0);
+            display.value = total.toFixed(2);
+        }
+        fields.forEach(name => {
+            const el = formArea.querySelector(`input[name="${name}"]`);
+            if (el) el.addEventListener('input', calc);
+        });
+    }
+
+    // ── Baby Forms ───────────────────────────────────────────
+    function setupBabyForms() {
+        const numInput  = formArea.querySelector('input[name="no_of_babies"]');
+        const container = document.getElementById('babies-container');
+        if (!numInput || !container) return;
+
+        function buildBabyCard(index) {
+            const genderOpts  = GENDER_OPTIONS.map(o =>
+                `<option value="${o.value}">${o.label}</option>`).join('');
+            const outcomeOpts = BABY_OUTCOMES.map(([v, l]) =>
+                `<option value="${v}">${l}</option>`).join('');
+            return `
+            <div class="baby-card bg-purple-50 border-2 border-purple-200 rounded-xl p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="text-sm font-bold text-purple-900">Baby #${index + 1}</h4>
+                    <button type="button" class="remove-baby p-1.5 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-xs font-semibold">Remove</button>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-900 mb-2">Gender <span class="text-red-500">*</span></label>
+                        <select name="babies[${index}][gender]" class="block w-full px-3 py-2 border-2 border-slate-200 rounded-lg text-sm appearance-none" required>
+                            ${genderOpts}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-900 mb-2">Outcome <span class="text-red-500">*</span></label>
+                        <select name="babies[${index}][outcome]" class="block w-full px-3 py-2 border-2 border-slate-200 rounded-lg text-sm appearance-none" required>
+                            ${outcomeOpts}
+                        </select>
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        function sync() {
+            const count = Math.max(1, parseInt(numInput.value) || 1);
+            const current = container.querySelectorAll('.baby-card').length;
+            if (count > current) {
+                for (let i = current; i < count; i++) {
+                    container.insertAdjacentHTML('beforeend', buildBabyCard(i));
+                }
+            } else {
+                const cards = container.querySelectorAll('.baby-card');
+                for (let i = current - 1; i >= count; i--) cards[i].remove();
+            }
+            // Renumber headers
+            container.querySelectorAll('.baby-card h4').forEach((h, i) => h.textContent = `Baby #${i + 1}`);
+        }
+
+        numInput.addEventListener('change', sync);
+        container.addEventListener('click', e => {
+            if (e.target.classList.contains('remove-baby')) {
+                e.target.closest('.baby-card').remove();
+                numInput.value = container.querySelectorAll('.baby-card').length || 1;
+                container.querySelectorAll('.baby-card h4').forEach((h, i) => h.textContent = `Baby #${i + 1}`);
+            }
+        });
+        sync();
+    }
+
+    // ── Dynamic Disease/Service lists ────────────────────────
+    function setupDynamicList(containerId, btnId, options, label, color) {
+        const container = document.getElementById(containerId);
+        const addBtn    = document.getElementById(btnId);
+        if (!container || !addBtn) return;
+
+        let idx = 0;
+
+        const opts = [
+            `<option value="">— Select ${label} —</option>`,
+            ...options.map(o => `<option value="${o.id}">${escHtml(o.name)}</option>`)
+        ].join('');
+
+        addBtn.addEventListener('click', () => {
+            container.insertAdjacentHTML('beforeend', `
+            <div class="dynamic-card bg-${color}-50 border-2 border-${color}-200 rounded-xl p-3 flex items-center gap-3">
+                <select name="${label.toLowerCase()}s[${idx}]"
+                        class="flex-1 px-3 py-2 border-2 border-slate-200 rounded-lg text-sm appearance-none" required>
+                    ${opts}
+                </select>
+                <button type="button" class="remove-item flex-shrink-0 p-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-xs">✕</button>
+            </div>`);
+            idx++;
+        });
+
+        container.addEventListener('click', e => {
+            if (e.target.classList.contains('remove-item')) {
+                e.target.closest('.dynamic-card').remove();
+            }
+        });
+    }
+
+    // ── Helpers ──────────────────────────────────────────────
+    function today() {
+        return new Date().toISOString().split('T')[0];
+    }
+
+    // ── Form Data Collection ─────────────────────────────────
+    function collectFormData() {
+        const orin = orinInput.value.trim();
+        const data = { policy_number: orin };
+
+        // Collect all named inputs and selects in formArea
+        formArea.querySelectorAll('input[name], select[name], textarea[name]').forEach(el => {
+            const name = el.name;
+            if (!name) return;
+
+            // Baby arrays
+            const babyMatch = name.match(/^babies\[(\d+)\]\[(\w+)\]$/);
+            if (babyMatch) {
+                const idx  = parseInt(babyMatch[1]);
+                const prop = babyMatch[2];
+                if (!data.babies) data.babies = [];
+                if (!data.babies[idx]) data.babies[idx] = {};
+                data.babies[idx][prop] = el.value;
+                return;
+            }
+
+            // Disease/service arrays
+            const diseaseMatch = name.match(/^diagnoses\[(\d+)\]$/);
+            const serviceMatch = name.match(/^services\[(\d+)\]$/);
+            if (diseaseMatch) {
+                if (!data.diseases) data.diseases = [];
+                data.diseases.push(parseInt(el.value));
+                return;
+            }
+            if (serviceMatch) {
+                if (!data.services) data.services = [];
+                data.services.push(parseInt(el.value));
+                return;
+            }
+
+            data[name] = el.value;
+        });
+
+        // Coerce numeric fields
+        ['age', 'parity', 'anc_count', 'no_of_babies', 'facility_id', 'outcome'].forEach(f => {
+            if (data[f] !== undefined && data[f] !== '') data[f] = parseInt(data[f]);
+        });
+        ['treatment_cost', 'medication_cost', 'investigation_cost'].forEach(f => {
+            if (data[f] !== undefined && data[f] !== '') data[f] = parseFloat(data[f]);
+        });
+
+        // For delivery: include no_of_babies
+        if (currentType === 'delivery') {
+            data.no_of_babies = (data.babies || []).length;
+        }
+
+        return data;
+    }
+
+    // ── Submit ───────────────────────────────────────────────
+    const API_MAP = {
+        anc:      '/api/v1/add_encounter/anc',
+        delivery: '/api/v1/add_encounter/delivery',
+        child:    '/api/v1/add_encounter/child_health',
+    };
+
+    submitBtn.addEventListener('click', async function () {
+        if (!currentType) return;
+
+        const payload = collectFormData();
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting…';
+
+        try {
+            const res = await fetch(API_MAP[currentType], {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                showToast(data.msg, 'success', 5000);
+                // Reset the page for the next patient
+                setTimeout(() => {
+                    orinInput.value = '';
+                    hide(orinStatus);
+                    hide(encTypeSection);
+                    hide(floatingBar);
+                    formArea.innerHTML = '';
+                    document.querySelectorAll('.enc-type-btn').forEach(b => b.classList.remove('active'));
+                    currentType = null;
+                    registry    = null;
+                    lookupDone  = false;
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Submit Encounter';
+                    orinInput.focus();
+                }, 1500);
+            } else {
+                showToast(data.msg || 'Submission failed', 'error');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit Encounter';
+            }
+        } catch (err) {
+            showToast('Network error. Please try again.', 'error');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit Encounter';
+        }
+    });
 });
 </script>
 {% endblock %}

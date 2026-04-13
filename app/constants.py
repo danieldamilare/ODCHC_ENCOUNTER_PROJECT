@@ -28,7 +28,7 @@ LGA_CHOICES = [('', 'Select Local Government')] + \
 MODE_OF_DELIVERY = ['SVD', 'ASD', 'CS']
 class DeliveryMode(Enum):
     SVD = "Spontaneous Vaginal Delivery"
-    AVD = "Assisted Vaginal Delivery"
+    ASD = "Assisted Vaginal Delivery"
     CS = "Caesarean Section"
 
 class EncType(Enum):
