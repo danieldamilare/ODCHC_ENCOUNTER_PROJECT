@@ -26,62 +26,40 @@
 <style>
     :root {
         --scheme-color: {{ scheme.color_scheme | default('#4f46e5') }};
-        --scheme-light: {{ scheme.color_scheme | default('#4f46e5') }}20;
         --scheme-lighter: {{ scheme.color_scheme | default('#4f46e5') }}10;
     }
-    .scheme-bg   { background-color: var(--scheme-color); }
-    .scheme-border { border-color: var(--scheme-color); }
-    .scheme-text { color: var(--scheme-color); }
-    .scheme-bg-lighter { background-color: var(--scheme-lighter); }
-
+    .scheme-bg        { background-color: var(--scheme-color); }
+    .scheme-border    { border-color: var(--scheme-color); }
+    .scheme-bg-lighter{ background-color: var(--scheme-lighter); }
     .floating-bar {
         position: sticky; bottom: 0; z-index: 40;
         backdrop-filter: blur(12px);
         box-shadow: 0 -4px 12px rgba(0,0,0,0.1);
     }
-    .enc-type-btn {
-        transition: all 0.2s ease; cursor: pointer;
+    .enc-type-btn { transition: all 0.2s ease; cursor: pointer; }
+    .enc-type-btn.active { background-color: var(--scheme-color); color: white; border-color: var(--scheme-color); }
+    .enc-type-btn:not(.active):hover { border-color: var(--scheme-color); color: var(--scheme-color); }
+    input.locked-field, select.locked-field {
+        background-color: #f1f5f9 !important; color: #64748b !important;
+        border-color: #cbd5e1 !important; cursor: not-allowed; pointer-events: none;
     }
-    .enc-type-btn.active {
-        background-color: var(--scheme-color);
-        color: white;
-        border-color: var(--scheme-color);
-    }
-    .enc-type-btn:not(.active):hover {
-        border-color: var(--scheme-color);
-        color: var(--scheme-color);
-    }
-    .form-section { animation: fadeIn 0.25s ease; }
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(-6px); }
-        to   { opacity: 1; transform: translateY(0); }
-    }
-    .field-wrap { margin-bottom: 0; }
-    .prefilled input, .prefilled select {
-        background-color: #f0fdf4 !important;
-        border-color: #86efac !important;
-    }
-    .dynamic-card { transition: all 0.2s ease; }
-    .dynamic-card:hover { transform: translateY(-2px); }
-
-    /* Toast */
     #toast {
         position: fixed; bottom: 5rem; right: 1.5rem; z-index: 100;
         padding: 0.75rem 1.25rem; border-radius: 0.75rem;
-        font-size: 0.875rem; font-weight: 600;
+        font-size: 0.875rem; font-weight: 600; max-width: 24rem;
         transition: all 0.3s ease; opacity: 0; pointer-events: none;
     }
-    #toast.show { opacity: 1; pointer-events: auto; }
+    #toast.show    { opacity: 1; pointer-events: auto; }
     #toast.success { background:#dcfce7; color:#166534; border:1px solid #86efac; }
     #toast.error   { background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; }
     #toast.info    { background:#eff6ff; color:#1e40af; border:1px solid #93c5fd; }
+    #toast.warning { background:#fefce8; color:#854d0e; border:1px solid #fde047; }
 </style>
 
 <div id="toast"></div>
 
 <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-32">
 
-    {# ── Scheme header ── #}
     <div class="bg-white rounded-2xl shadow-lg border-2 scheme-border overflow-hidden mb-6">
         <div class="flex items-center justify-between p-4 scheme-bg-lighter">
             <div class="flex items-center gap-4">
@@ -95,78 +73,54 @@
                     <h2 class="text-lg font-bold text-slate-900">{{ scheme.scheme_name }}</h2>
                 </div>
             </div>
-            <a href="{{ url_for('add_encounter') }}" class="inline-flex items-center px-4 py-2 bg-white border-2 border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all">
-                Change Scheme
-            </a>
+            <a href="{{ url_for('add_encounter') }}" class="inline-flex items-center px-4 py-2 bg-white border-2 border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all">Change Scheme</a>
         </div>
     </div>
 
-    {# ── Step 1: ORIN + Encounter Type ── #}
     <div class="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden mb-6">
         <div class="px-6 py-5 border-b border-slate-200 scheme-bg-lighter">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 scheme-bg rounded-xl flex items-center justify-center text-white font-bold shadow">1</div>
                 <div>
                     <h3 class="text-xl font-bold text-slate-900">Patient ORIN & Encounter Type</h3>
-                    <p class="text-sm text-slate-600">Enter ORIN, look up the patient, then select encounter type</p>
+                    <p class="text-sm text-slate-600">Enter the 10-digit ORIN — patient data loads automatically</p>
                 </div>
             </div>
         </div>
         <div class="p-6 space-y-5">
-
-            {# ORIN input #}
             <div>
-                <label class="block text-sm font-semibold text-slate-900 mb-2">
-                    Patient ORIN <span class="text-red-500">*</span>
-                </label>
-                <div class="flex gap-3">
-                    <div class="relative flex-1">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0"/>
-                            </svg>
-                        </div>
-                        <input type="text" id="orin-input" maxlength="10" inputmode="numeric"
-                               class="block w-full pl-10 pr-4 py-3 border-2 border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 scheme-border transition-all"
-                               placeholder="Enter 10-digit ORIN"/>
-                    </div>
-                    <button type="button" id="lookup-btn"
-                            class="inline-flex items-center px-5 py-3 scheme-bg text-white rounded-lg text-sm font-semibold shadow hover:brightness-110 transition-all disabled:opacity-60">
-                        <svg id="lookup-icon" class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                <label class="block text-sm font-semibold text-slate-900 mb-2">Patient ORIN <span class="text-red-500">*</span></label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0"/>
                         </svg>
-                        <svg id="lookup-spinner" class="hidden h-4 w-4 mr-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    </div>
+                    <input type="text" id="orin-input" maxlength="10" inputmode="numeric"
+                           class="block w-full pl-10 pr-10 py-3 border-2 border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 scheme-border transition-all"
+                           placeholder="Enter 10-digit ORIN — form loads automatically"/>
+                    <div id="lookup-spinner" class="hidden absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                        <svg class="h-5 w-5 text-blue-500 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                         </svg>
-                        Look Up
-                    </button>
+                    </div>
                 </div>
                 <div id="orin-status" class="hidden mt-2 px-3 py-2 rounded-lg text-sm font-medium"></div>
             </div>
 
-            {# Encounter type buttons — shown after lookup #}
             <div id="enc-type-section" class="hidden">
                 <label class="block text-sm font-semibold text-slate-900 mb-3">Encounter Type <span class="text-red-500">*</span></label>
                 <div class="grid grid-cols-3 gap-3">
-                    <button type="button" data-type="anc"
-                            class="enc-type-btn flex flex-col items-center gap-2 p-4 border-2 border-slate-200 rounded-xl bg-white font-semibold text-slate-600">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
-                        </svg>
+                    <button type="button" data-type="anc" class="enc-type-btn flex flex-col items-center gap-2 p-4 border-2 border-slate-200 rounded-xl bg-white font-semibold text-slate-600">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
                         <span class="text-sm">ANC Visit</span>
                     </button>
-                    <button type="button" data-type="delivery"
-                            class="enc-type-btn flex flex-col items-center gap-2 p-4 border-2 border-slate-200 rounded-xl bg-white font-semibold text-slate-600">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
-                        </svg>
+                    <button type="button" data-type="delivery" class="enc-type-btn flex flex-col items-center gap-2 p-4 border-2 border-slate-200 rounded-xl bg-white font-semibold text-slate-600">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
                         <span class="text-sm">Delivery</span>
                     </button>
-                    <button type="button" data-type="child"
-                            class="enc-type-btn flex flex-col items-center gap-2 p-4 border-2 border-slate-200 rounded-xl bg-white font-semibold text-slate-600">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
+                    <button type="button" data-type="child" class="enc-type-btn flex flex-col items-center gap-2 p-4 border-2 border-slate-200 rounded-xl bg-white font-semibold text-slate-600">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                         <span class="text-sm">Child Health</span>
                     </button>
                 </div>
@@ -174,12 +128,10 @@
         </div>
     </div>
 
-    {# ── Dynamic form area ── #}
     <div id="form-area"></div>
 
 </div>
 
-{# ── Floating submit bar ── #}
 <div id="floating-bar" class="hidden floating-bar bg-white/95 border-t-2 scheme-border">
     <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <div class="flex items-center justify-between gap-4">
@@ -188,71 +140,54 @@
                 <p class="text-xs text-slate-500">All required fields must be completed</p>
             </div>
             <div class="flex gap-3 flex-1 sm:flex-initial justify-end">
-                <a href="{{ url_for('add_encounter') }}"
-                   class="inline-flex items-center px-5 py-3 bg-white border-2 border-slate-300 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all">
-                    Cancel
-                </a>
-                <button type="button" id="submit-btn"
-                        class="inline-flex items-center px-8 py-3 scheme-bg text-white rounded-xl text-sm font-bold shadow-lg hover:brightness-110 transition-all disabled:opacity-60">
-                    <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                    </svg>
-                    Submit Encounter
+                <a href="{{ url_for('add_encounter') }}" class="inline-flex items-center px-5 py-3 bg-white border-2 border-slate-300 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all">Cancel</a>
+                <button type="button" id="submit-btn" class="inline-flex items-center px-8 py-3 scheme-bg text-white rounded-xl text-sm font-bold shadow-lg hover:brightness-110 transition-all">
+                    <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    <span id="submit-btn-text">Submit Encounter</span>
                 </button>
             </div>
         </div>
     </div>
 </div>
 
-{# ── Data passed from Jinja ── #}
 <script>
-    const IS_ADMIN          = {{ is_admin | tojson }};
-    const DISEASE_CHOICES   = {{ disease_choices | map(attribute='id') | list | tojson }};
-    const DISEASE_LABELS    = {{ disease_choices | map(attribute='name') | list | tojson }};
-    const SERVICE_CHOICES   = {{ service_choices | map(attribute='id') | list | tojson }};
-    const SERVICE_LABELS    = {{ service_choices | map(attribute='name') | list | tojson }};
-    const BABY_OUTCOMES     = {{ baby_outcome_choices | tojson }};
-    const FACILITY_LIST     = {{ facility | map(attribute='id') | list | tojson if facility else '[]' }};
-    const FACILITY_LABELS   = {{ facility | map(attribute='name') | list | tojson if facility else '[]' }};
-
-    const DISEASE_OPTIONS = DISEASE_CHOICES.map((id, i) => ({ id, name: DISEASE_LABELS[i] }));
-    const SERVICE_OPTIONS = SERVICE_CHOICES.map((id, i) => ({ id, name: SERVICE_LABELS[i] }));
-    const FACILITY_OPTIONS = FACILITY_LIST.map((id, i) => ({ id, name: FACILITY_LABELS[i] }));
+    const IS_ADMIN = {{ is_admin | tojson }};
+    const DISEASE_OPTIONS  = {{ disease_choices | map(attribute='id') | list | tojson }}.map((id,i) => ({ value: id, label: {{ disease_choices | map(attribute='name') | list | tojson }}[i] }));
+    const SERVICE_OPTIONS  = {{ service_choices | map(attribute='id') | list | tojson }}.map((id,i) => ({ value: id, label: {{ service_choices | map(attribute='name') | list | tojson }}[i] }));
+    const FACILITY_OPTIONS = {{ facility | map(attribute='id') | list | tojson if facility else '[]' }}.map((id,i) => ({ value: id, label: {{ facility | map(attribute='name') | list | tojson if facility else '[]' }}[i] }));
+    const BABY_OUTCOMES      = {{ baby_outcome_choices        | tojson }}.map(a => ({ value: a[0], label: a[1] }));
+    const MODE_OF_ENTRY_OPTS = {{ mode_of_entry_choices       | tojson }}.map(a => ({ value: a[0], label: a[1] }));
+    const DELIVERY_MODE_OPTS = {{ delivery_mode_choices       | tojson }}.map(a => ({ value: a[0], label: a[1] }));
+    const AGE_GROUP_OPTS     = {{ age_group_choices           | tojson }}.map(a => ({ value: a[0], label: a[1] }));
+    const MATERNAL_OUTCOMES  = {{ maternal_treatment_outcome  | tojson }}.map(a => ({ value: a[0], label: a[1] }));
+    const GENERAL_OUTCOMES   = {{ treatment_outcome           | tojson }}.map(a => ({ value: a[0], label: a[1] }));
+    const GENDER_OPTIONS = [{ value: 'M', label: 'Male' }, { value: 'F', label: 'Female' }];
 </script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 
-    // ── State ───────────────────────────────────────────────
-    let currentType  = null;
-    let registry     = null;   // ANCRegistry data from lookup, or null
-    let lookupDone   = false;
+    let currentType = null;
+    let registry    = null;
+    let lookupDone  = false;
 
-    // ── DOM ─────────────────────────────────────────────────
     const orinInput      = document.getElementById('orin-input');
-    const lookupBtn      = document.getElementById('lookup-btn');
-    const lookupIcon     = document.getElementById('lookup-icon');
     const lookupSpinner  = document.getElementById('lookup-spinner');
     const orinStatus     = document.getElementById('orin-status');
     const encTypeSection = document.getElementById('enc-type-section');
     const formArea       = document.getElementById('form-area');
     const floatingBar    = document.getElementById('floating-bar');
     const submitBtn      = document.getElementById('submit-btn');
+    const submitBtnText  = document.getElementById('submit-btn-text');
     const submitLabel    = document.getElementById('submit-label');
     const toast          = document.getElementById('toast');
 
-    // ── Utilities ───────────────────────────────────────────
     const show = el => el && el.classList.remove('hidden');
     const hide = el => el && el.classList.add('hidden');
 
     function setStatus(msg, type) {
-        const cls = {
-            success: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
-            warning: 'bg-amber-50 text-amber-700 border border-amber-200',
-            error:   'bg-red-50 text-red-700 border border-red-200',
-            info:    'bg-blue-50 text-blue-700 border border-blue-200',
-        };
-        orinStatus.className = `mt-2 px-3 py-2 rounded-lg text-sm font-medium ${cls[type]}`;
+        const cls = { success:'bg-emerald-50 text-emerald-700 border border-emerald-200', warning:'bg-amber-50 text-amber-700 border border-amber-200', error:'bg-red-50 text-red-700 border border-red-200', info:'bg-blue-50 text-blue-700 border border-blue-200' };
+        orinStatus.className = `mt-2 px-3 py-2 rounded-lg text-sm font-medium ${cls[type] || cls.info}`;
         orinStatus.textContent = msg;
         show(orinStatus);
     }
@@ -260,112 +195,162 @@ document.addEventListener('DOMContentLoaded', function () {
     function showToast(msg, type = 'info', duration = 4000) {
         toast.textContent = msg;
         toast.className = `show ${type}`;
-        setTimeout(() => toast.className = '', duration);
+        setTimeout(() => { toast.className = ''; }, duration);
     }
 
-    // Input builder helpers
-    function inputHTML(name, label, type = 'text', value = '', placeholder = '', required = true) {
-        return `
-        <div class="field-wrap">
-            <label class="block text-sm font-semibold text-slate-900 mb-2">
-                ${label}${required ? ' <span class="text-red-500">*</span>' : ''}
-            </label>
-            <input type="${type}" name="${name}" value="${escHtml(value)}" placeholder="${placeholder}"
-                   class="block w-full px-4 py-3 border-2 border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 scheme-border transition-all"
-                   ${required ? 'required' : ''} />
-        </div>`;
-    }
-
-    function selectHTML(name, label, options, selected = '', required = true) {
-        // options: [{value, label}]
-        const opts = options.map(o =>
-            `<option value="${escHtml(String(o.value))}" ${String(o.value) === String(selected) ? 'selected' : ''}>${escHtml(o.label)}</option>`
-        ).join('');
-        return `
-        <div class="field-wrap">
-            <label class="block text-sm font-semibold text-slate-900 mb-2">
-                ${label}${required ? ' <span class="text-red-500">*</span>' : ''}
-            </label>
-            <select name="${name}"
-                    class="block w-full px-4 py-3 border-2 border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 scheme-border transition-all appearance-none"
-                    ${required ? 'required' : ''}>
-                <option value="">— Select —</option>
-                ${opts}
-            </select>
-        </div>`;
-    }
-
-    function escHtml(str) {
+    function esc(str) {
         return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
-    function sectionCard(stepNum, color, title, subtitle, body) {
-        return `
-        <div class="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden mb-6">
+    // Normalise any date string the backend returns into YYYY-MM-DD for HTML date inputs
+    function toInputDate(raw) {
+        if (!raw) return '';
+        if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+        try {
+            const d = new Date(raw);
+            if (isNaN(d.getTime())) return '';
+            return d.toISOString().split('T')[0];
+        } catch { return ''; }
+    }
+
+    function today() { return new Date().toISOString().split('T')[0]; }
+
+    // ── HTML builders ────────────────────────────────────────
+    function inputHTML(name, label, type='text', value='', placeholder='', required=true, locked=false) {
+        const lc = locked ? 'locked-field' : '';
+        const la = locked ? 'readonly tabindex="-1"' : '';
+        const rm = required && !locked ? ' <span class="text-red-500">*</span>' : '';
+        const ra = required && !locked ? 'required' : '';
+        return `<div class="field-wrap">
+            <label class="block text-sm font-semibold text-slate-900 mb-2">${label}${rm}</label>
+            <input type="${type}" name="${name}" value="${esc(value)}" placeholder="${esc(placeholder)}"
+                   class="block w-full px-4 py-3 border-2 border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 scheme-border transition-all ${lc}"
+                   ${ra} ${la}/>
+        </div>`;
+    }
+
+    function selectHTML(name, label, options, selected='', required=true, locked=false) {
+        const lc = locked ? 'locked-field' : '';
+        const la = locked ? 'disabled' : '';
+        const rm = required && !locked ? ' <span class="text-red-500">*</span>' : '';
+        const ra = required && !locked ? 'required' : '';
+        const hi = locked ? `<input type="hidden" name="${name}" value="${esc(String(selected))}">` : '';
+        const opts = options.map(o => `<option value="${esc(String(o.value))}" ${String(o.value)===String(selected)?'selected':''}>${esc(o.label)}</option>`).join('');
+        return `<div class="field-wrap">
+            <label class="block text-sm font-semibold text-slate-900 mb-2">${label}${rm}</label>
+            <select name="${locked ? '' : name}"
+                    class="block w-full px-4 py-3 border-2 border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 scheme-border transition-all appearance-none ${lc}"
+                    ${ra} ${la}>
+                <option value="">— Select —</option>${opts}
+            </select>${hi}
+        </div>`;
+    }
+
+    function card(step, color, title, subtitle, body) {
+        return `<div class="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden mb-6">
             <div class="px-6 py-5 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-${color}-50">
                 <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 bg-${color}-600 rounded-xl flex items-center justify-center text-white font-bold shadow">${stepNum}</div>
-                    <div>
-                        <h3 class="text-xl font-bold text-slate-900">${title}</h3>
-                        <p class="text-sm text-slate-600">${subtitle}</p>
-                    </div>
+                    <div class="w-10 h-10 bg-${color}-600 rounded-xl flex items-center justify-center text-white font-bold shadow">${step}</div>
+                    <div><h3 class="text-xl font-bold text-slate-900">${title}</h3><p class="text-sm text-slate-600">${subtitle}</p></div>
                 </div>
             </div>
             <div class="p-6 space-y-4">${body}</div>
         </div>`;
     }
 
-    function grid2(...fields) {
-        return `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">${fields.join('')}</div>`;
-    }
-    function grid3(...fields) {
-        return `<div class="grid grid-cols-1 md:grid-cols-3 gap-4">${fields.join('')}</div>`;
+    const g2 = (...f) => `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">${f.join('')}</div>`;
+    const g3 = (...f) => `<div class="grid grid-cols-1 md:grid-cols-3 gap-4">${f.join('')}</div>`;
+
+    function facilityField() {
+        if (!IS_ADMIN) return '';
+        return selectHTML('facility_id', 'Facility', FACILITY_OPTIONS, '', true);
     }
 
-    // ── ORIN Lookup ─────────────────────────────────────────
-    lookupBtn.addEventListener('click', doLookup);
-    orinInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doLookup(); } });
+    function patientSection(step, pf={}) {
+        const lk = !!pf.client_name;
+        return card(step, 'indigo', 'Patient Information', lk ? 'Pre-filled from registry' : 'Enter patient details', `
+            ${facilityField()}
+            ${g2(inputHTML('client_name','Full Name','text',pf.client_name||'','Patient full name',true,lk), inputHTML('age','Age','number',pf.age??'','0–120',true,lk))}
+            ${g2(inputHTML('nin','NIN','text',pf.nin||'','11-digit NIN',true,lk), inputHTML('phone_number','Phone Number','text',pf.phone_number||'','080...',true,lk))}
+            ${inputHTML('address','Address','text',pf.address||'','Residential address',true,lk)}
+            ${inputHTML('hospital_number','Hospital Number','text',pf.hospital_number||'','e.g. HOS/12345',true,lk)}
+        `);
+    }
 
-    function doLookup() {
-        const orin = orinInput.value.trim();
-        if (!orin || orin.length !== 10 || !/^\d+$/.test(orin)) {
-            setStatus('Please enter a valid 10-digit numeric ORIN.', 'error');
+    function ancSection(step, pf={}) {
+        const lk = !!pf.client_name;
+        return card(step, 'blue', 'ANC Details', lk ? 'Pre-filled from registry' : 'Kaadi Igbeayo and booking information', `
+            ${lk ? `<p class="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">✓ ANC visit #${(pf.anc_count||0)+1}</p>` : ''}
+            ${g2(inputHTML('kia_date','KIA Date','date',toInputDate(pf.kia_date),'',true,lk), inputHTML('place_of_issue','Place of Issue','text',pf.place_of_issue||'','e.g. General Hospital Akure',true,lk))}
+            ${g2(inputHTML('booking_date','Booking Date','date',toInputDate(pf.booking_date),'',true,lk), inputHTML('parity','Parity','number',pf.parity??'','e.g. 2',true,lk))}
+            ${inputHTML('lmp','Last Menstrual Period (LMP)','date',toInputDate(pf.lmp),'',true,lk)}
+        `);
+    }
+
+    function treatmentSection(step, type) {
+        const outcomes = (type === 'child') ? GENERAL_OUTCOMES : MATERNAL_OUTCOMES;
+        return card(step, 'emerald', 'Treatment & Outcome', 'Interventions, costs and final outcome', `
+            ${g3(inputHTML('date','Date of Visit','date',today(),'',true), inputHTML('doctor_name','Doctor Name','text','','Dr. Name',true), selectHTML('mode_of_entry','Mode of Entry',MODE_OF_ENTRY_OPTS))}
+            <hr class="border-slate-100">
+            ${g2(inputHTML('treatment','Treatment','text','','Procedures performed',false), inputHTML('treatment_cost','Treatment Cost (₦)','number','0','0.00',false))}
+            ${g2(inputHTML('medication','Medication','text','','Drugs prescribed',false), inputHTML('medication_cost','Medication Cost (₦)','number','0','0.00',false))}
+            ${g2(inputHTML('investigation','Investigation','text','','Lab tests, scans...',false), inputHTML('investigation_cost','Investigation Cost (₦)','number','0','0.00',false))}
+            <div class="field-wrap">
+                <label class="block text-sm font-semibold text-slate-900 mb-2">Total Cost (₦)</label>
+                <input type="text" id="total-cost-display" readonly class="block w-full px-4 py-3 border-2 border-slate-200 rounded-lg text-sm bg-slate-50 font-bold text-slate-900" value="0.00"/>
+            </div>
+            <hr class="border-slate-100">
+            ${selectHTML('outcome','Outcome',outcomes)}
+            <div id="referral-reason-wrap" class="hidden">${inputHTML('referral_reason','Referral Reason','text','','Reason for referral',false)}</div>
+        `);
+    }
+
+    // ── Auto-lookup on 10th digit ────────────────────────────
+    orinInput.addEventListener('input', function () {
+        this.value = this.value.replace(/\D/g, '');
+        const orin = this.value;
+        if (orin.length < 10) {
+            hide(encTypeSection); hide(floatingBar); hide(orinStatus);
+            formArea.innerHTML = '';
+            document.querySelectorAll('.enc-type-btn').forEach(b => b.classList.remove('active'));
+            currentType = null; registry = null; lookupDone = false;
             return;
         }
-        lookupBtn.disabled = true;
-        lookupIcon.classList.add('hidden');
-        lookupSpinner.classList.remove('hidden');
+        doLookup(orin);
+    });
+
+    function doLookup(orin) {
+        show(lookupSpinner);
+        orinInput.readOnly = true;
         setStatus('Looking up patient…', 'info');
 
         fetch(`/api/amchis/lookup?orin=${encodeURIComponent(orin)}`)
-            .then(r => r.json())
+            .then(r => { if (!r.ok) throw new Error(); return r.json(); })
             .then(data => {
                 lookupDone = true;
-                registry = data.found ? data.data : null;
-                lookupBtn.disabled = false;
-                lookupIcon.classList.remove('hidden');
-                lookupSpinner.classList.add('hidden');
-
+                registry   = data.found ? data.data : null;
+                hide(lookupSpinner);
+                orinInput.readOnly = false;
                 if (data.found) {
-                    setStatus(`Registry found: ${data.data.client_name} — ANC visits: ${data.data.anc_count}`, 'success');
+                    setStatus(` ${data.data.client_name} \n No of previous ANC: ${data.data.anc_count || 0}`, 'success');
                 } else {
-                    setStatus('No existing registry found. Full form will be shown.', 'warning');
+                    setStatus('New ANC Visit', 'warning');
                 }
                 show(encTypeSection);
                 if (currentType) renderForm(currentType);
             })
             .catch(() => {
-                lookupBtn.disabled = false;
-                lookupIcon.classList.remove('hidden');
-                lookupSpinner.classList.add('hidden');
-                setStatus('Lookup failed. Check your connection and try again.', 'error');
+                hide(lookupSpinner);
+                orinInput.readOnly = false;
+                setStatus('Lookup failed — network error. Re-enter ORIN to try again.', 'error');
+                lookupDone = false;
             });
     }
 
-    // ── Encounter Type Selection ─────────────────────────────
+    // ── Encounter type buttons ───────────────────────────────
     document.querySelectorAll('.enc-type-btn').forEach(btn => {
         btn.addEventListener('click', function () {
-            if (!lookupDone) { setStatus('Please look up the ORIN first.', 'error'); return; }
+            if (!lookupDone) { setStatus('Please wait for ORIN lookup to complete.', 'error'); return; }
             document.querySelectorAll('.enc-type-btn').forEach(b => b.classList.remove('active'));
             this.classList.add('active');
             currentType = this.dataset.type;
@@ -373,298 +358,125 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    // ── Form Rendering ───────────────────────────────────────
+    // ── Render form ──────────────────────────────────────────
     function renderForm(type) {
-        formArea.innerHTML = '';
-        hide(floatingBar);
+        const pf = registry || {};
+        let html = '';
+        if      (type === 'anc')      html = patientSection(2,pf) + ancSection(3,pf) + treatmentSection(4,'anc');
+        else if (type === 'delivery') html = buildDelivery(pf);
+        else if (type === 'child')    html = buildChild(pf);
 
-        if (type === 'anc')      renderANCForm();
-        else if (type === 'delivery') renderDeliveryForm();
-        else if (type === 'child')    renderChildForm();
+        formArea.innerHTML = html;   // formArea is never hidden — just populated
+
+        if (type === 'delivery') setupBabies();
+        if (type === 'child')    setupLists();
+        bindOutcome();
+        bindCost();
 
         show(floatingBar);
-        const labels = { anc: 'ANC Visit', delivery: 'Delivery', child: 'Child Health' };
-        submitLabel.textContent = `Submit ${labels[type]} Encounter`;
-
-        // Bind outcome toggle and cost calc after render
-        bindOutcomeToggle();
-        bindCostCalc();
+        const labels = { anc:'ANC Visit', delivery:'Delivery', child:'Child Health' };
+        submitLabel.textContent   = `Submit ${labels[type]} Encounter`;
+        submitBtnText.textContent = `Submit ${labels[type]}`;
+        formArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
-    // ── Outcome options (same for all) ──────────────────────
-    // These come from WTForms treatment_outcome table
-    // We pass maternal and general outcome choices from Jinja
-    const OUTCOME_OPTIONS = {{ maternal_treatment_outcome | tojson if maternal_treatment_outcome is defined else '[]' }};
-    const GENDER_OPTIONS  = [
-        { value: 'M', label: 'Male' },
-        { value: 'F', label: 'Female' }
-    ];
-    const MODE_OF_ENTRY_OPTIONS = [
-        { value: 'OPD', label: 'OPD' },
-        { value: 'Emergency', label: 'Emergency' },
-        { value: 'Referral', label: 'Referral' },
-    ];
-    const MODE_OF_DELIVERY_OPTIONS = [
-        { value: 'SVD', label: 'Normal (SVD)' },
-        { value: 'CS', label: 'Caesarean Section (CS)' },
-        { value: 'Assisted', label: 'Assisted Delivery' },
-    ];
-    const AGE_GROUP_OPTIONS = [
-        { value: 'infant', label: 'Infant (0-1)' },
-        { value: 'child', label: 'Child (1-12)' },
-        { value: 'adolescent', label: 'Adolescent (13-17)' },
-        { value: 'adult', label: 'Adult (18-59)' },
-        { value: 'elderly', label: 'Elderly (60+)' },
-    ];
-
-    function facilityField() {
-        if (!IS_ADMIN) return '';
-        return selectHTML('facility_id', 'Facility', FACILITY_OPTIONS.map(f => ({ value: f.id, label: f.name })));
-    }
-
-    function patientInfoSection(stepNum, prefill = {}) {
-        const pf = prefill;
-        const hasRegistry = !!pf.client_name;
-        return sectionCard(stepNum, 'indigo', 'Patient Information', '', `
-            ${facilityField()}
-            ${grid2(
-                inputHTML('client_name', 'Full Name', 'text', pf.client_name || '', 'Patient full name'),
-                inputHTML('age', 'Age', 'number', pf.age || '', '0–120')
-            )}
-            ${grid2(
-                inputHTML('nin', 'NIN', 'text', pf.nin || '', '11-digit NIN'),
-                inputHTML('phone_number', 'Phone Number', 'text', pf.phone_number || '', '080...')
-            )}
-            ${inputHTML('address', 'Address', 'text', pf.address || '', 'Residential address')}
-            ${inputHTML('hospital_number', 'Hospital Number', 'text', pf.hospital_number || '', 'e.g. HOS/12345')}
-        `);
-    }
-
-    function treatmentSection(stepNum) {
-        return sectionCard(stepNum, 'emerald', 'Treatment & Outcome', 'Interventions, costs and final outcome', `
-            ${grid3(
-                inputHTML('date', 'Date of Visit', 'date', today()),
-                inputHTML('doctor_name', 'Doctor Name', 'text', '', 'Dr. Name'),
-                selectHTML('mode_of_entry', 'Mode of Entry', MODE_OF_ENTRY_OPTIONS)
-            )}
-            <hr class="border-slate-100">
-            ${grid2(
-                inputHTML('treatment', 'Treatment', 'text', '', 'Procedures performed', false),
-                inputHTML('treatment_cost', 'Treatment Cost (₦)', 'number', '0', '0.00', false)
-            )}
-            ${grid2(
-                inputHTML('medication', 'Medication', 'text', '', 'Drugs prescribed', false),
-                inputHTML('medication_cost', 'Medication Cost (₦)', 'number', '0', '0.00', false)
-            )}
-            ${grid2(
-                inputHTML('investigation', 'Investigation', 'text', '', 'Lab tests, scans...', false),
-                inputHTML('investigation_cost', 'Investigation Cost (₦)', 'number', '0', '0.00', false)
-            )}
-            <div class="field-wrap">
-                <label class="block text-sm font-semibold text-slate-900 mb-2">Total Cost (₦)</label>
-                <input type="text" id="total-cost-display" readonly
-                       class="block w-full px-4 py-3 border-2 border-slate-200 rounded-lg text-sm bg-slate-50 font-bold text-slate-900"
-                       value="0.00"/>
-            </div>
-            <hr class="border-slate-100">
-            ${selectHTML('outcome', 'Outcome', OUTCOME_OPTIONS.map(([v, l]) => ({ value: v, label: l })))}
-            <div id="referral-reason-wrap" class="hidden">
-                ${inputHTML('referral_reason', 'Referral Reason', 'text', '', 'Reason for referral', false)}
-            </div>
-        `);
-    }
-
-    function ancRegistrySection(stepNum, prefill = {}) {
-        const pf = prefill;
-        const locked = !!pf.client_name; // if registry found, these are pre-filled
-        console.log(pf.kia_date)
-        console.log(pf.place_of_issue)
-
-        return sectionCard(stepNum, 'blue', 'ANC Details',
-            locked ? '' : 'Kaadi Igbeayo and booking information', `
-            ${locked ? `<div class="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 mb-2">
-                ✓ Registry found — fields pre-filled from existing ANC record
-            </div>` : ''}
-            ${grid2(
-                inputHTML('kia_date', 'KIA Date', 'date', pf.kia_date || ''),
-                inputHTML('place_of_issue', 'Place of Issue', 'text', pf.place_of_issue || '', 'e.g. General Hospital Akure')
-            )}
-            ${grid2(
-                inputHTML('booking_date', 'Booking Date', 'date', pf.booking_date || ''),
-                inputHTML('parity', 'Parity', 'number', pf.parity ?? '', 'e.g. 2')
-            )}
-            ${inputHTML('lmp', 'Last Menstrual Period (LMP)', 'date', pf.lmp || '')}
-        `);
-    }
-
-    // ── ANC Form ─────────────────────────────────────────────
-    function renderANCForm() {
-        const pf = registry || {};
-        formArea.innerHTML =
-            patientInfoSection(2, pf) +
-            ancRegistrySection(3, pf) +
-            treatmentSection(4);
-    }
-
-    // ── Delivery Form ────────────────────────────────────────
-    function renderDeliveryForm() {
-        const pf = registry || {};
-
-        const babySection = sectionCard(4, 'purple', 'Baby Information', 'Details for each baby delivered', `
-            ${inputHTML('no_of_babies', 'Number of Babies', 'number', '1', '1')}
+    function buildDelivery(pf) {
+        const delivDetail = card(4,'blue','Delivery Details','Mode of delivery', selectHTML('mode_of_delivery','Mode of Delivery',DELIVERY_MODE_OPTS));
+        const babySection = card(5,'purple','Baby Information','Details for each baby delivered', `
+            ${inputHTML('no_of_babies','Number of Babies','number','1','1')}
             <div id="babies-container" class="space-y-4 mt-4"></div>
         `);
-
-        const deliveryDetails = sectionCard(3, 'blue', 'Delivery Details', 'Mode and outcome', `
-            ${selectHTML('mode_of_delivery', 'Mode of Delivery', MODE_OF_DELIVERY_OPTIONS)}
-        `);
-
-        formArea.innerHTML =
-            patientInfoSection(2, pf) +
-            ancRegistrySection(3, pf) +
-            deliveryDetails +
-            babySection +
-            treatmentSection(5);
-
-        // Init baby forms
-        setupBabyForms();
+        return patientSection(2,pf) + ancSection(3,pf) + delivDetail + babySection + treatmentSection(6,'delivery');
     }
 
-    // ── Child Health Form ────────────────────────────────────
-    function renderChildForm() {
-        const pf = registry || {};
-
-        const childInfo = sectionCard(2, 'indigo', "Child's Information", 'Child and guardian details', `
+    function buildChild(pf) {
+        const lk = !!pf.client_name;
+        const info = card(2,'indigo',"Child's Information",'Child and guardian details', `
             ${facilityField()}
-            ${grid2(
-                inputHTML('client_name', "Child's Full Name", 'text', '', "Child's name"),
-                inputHTML('dob', 'Date of Birth', 'date', '')
-            )}
-            ${grid2(
-                inputHTML('age', 'Age', 'number', '', '0–120'),
-                selectHTML('gender', 'Gender', GENDER_OPTIONS)
-            )}
-            ${inputHTML('hospital_number', 'Hospital Number', 'text', '', 'Hospital Card No.')}
+            ${g2(inputHTML('client_name',"Child's Full Name",'text','','Child\'s name'), inputHTML('dob','Date of Birth','date','',''))}
+            ${g2(inputHTML('age','Age','number','','0–120'), selectHTML('gender','Gender',GENDER_OPTIONS))}
+            ${inputHTML('hospital_number','Hospital Number','text','','Hospital Card No.')}
             <hr class="border-slate-100">
-            <p class="text-sm font-semibold text-slate-700">Guardian / Mother Details</p>
-            ${grid2(
-                inputHTML('guardian_name', 'Guardian Name', 'text', pf.client_name || '', "Parent/Guardian's name"),
-                inputHTML('phone_number', 'Phone Number', 'text', pf.phone_number || '', '080...')
-            )}
-            ${grid2(
-                inputHTML('nin', "Mother's NIN", 'text', pf.nin || '', '11-digit NIN'),
-                inputHTML('address', 'Address', 'text', pf.address || '', 'Residential address')
-            )}
+            <p class="text-sm font-semibold text-slate-700 mt-2">Guardian / Mother Details</p>
+            ${g2(inputHTML('guardian_name','Guardian Name','text',pf.client_name||'',"Parent/Guardian's name",true,lk), inputHTML('phone_number','Phone Number','text',pf.phone_number||'','080...',true,lk))}
+            ${g2(inputHTML('nin',"Mother's NIN",'text',pf.nin||'','11-digit NIN',true,lk), inputHTML('address','Address','text',pf.address||'','Residential address',true,lk))}
         `);
-
-        const clinicalSection = sectionCard(3, 'purple', 'Clinical Findings', 'Diagnosis and services', `
-            ${grid3(
-                inputHTML('date', 'Date', 'date', today()),
-                inputHTML('doctor_name', 'Doctor Name', 'text', '', 'Dr. Name'),
-                selectHTML('mode_of_entry', 'Mode of Entry', MODE_OF_ENTRY_OPTIONS)
-            )}
-            <hr class="border-slate-100">
+        const clinical = card(3,'purple','Clinical Findings','Diagnosis and services', `
             <p class="text-sm font-semibold text-slate-900">Diagnosis</p>
             <div id="diseases-container" class="space-y-3"></div>
-            <button type="button" id="add-disease-btn"
-                    class="w-full inline-flex items-center justify-center px-4 py-3 border-2 border-dashed border-purple-300 text-sm font-semibold rounded-xl text-purple-700 bg-purple-50 hover:bg-purple-100 transition-all">
-                + Add Diagnosis
-            </button>
-            <hr class="border-slate-100 mt-2">
+            <button type="button" id="add-disease-btn" class="mt-3 w-full inline-flex items-center justify-center px-4 py-3 border-2 border-dashed border-purple-300 text-sm font-semibold rounded-xl text-purple-700 bg-purple-50 hover:bg-purple-100 transition-all">+ Add Diagnosis</button>
+            <hr class="border-slate-100 my-4">
             <p class="text-sm font-semibold text-slate-900">Services</p>
             <div id="services-container" class="space-y-3"></div>
-            <button type="button" id="add-service-btn"
-                    class="w-full inline-flex items-center justify-center px-4 py-3 border-2 border-dashed border-blue-300 text-sm font-semibold rounded-xl text-blue-700 bg-blue-50 hover:bg-blue-100 transition-all">
-                + Add Service
-            </button>
+            <button type="button" id="add-service-btn" class="mt-3 w-full inline-flex items-center justify-center px-4 py-3 border-2 border-dashed border-blue-300 text-sm font-semibold rounded-xl text-blue-700 bg-blue-50 hover:bg-blue-100 transition-all">+ Add Service</button>
         `);
-
-        formArea.innerHTML = childInfo + clinicalSection + treatmentSection(4);
-
-        setupDynamicList('diseases-container', 'add-disease-btn', DISEASE_OPTIONS, 'Diagnosis', 'purple');
-        setupDynamicList('services-container', 'add-service-btn', SERVICE_OPTIONS, 'Service', 'blue');
+        return info + clinical + treatmentSection(4,'child');
     }
 
-    // ── Outcome Toggle ───────────────────────────────────────
-    function bindOutcomeToggle() {
-        const outcomeSelect = formArea.querySelector('select[name="outcome"]');
-        const referralWrap  = document.getElementById('referral-reason-wrap');
-        if (!outcomeSelect || !referralWrap) return;
-
-        function toggle() {
-            const text = (outcomeSelect.options[outcomeSelect.selectedIndex]?.text || '').toLowerCase();
-            text.includes('refer') ? show(referralWrap) : hide(referralWrap);
-        }
-        outcomeSelect.addEventListener('change', toggle);
+    // ── Post-render bindings ─────────────────────────────────
+    function bindOutcome() {
+        const sel = formArea.querySelector('select[name="outcome"]');
+        const wrap = document.getElementById('referral-reason-wrap');
+        if (!sel || !wrap) return;
+        const toggle = () => {
+            const txt = (sel.options[sel.selectedIndex]?.text || '').toLowerCase();
+            txt.includes('refer') ? show(wrap) : hide(wrap);
+        };
+        sel.addEventListener('change', toggle);
         toggle();
     }
 
-    // ── Cost Calculation ─────────────────────────────────────
-    function bindCostCalc() {
+    function bindCost() {
         const display = document.getElementById('total-cost-display');
         if (!display) return;
-        const fields = ['treatment_cost', 'medication_cost', 'investigation_cost'];
-
-        function calc() {
-            const total = fields.reduce((sum, name) => {
-                const el = formArea.querySelector(`input[name="${name}"]`);
-                return sum + (parseFloat(el?.value) || 0);
-            }, 0);
-            display.value = total.toFixed(2);
-        }
-        fields.forEach(name => {
-            const el = formArea.querySelector(`input[name="${name}"]`);
-            if (el) el.addEventListener('input', calc);
-        });
+        const names = ['treatment_cost','medication_cost','investigation_cost'];
+        const calc = () => {
+            display.value = names.reduce((s,n) => s + (parseFloat(formArea.querySelector(`input[name="${n}"]`)?.value)||0), 0).toFixed(2);
+        };
+        names.forEach(n => { const el = formArea.querySelector(`input[name="${n}"]`); if (el) el.addEventListener('input', calc); });
     }
 
-    // ── Baby Forms ───────────────────────────────────────────
-    function setupBabyForms() {
+    function setupBabies() {
         const numInput  = formArea.querySelector('input[name="no_of_babies"]');
         const container = document.getElementById('babies-container');
         if (!numInput || !container) return;
 
-        function buildBabyCard(index) {
-            const genderOpts  = GENDER_OPTIONS.map(o =>
-                `<option value="${o.value}">${o.label}</option>`).join('');
-            const outcomeOpts = BABY_OUTCOMES.map(([v, l]) =>
-                `<option value="${v}">${l}</option>`).join('');
-            return `
-            <div class="baby-card bg-purple-50 border-2 border-purple-200 rounded-xl p-4">
+        function buildCard(i) {
+            const gOpts = GENDER_OPTIONS.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
+            const oOpts = BABY_OUTCOMES.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
+            return `<div class="baby-card bg-purple-50 border-2 border-purple-200 rounded-xl p-4">
                 <div class="flex items-center justify-between mb-3">
-                    <h4 class="text-sm font-bold text-purple-900">Baby #${index + 1}</h4>
-                    <button type="button" class="remove-baby p-1.5 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-xs font-semibold">Remove</button>
+                    <h4 class="text-sm font-bold text-purple-900">Baby #${i+1}</h4>
+                    <button type="button" class="remove-baby px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-xs font-semibold">Remove</button>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-semibold text-slate-900 mb-2">Gender <span class="text-red-500">*</span></label>
-                        <select name="babies[${index}][gender]" class="block w-full px-3 py-2 border-2 border-slate-200 rounded-lg text-sm appearance-none" required>
-                            ${genderOpts}
-                        </select>
+                        <select name="babies[${i}][gender]" class="block w-full px-3 py-2 border-2 border-slate-200 rounded-lg text-sm appearance-none" required>${gOpts}</select>
                     </div>
                     <div>
                         <label class="block text-sm font-semibold text-slate-900 mb-2">Outcome <span class="text-red-500">*</span></label>
-                        <select name="babies[${index}][outcome]" class="block w-full px-3 py-2 border-2 border-slate-200 rounded-lg text-sm appearance-none" required>
-                            ${outcomeOpts}
+                        <select name="babies[${i}][outcome]" class="block w-full px-3 py-2 border-2 border-slate-200 rounded-lg text-sm appearance-none" required>
+                            <option value="">— Select —</option>${oOpts}
                         </select>
                     </div>
                 </div>
             </div>`;
         }
 
+        function renumber() {
+            container.querySelectorAll('.baby-card').forEach((c,i) => {
+                c.querySelector('h4').textContent = `Baby #${i+1}`;
+                c.querySelectorAll('select').forEach(s => { s.name = s.name.replace(/\[\d+\]/, `[${i}]`); });
+            });
+        }
+
         function sync() {
-            const count = Math.max(1, parseInt(numInput.value) || 1);
+            const target  = Math.max(1, parseInt(numInput.value)||1);
             const current = container.querySelectorAll('.baby-card').length;
-            if (count > current) {
-                for (let i = current; i < count; i++) {
-                    container.insertAdjacentHTML('beforeend', buildBabyCard(i));
-                }
-            } else {
-                const cards = container.querySelectorAll('.baby-card');
-                for (let i = current - 1; i >= count; i--) cards[i].remove();
-            }
-            // Renumber headers
-            container.querySelectorAll('.baby-card h4').forEach((h, i) => h.textContent = `Baby #${i + 1}`);
+            if (target > current) for (let i=current; i<target; i++) container.insertAdjacentHTML('beforeend', buildCard(i));
+            else { const cards = container.querySelectorAll('.baby-card'); for (let i=current-1; i>=target; i--) cards[i].remove(); }
+            renumber();
         }
 
         numInput.addEventListener('change', sync);
@@ -672,151 +484,88 @@ document.addEventListener('DOMContentLoaded', function () {
             if (e.target.classList.contains('remove-baby')) {
                 e.target.closest('.baby-card').remove();
                 numInput.value = container.querySelectorAll('.baby-card').length || 1;
-                container.querySelectorAll('.baby-card h4').forEach((h, i) => h.textContent = `Baby #${i + 1}`);
+                renumber();
             }
         });
         sync();
     }
 
-    // ── Dynamic Disease/Service lists ────────────────────────
-    function setupDynamicList(containerId, btnId, options, label, color) {
-        const container = document.getElementById(containerId);
-        const addBtn    = document.getElementById(btnId);
-        if (!container || !addBtn) return;
+    function setupLists() {
+        setupList('diseases-container','add-disease-btn', DISEASE_OPTIONS, 'Diagnosis','purple','diseases');
+        setupList('services-container','add-service-btn', SERVICE_OPTIONS,  'Service',  'blue',  'services');
+    }
 
+    function setupList(cid, bid, options, label, color, field) {
+        const container = document.getElementById(cid);
+        const btn       = document.getElementById(bid);
+        if (!container || !btn) return;
         let idx = 0;
-
-        const opts = [
-            `<option value="">— Select ${label} —</option>`,
-            ...options.map(o => `<option value="${o.id}">${escHtml(o.name)}</option>`)
-        ].join('');
-
-        addBtn.addEventListener('click', () => {
-            container.insertAdjacentHTML('beforeend', `
-            <div class="dynamic-card bg-${color}-50 border-2 border-${color}-200 rounded-xl p-3 flex items-center gap-3">
-                <select name="${label.toLowerCase()}s[${idx}]"
-                        class="flex-1 px-3 py-2 border-2 border-slate-200 rounded-lg text-sm appearance-none" required>
-                    ${opts}
-                </select>
-                <button type="button" class="remove-item flex-shrink-0 p-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-xs">✕</button>
-            </div>`);
+        const opts = [`<option value="">— Select ${label} —</option>`, ...options.map(o => `<option value="${esc(String(o.value))}">${esc(o.label)}</option>`)].join('');
+        btn.addEventListener('click', () => {
+            container.insertAdjacentHTML('beforeend',
+                `<div class="flex items-center gap-3 bg-${color}-50 border-2 border-${color}-200 rounded-xl p-3">
+                    <select name="${field}[${idx}]" class="flex-1 px-3 py-2 border-2 border-slate-200 rounded-lg text-sm appearance-none" required>${opts}</select>
+                    <button type="button" class="remove-item flex-shrink-0 px-3 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-xs font-semibold">✕</button>
+                </div>`);
             idx++;
         });
-
-        container.addEventListener('click', e => {
-            if (e.target.classList.contains('remove-item')) {
-                e.target.closest('.dynamic-card').remove();
-            }
-        });
+        container.addEventListener('click', e => { if (e.target.classList.contains('remove-item')) e.target.closest('div').remove(); });
     }
 
-    // ── Helpers ──────────────────────────────────────────────
-    function today() {
-        return new Date().toISOString().split('T')[0];
-    }
+    // ── Collect & Submit ─────────────────────────────────────
+    function collectData() {
+        const data = { policy_number: orinInput.value.trim() };
 
-    // ── Form Data Collection ─────────────────────────────────
-    function collectFormData() {
-        const orin = orinInput.value.trim();
-        const data = { policy_number: orin };
-
-        // Collect all named inputs and selects in formArea
-        formArea.querySelectorAll('input[name], select[name], textarea[name]').forEach(el => {
-            const name = el.name;
-            if (!name) return;
-
-            // Baby arrays
-            const babyMatch = name.match(/^babies\[(\d+)\]\[(\w+)\]$/);
-            if (babyMatch) {
-                const idx  = parseInt(babyMatch[1]);
-                const prop = babyMatch[2];
-                if (!data.babies) data.babies = [];
-                if (!data.babies[idx]) data.babies[idx] = {};
-                data.babies[idx][prop] = el.value;
-                return;
+        formArea.querySelectorAll('input[name], select[name]').forEach(el => {
+            const n = el.name;
+            if (!n) return;
+            const bm = n.match(/^babies\[(\d+)\]\[(\w+)\]$/);
+            if (bm) {
+                const i=parseInt(bm[1]), p=bm[2];
+                if (!data.babies) data.babies=[];
+                if (!data.babies[i]) data.babies[i]={};
+                data.babies[i][p]=el.value; return;
             }
-
-            // Disease/service arrays
-            const diseaseMatch = name.match(/^diagnoses\[(\d+)\]$/);
-            const serviceMatch = name.match(/^services\[(\d+)\]$/);
-            if (diseaseMatch) {
-                if (!data.diseases) data.diseases = [];
-                data.diseases.push(parseInt(el.value));
-                return;
-            }
-            if (serviceMatch) {
-                if (!data.services) data.services = [];
-                data.services.push(parseInt(el.value));
-                return;
-            }
-
-            data[name] = el.value;
+            const dm = n.match(/^diseases\[(\d+)\]$/);
+            const sm = n.match(/^services\[(\d+)\]$/);
+            if (dm) { if (!data.diseases) data.diseases=[]; if (el.value) data.diseases.push(parseInt(el.value)); return; }
+            if (sm) { if (!data.services) data.services=[]; if (el.value) data.services.push(parseInt(el.value)); return; }
+            data[n] = el.value;
         });
 
-        // Coerce numeric fields
-        ['age', 'parity', 'anc_count', 'no_of_babies', 'facility_id', 'outcome'].forEach(f => {
-            if (data[f] !== undefined && data[f] !== '') data[f] = parseInt(data[f]);
-        });
-        ['treatment_cost', 'medication_cost', 'investigation_cost'].forEach(f => {
-            if (data[f] !== undefined && data[f] !== '') data[f] = parseFloat(data[f]);
-        });
-
-        // For delivery: include no_of_babies
-        if (currentType === 'delivery') {
-            data.no_of_babies = (data.babies || []).length;
-        }
-
+        ['age','parity','anc_count','no_of_babies','facility_id','outcome'].forEach(f => { if (data[f]!==undefined && data[f]!=='') data[f]=parseInt(data[f]); });
+        ['treatment_cost','medication_cost','investigation_cost'].forEach(f => { data[f] = data[f] ? parseFloat(data[f]) : null; });
+        if (currentType==='delivery') data.no_of_babies=(data.babies||[]).length;
         return data;
     }
 
-    // ── Submit ───────────────────────────────────────────────
-    const API_MAP = {
-        anc:      '/api/v1/add_encounter/anc',
-        delivery: '/api/v1/add_encounter/delivery',
-        child:    '/api/v1/add_encounter/child_health',
-    };
+    const API_MAP = { anc:'/api/v1/add_encounter/anc', delivery:'/api/v1/add_encounter/delivery', child:'/api/v1/add_encounter/child_health' };
 
     submitBtn.addEventListener('click', async function () {
         if (!currentType) return;
+        const missing = [...formArea.querySelectorAll('[required]')].filter(el => !el.value.trim());
+        if (missing.length) { missing[0].focus(); showToast('Please fill all required fields.','error'); return; }
 
-        const payload = collectFormData();
+        const payload = collectData();
         submitBtn.disabled = true;
-        submitBtn.textContent = 'Submitting…';
+        submitBtnText.textContent = 'Submitting…';
 
         try {
-            const res = await fetch(API_MAP[currentType], {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-            });
+            console.log(payload)
+            const res  = await fetch(API_MAP[currentType], { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
             const data = await res.json();
-
             if (res.ok) {
-                showToast(data.msg, 'success', 5000);
-                // Reset the page for the next patient
-                setTimeout(() => {
-                    orinInput.value = '';
-                    hide(orinStatus);
-                    hide(encTypeSection);
-                    hide(floatingBar);
-                    formArea.innerHTML = '';
-                    document.querySelectorAll('.enc-type-btn').forEach(b => b.classList.remove('active'));
-                    currentType = null;
-                    registry    = null;
-                    lookupDone  = false;
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Submit Encounter';
-                    orinInput.focus();
-                }, 1500);
+                showToast(data.msg || 'Encounter saved.', 'success', 5000);
+                setTimeout(() => window.location.reload(), 1800);
             } else {
-                showToast(data.msg || 'Submission failed', 'error');
+                showToast(typeof data.msg==='string' ? data.msg : JSON.stringify(data.msg), 'error', 7000);
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Submit Encounter';
+                submitBtnText.textContent = 'Submit Encounter';
             }
-        } catch (err) {
+        } catch {
             showToast('Network error. Please try again.', 'error');
             submitBtn.disabled = false;
-            submitBtn.textContent = 'Submit Encounter';
+            submitBtnText.textContent = 'Submit Encounter';
         }
     });
 });

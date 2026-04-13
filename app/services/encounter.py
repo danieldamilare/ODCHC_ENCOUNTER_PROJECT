@@ -182,7 +182,7 @@ class EncounterServices(BaseServices):
                                 created_by: int,
                                 anc_id: int,
                                 anc_count: int,
-                                mode_of_delivery: DeliveryMode,
+                                mode_of_delivery: str,
                                 mother_outcome: int,
                                 baby_details: List[Dict],
                                 commit: bool = True
@@ -222,8 +222,8 @@ class EncounterServices(BaseServices):
                               mode_of_delivery)
             VALUES(?, ?, ?, ?)''',
 
-            (anc_id, new_enc.id, anc_count, mode_of_delivery.value))
-            identifier = 'cesarean' if (mode_of_delivery == DeliveryMode.CS) else "delivery"
+            (anc_id, new_enc.id, anc_count, mode_of_delivery))
+            identifier = 'cesarean' if (mode_of_delivery == DeliveryMode.CS.value) else "delivery"
             service_id = db.execute('''SELECT id from services WHERE LOWER(name) LIKE ?''', (f'%{identifier}%',)).fetchone()
             if not service_id:
                 raise MissingError(f"Service {identifier} not found")

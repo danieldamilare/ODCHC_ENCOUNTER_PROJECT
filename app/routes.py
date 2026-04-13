@@ -11,8 +11,8 @@ from app.config import Config
 from app.utils import form_to_dict, admin_required, humanize_datetime_filter, calculate_gestational_age, scheme_access_required, get_age_group, autofit_columns, build_filter, parse_date, calculate_edd
 from app.forms import LoginForm, AddEncounterForm, AddFacilityForm, EditFacilityForm, AddDiseaseForm, ExcelUploadForm, DashboardFilterForm, EncTypeForm, DeliveryEncounterForm, AddServiceForm
 from app.forms import AddUserForm, AddCategoryForm, DeleteUserForm, EditUserForm, EditDiseaseForm, EncounterFilterForm, AdminDashboardFilterForm, ANCEncounterForm, ChildHealthEncounterForm, FacilityFilterForm
-from app.constants import ONDO_LGAS_LIST, SchemeEnum, BabyOutcome, ModeOfEntry, AgeGroup
-from .schemas import ANCEncounter, DeliveryEncounter, ChildHealthEncounter
+from app.constants import ONDO_LGAS_LIST, SchemeEnum, BabyOutcome, ModeOfEntry, AgeGroup, DeliveryMode
+from .schemas import ANCEncounterSchema, DeliveryEncounterSchema, ChildHealthEncounterSchema
 from werkzeug.utils import secure_filename
 
 from app.filter_parser import Params
@@ -121,6 +121,7 @@ def add_amchis_encounter():
     user = get_current_user()
     facility = []
     mode_of_entry_choices = [(e.value, e.value) for e in ModeOfEntry]
+    delivery_mode_choices = [(e.value, e.value) for e in DeliveryMode]
 
     if (user.role.name == 'admin'):
         amchis = InsuranceSchemeServices.get_scheme_by_enum(SchemeEnum.AMCHIS)
@@ -142,6 +143,7 @@ def add_amchis_encounter():
                            is_admin = user.role.name == 'admin',
                            baby_outcome_choices = baby_outcome_choices,
                            mode_of_entry_choices = mode_of_entry_choices,
+                           delivery_mode_choices = delivery_mode_choices,
                            age_group_choices = age_group_choices,
                            disease_choices = disease_choices,
                            facility = facility
@@ -163,7 +165,7 @@ def add_encounter():
                            title='Select Insurance Scheme',
                            schemes=schemes)
 
-@app.put('/api/v1/add_encounter/child_health')
+@app.post('/api/v1/add_encounter/child_health')
 @login_required
 @scheme_access_required(SchemeEnum.AMCHIS)
 def add_child_health_encounter_api():
@@ -177,7 +179,7 @@ def add_child_health_encounter_api():
     result['facility_id'] = user.facility.id if user.role.name != 'admin' else result.get('facility_id')
 
     try:
-        validated = ChildHealthEncounter(**result)
+        validated = ChildHealthEncounterSchema(**result)
     except ValidationError as e:
         return jsonify({'msg': f'Validation error: {e.errors()}'}), 400
 
@@ -186,6 +188,7 @@ def add_child_health_encounter_api():
     res['created_by'] = user.id
     res['diseases_id'] = res.pop('diseases')
     res['services_id'] = res.pop('services')
+    res['age_group'] = res['age']
 
     try:
         EncounterServices.create_child_health_encounter(**res)
@@ -196,7 +199,7 @@ def add_child_health_encounter_api():
         return jsonify({'msg': f'Error while creating Child Health Encounter: {e}'}), 400
 
 
-@app.put('/api/v1/add_encounter/anc')
+@app.post('/api/v1/add_encounter/anc')
 @login_required
 @scheme_access_required(SchemeEnum.AMCHIS)
 def add_anc_encounter_api():
@@ -211,7 +214,7 @@ def add_anc_encounter_api():
     result['gender'] = 'F'
 
     try:
-        validated = ANCEncounter(**result)
+        validated = ANCEncounterSchema(**result)
     except ValidationError as e:
         return jsonify({'msg': f'Validation error: {e.errors()}'}), 400
 
@@ -219,13 +222,9 @@ def add_anc_encounter_api():
     res['scheme'] = scheme.id
     res['created_by'] = user.id
     res['expected_delivery_date'] = calculate_edd(res['lmp'])
-    res['gestational_age'] = calculate_gestational_age(res['lmp'])
+    res['age_group'] = get_age_group(res['age'])
 
-    try:
-        registry = EncounterServices.get_anc_record_by_registry(res['policy_number'])
-        res['anc_count'] = registry.anc_count + 1
-    except MissingError:
-        res['anc_count'] = 1
+    res['anc_count'] = 1
 
     try:
         EncounterServices.create_anc_encounter(**res)
@@ -234,7 +233,7 @@ def add_anc_encounter_api():
         return jsonify({'msg': f'Error while creating ANC encounter: {e}'}), 400
 
 
-@app.put('/api/v1/add_encounter/delivery')
+@app.post('/api/v1/add_encounter/delivery')
 @login_required
 @scheme_access_required(SchemeEnum.AMCHIS)
 def add_delivery_encounter_api():
@@ -249,7 +248,7 @@ def add_delivery_encounter_api():
     result['gender'] = 'F'
 
     try:
-        validated = DeliveryEncounter(**result)
+        validated = DeliveryEncounterSchema(**result)
     except ValidationError as e:
         return jsonify({'msg': f'Validation error: {e.errors()}'}), 400
 
@@ -257,6 +256,7 @@ def add_delivery_encounter_api():
     res['scheme'] = scheme.id
     res['created_by'] = user.id
     res['expected_delivery_date'] = calculate_edd(res['lmp'])
+    res['age_group'] = get_age_group(res['age'])
 
     try:
         registry = EncounterServices.get_anc_record_by_registry(res['policy_number'])
